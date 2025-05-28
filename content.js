@@ -1,7 +1,6 @@
 (function () {
     const TOOLBAR_HEIGHT = "50px";
 
-    // If the toolbar already exists, toggle its visibility and return
     if (document.getElementById("rltk-toolbar")) {
         const toolbar = document.getElementById("rltk-toolbar");
         if (toolbar.style.display === "none") {
@@ -17,24 +16,14 @@
     // Inject CSS directly into the page
     const style = document.createElement('style');
     style.textContent = `
-        /* RLTK CSS styles - copy content from resources/css/rltk.css here */
-        .rltk-highlight {
-            background-color: yellow;
-            padding: 2px;
-            border-radius: 3px;
-        }
-
         .ʁ {
             background-color: rgba(255, 255, 0, 0.3);
             border-radius: 2px;
             padding: 1px;
         }
-
-        /* Add more styles from rltk.css as needed */
     `;
     document.head.appendChild(style);
 
-    // Create the toolbar container
     const toolbar = document.createElement("div");
     toolbar.id = "rltk-toolbar";
     toolbar.style.position = "fixed";
@@ -49,19 +38,16 @@
     toolbar.style.padding = "0 10px";
     toolbar.style.zIndex = "999999"; // Ensure it sits on top of everything
 
-    // Create the "Highlight" button
     const highlightButton = document.createElement("button");
     highlightButton.id = "highlight-button";
     highlightButton.textContent = "Highlight";
     highlightButton.style.marginRight = "10px";
     toolbar.appendChild(highlightButton);
 
-    // Insert the toolbar at the top of the body
     document.body.insertBefore(toolbar, document.body.firstChild);
 
     // Add top margin to body to prevent content from being hidden behind toolbar
     document.body.style.marginTop = TOOLBAR_HEIGHT;
-
 
     /**
      * Shared function to determine if a node should be skipped during text processing
@@ -93,7 +79,6 @@
     function shouldAddNewline(element) {
         if (!element || element.nodeType !== Node.ELEMENT_NODE) return false;
 
-        // BR always adds a newline
         if (element.tagName === 'BR') return true;
 
         // Don't add newlines for certain elements that are typically inline or shouldn't break flow
@@ -139,38 +124,18 @@
      * Phase 1: Extract plain text and build position maps
      * Phase 2: Use tokenization results with position maps to place spans
      */
-    function highlightTextNodesRobust(root, segmentsArray) {
-        console.log('=== ROBUST HIGHLIGHT STARTING ===');
-        console.log('Segments count:', segmentsArray.length);
+    function highlightTextNodes(root, segmentsArray) {
 
         // Phase 1: Extract plain text and build position mappings
         const analysisResult = extractTextWithPositionMapping(root);
         const { plainText, positionMap, textNodes } = analysisResult;
 
-        console.log('Extracted plain text length:', plainText.length);
-        console.log('Position map entries:', positionMap.length);
-        console.log('Text nodes found:', textNodes.length);
-
-        // Verify that our extracted text matches what would be tokenized
-        const expectedText = root.innerText;
-        if (plainText !== expectedText) {
-            console.warn('Text extraction mismatch!');
-            console.log('Expected length:', expectedText.length);
-            console.log('Extracted length:', plainText.length);
-            console.log('Expected:', expectedText);
-            console.log('Extracted:', plainText);
-
-            // Continue anyway - the position mapping should still work
-        }
-
         // Phase 2: Build token position mappings
         const tokenPositions = buildTokenPositions(segmentsArray, plainText);
-        console.log('Token positions built:', tokenPositions.length);
 
         // Phase 3: Apply highlighting using position mappings
         applyHighlightingWithPositions(tokenPositions, positionMap, textNodes);
 
-        console.log('=== ROBUST HIGHLIGHT COMPLETED ===');
     }
 
     /**
@@ -183,7 +148,6 @@
             NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
             {
                 acceptNode(node) {
-                    // Use shared function to skip nodes
                     if (shouldSkipNode(node)) {
                         return NodeFilter.FILTER_REJECT;
                     }
@@ -213,10 +177,8 @@
             if (currentNode.nodeType === Node.TEXT_NODE) {
                 const nodeText = currentNode.nodeValue;
 
-                // Store the text node for later modification
                 textNodes.push(currentNode);
 
-                // Add position mapping entry
                 positionMap.push({
                     plainTextStart: plainTextOffset,
                     plainTextEnd: plainTextOffset + nodeText.length,
@@ -249,7 +211,6 @@
             NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
             {
                 acceptNode(node) {
-                    // Use shared function to skip nodes
                     if (shouldSkipNode(node)) {
                         return NodeFilter.FILTER_REJECT;
                     }
@@ -307,12 +268,10 @@
                 continue;
             }
 
-            // Skip empty segments
             if (segmentText === '') {
                 continue;
             }
 
-            // Find the segment in the plain text starting from currentOffset
             const segmentStart = plainText.indexOf(segmentText, currentOffset);
 
             if (segmentStart === -1) {
@@ -376,7 +335,6 @@
             }
         }
 
-        // Apply modifications to each text node
         for (const [textNode, modifications] of nodeModifications) {
             // Sort modifications by start position (descending) to apply from end to beginning
             modifications.sort((a, b) => b.start - a.start);
@@ -390,7 +348,6 @@
 
             // Apply modifications from end to beginning
             for (const mod of modifications) {
-                // Add text after this modification
                 if (lastPos > mod.end) {
                     fragment.insertBefore(
                         document.createTextNode(originalText.substring(mod.end, lastPos)),
@@ -398,7 +355,6 @@
                     );
                 }
 
-                // Add the highlighted span
                 const span = document.createElement('span');
                 span.className = `ʁ ʁ${mod.segmentIndex}`;
                 span.textContent = originalText.substring(mod.start, mod.end);
@@ -407,7 +363,6 @@
                 lastPos = mod.start;
             }
 
-            // Add any remaining text at the beginning
             if (lastPos > 0) {
                 fragment.insertBefore(
                     document.createTextNode(originalText.substring(0, lastPos)),
@@ -415,31 +370,23 @@
                 );
             }
 
-            // Replace the original text node
             parent.replaceChild(fragment, textNode);
         }
     }
 
     highlightButton.onclick = async function () {
-        console.log('=== HIGHLIGHT BUTTON CLICKED ===');
         try {
             // Use document.body directly with skip function to avoid toolbar
             const bodyText = extractPlainText(document.body);
-            console.log('Body text length:', bodyText.length);
 
-            // Process it using the service worker tokenizer
             const response = await chrome.runtime.sendMessage({
                 action: 'tokenize',
                 text: bodyText
             });
 
-            console.log('=== RECEIVED RESPONSE ===');
-            console.log('Success:', response.success);
-
             if (response.success) {
-                console.log('Segments count:', response.data.length);
                 // Use the new robust implementation
-                highlightTextNodesRobust(document.body, response.data);
+                highlightTextNodes(document.body, response.data);
                 // To test the old implementation instead, uncomment the line below:
                 // highlightTextNodes(document.body, response.data);
             } else {
