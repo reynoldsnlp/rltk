@@ -1,10 +1,13 @@
 (function () {
     const TOOLBAR_HEIGHT = "50px";
+    let toolbarVisible = true;
+    let toolbar = null;
 
+    // Check for existing toolbar and handle it
     if (document.getElementById("rltk-toolbar")) {
-        const toolbar = document.getElementById("rltk-toolbar");
+        toolbar = document.getElementById("rltk-toolbar");
         if (toolbar.style.display === "none") {
-            toolbar.style.display = "block";
+            toolbar.style.display = "flex";
             document.body.style.marginTop = TOOLBAR_HEIGHT;
         } else {
             toolbar.style.display = "none";
@@ -13,41 +16,90 @@
         return;
     }
 
-    // Inject CSS directly into the page
-    const style = document.createElement('style');
-    style.textContent = `
-        .ʁ {
-            background-color: rgba(255, 255, 0, 0.3);
-            border-radius: 2px;
-            padding: 1px;
+    // Initialize toolbar based on stored state
+    initializeToolbar();
+
+    async function initializeToolbar() {
+        try {
+            // Get stored toolbar state
+            const result = await chrome.storage.local.get('toolbarVisible');
+            toolbarVisible = result.toolbarVisible !== false; // Default to true if not set
+
+            createToolbar();
+
+            if (!toolbarVisible) {
+                toolbar.style.display = 'none';
+                document.body.style.marginTop = "";
+            }
+        } catch (error) {
+            console.warn('Could not access storage, defaulting to visible:', error);
+            // Fallback to default behavior if storage is not available
+            toolbarVisible = true;
+            createToolbar();
         }
-    `;
-    document.head.appendChild(style);
+    }
 
-    const toolbar = document.createElement("div");
-    toolbar.id = "rltk-toolbar";
-    toolbar.style.position = "fixed";
-    toolbar.style.top = "0";
-    toolbar.style.left = "0";
-    toolbar.style.width = "100%";
-    toolbar.style.height = TOOLBAR_HEIGHT;
-    toolbar.style.backgroundColor = "#f9f9f9";
-    toolbar.style.borderBottom = "1px solid #ccc";
-    toolbar.style.display = "flex";
-    toolbar.style.alignItems = "center";
-    toolbar.style.padding = "0 10px";
-    toolbar.style.zIndex = "999999"; // Ensure it sits on top of everything
+    function createToolbar() {
+        // Inject CSS directly into the page
+        const style = document.createElement('style');
+        style.textContent = `
+            .ʁ {
+                background-color: rgba(255, 255, 0, 0.3);
+                border-radius: 2px;
+                padding: 1px;
+            }
+        `;
+        document.head.appendChild(style);
 
-    const highlightButton = document.createElement("button");
-    highlightButton.id = "highlight-button";
-    highlightButton.textContent = "Highlight";
-    highlightButton.style.marginRight = "10px";
-    toolbar.appendChild(highlightButton);
+        toolbar = document.createElement("div");
+        toolbar.id = "rltk-toolbar";
+        toolbar.style.position = "fixed";
+        toolbar.style.top = "0";
+        toolbar.style.left = "0";
+        toolbar.style.width = "100%";
+        toolbar.style.height = TOOLBAR_HEIGHT;
+        toolbar.style.backgroundColor = "#f9f9f9";
+        toolbar.style.borderBottom = "1px solid #ccc";
+        toolbar.style.display = "flex";
+        toolbar.style.alignItems = "center";
+        toolbar.style.padding = "0 10px";
+        toolbar.style.zIndex = "999999";
 
-    document.body.insertBefore(toolbar, document.body.firstChild);
+        const highlightButton = document.createElement("button");
+        highlightButton.id = "highlight-button";
+        highlightButton.textContent = "Highlight";
+        highlightButton.style.marginRight = "10px";
+        toolbar.appendChild(highlightButton);
 
-    // Add top margin to body to prevent content from being hidden behind toolbar
-    document.body.style.marginTop = TOOLBAR_HEIGHT;
+        document.body.insertBefore(toolbar, document.body.firstChild);
+
+        // Add top margin to body to prevent content from being hidden behind toolbar
+        document.body.style.marginTop = TOOLBAR_HEIGHT;
+
+        // Add highlight button functionality
+        highlightButton.onclick = async function () {
+            try {
+                // Use document.body directly with skip function to avoid toolbar
+                const bodyText = extractPlainText(document.body);
+
+                const response = await chrome.runtime.sendMessage({
+                    action: 'tokenize',
+                    text: bodyText
+                });
+
+                if (response.success) {
+                    // Use the new robust implementation
+                    highlightTextNodes(document.body, response.data);
+                    // To test the old implementation instead, uncomment the line below:
+                    // highlightTextNodes(document.body, response.data);
+                } else {
+                    console.error('Tokenization failed:', response.error);
+                }
+            } catch (error) {
+                console.error('Error:', error.message);
+            }
+        };
+    }
 
     /**
      * Shared function to determine if a node should be skipped during text processing
@@ -374,26 +426,23 @@
         }
     }
 
-    highlightButton.onclick = async function () {
-        try {
-            // Use document.body directly with skip function to avoid toolbar
-            const bodyText = extractPlainText(document.body);
+    // Listen for messages from background script
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === 'toggleToolbar') {
+            toolbarVisible = request.visible;
+            updateToolbarVisibility();
+        }
+    });
 
-            const response = await chrome.runtime.sendMessage({
-                action: 'tokenize',
-                text: bodyText
-            });
-
-            if (response.success) {
-                // Use the new robust implementation
-                highlightTextNodes(document.body, response.data);
-                // To test the old implementation instead, uncomment the line below:
-                // highlightTextNodes(document.body, response.data);
+    function updateToolbarVisibility() {
+        if (toolbar) {
+            if (toolbarVisible) {
+                toolbar.style.display = 'flex';
+                document.body.style.marginTop = TOOLBAR_HEIGHT;
             } else {
-                console.error('Tokenization failed:', response.error);
+                toolbar.style.display = 'none';
+                document.body.style.marginTop = "";
             }
-        } catch (error) {
-            console.error('Error:', error.message);
         }
     }
 
