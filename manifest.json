@@ -4,9 +4,10 @@
   "version": "1.0",
   "description": "Adds a toolbar for Russian language learning.",
   "permissions": [
-    "scripting",
     "activeTab",
     "offscreen",
+    "scripting",
+    "sidePanel",
     "storage"
   ],
   "background": {
@@ -34,6 +35,9 @@
       ]
     }
   ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "action": {
     "default_title": "RLTK",
     "default_icon": {

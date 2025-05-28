@@ -11,6 +11,16 @@ async function createOffscreenDocument() {
   offscreenCreated = true;
 }
 
+// Set up side panel on installation
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+});
+
+// Handle action click to open side panel
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ tabId: tab.id });
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'tokenize') {
         (async () => {
@@ -31,37 +41,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         })();
         return true; // Keep the message channel open for async response
     }
-
 });
-
-// Initialize default state
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({ toolbarVisible: true });
-  updateIcon(true);
-});
-
-chrome.action.onClicked.addListener(async (tab) => {
-  // Get current state
-  const result = await chrome.storage.local.get('toolbarVisible');
-  const newState = !result.toolbarVisible;
-
-  // Update stored state
-  await chrome.storage.local.set({ toolbarVisible: newState });
-
-  // Update icon
-  updateIcon(newState);
-
-  // Send toggle message to current tab
-  chrome.tabs.sendMessage(tab.id, { action: 'toggleToolbar', visible: newState });
-});
-
-function updateIcon(visible) {
-  const iconPath = visible ? 'icon.png' : 'bw-icon.png';
-  chrome.action.setIcon({
-    path: {
-      "16": iconPath,
-      "48": iconPath,
-      "128": iconPath
-    }
-  });
-}

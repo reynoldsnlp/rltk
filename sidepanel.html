@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>RLTK Russian Language Tools</title>
+    <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+    <div id="rltk-sidepanel">
+        <header>
+            <h2>RLTK - Russian Tools</h2>
+        </header>
+
+        <div class="panel-section">
+            <label for="auto-enhance">Auto-enhance:</label>
+            <input type="checkbox" id="auto-enhance" name="auto-enhance">
+        </div>
+
+        <div class="panel-section">
+            <label for="topic-menu">Topic:</label>
+            <select id="topic-menu" name="topic">
+                <option value="unselected">Select a topic...</option>
+                <option value="determiners">Determiners</option>
+                <option value="Preps">Prepositions</option>
+                <option value="russian-specific">Russian Grammar</option>
+                <option value="cases">Russian Cases</option>
+            </select>
+        </div>
+
+        <div class="panel-section" id="filter-section" style="display: none;">
+            <label for="filter-menu">Filter:</label>
+            <select id="filter-menu" name="filter">
+                <option value="no-filter">No filter</option>
+                <option value="unselected">Select filter...</option>
+            </select>
+        </div>
+
+        <div class="panel-section">
+            <label for="activity-menu">Activity:</label>
+            <select id="activity-menu" name="activity">
+                <option value="unselected">Pick an Activity</option>
+            </select>
+        </div>
+
+        <div class="panel-actions">
+            <button id="enhance-button" disabled>Enhance</button>
+            <button id="abort-button" style="display: none;">Abort</button>
+            <button id="restore-button" style="display: none;">Restore</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <span>Processing...</span>
+        </div>
+
+        <div class="panel-section account-section">
+            <button id="sign-in-button">Sign In</button>
+            <button id="account-menu-button" style="display: none;"></button>
+        </div>
+    </div>
+
+    <script src="sidepanel.js"></script>
+</body>
+</html>
