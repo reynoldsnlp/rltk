@@ -1,7 +1,6 @@
 class RussianToolsSidePanel {
     constructor() {
         this.activitySelectors = {};
-        this.currentUser = null;
         this.isProcessing = false;
 
         this.init();
@@ -47,21 +46,16 @@ class RussianToolsSidePanel {
         document.getElementById('restore-button').addEventListener('click', () => {
             this.restoreOriginal();
         });
-
-        // Account buttons
-        document.getElementById('sign-in-button').addEventListener('click', () => {
-            this.openSignInWindow();
-        });
-
-        document.getElementById('account-menu-button').addEventListener('click', () => {
-            this.toggleAccountMenu();
-        });
     }
 
     setAutoEnhance(enabled) {
-        chrome.storage.local.set({ enabled: enabled });
-        if (enabled) {
-            this.enhancePage();
+        try {
+            chrome.storage.local.set({ enabled: enabled });
+            if (enabled) {
+                this.enhancePage();
+            }
+        } catch (error) {
+            console.error('Error setting auto-enhance:', error);
         }
     }
 
@@ -159,7 +153,7 @@ class RussianToolsSidePanel {
         enhanceButton.disabled = !(filterSelected && activitySelected);
     }
 
-    enhancePage() {
+    async enhancePage() {
         if (this.isProcessing) return;
 
         this.isProcessing = true;
@@ -173,50 +167,73 @@ class RussianToolsSidePanel {
             timestamp: Date.now()
         };
 
-        chrome.storage.local.set(selections, () => {
-            // Send message to content script to start enhancement
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                    action: 'enhance',
-                    selections: selections
-                });
+        try {
+            // Store selections first
+            await chrome.storage.local.set(selections);
+
+            // Send message through background script
+            const response = await chrome.runtime.sendMessage({
+                action: 'enhance',
+                selections: selections
             });
-        });
+
+            if (!response.success) {
+                throw new Error(response.error);
+            }
+
+            // Enhancement completed successfully - reset to completed state
+            this.setCompletedState();
+
+        } catch (error) {
+            console.error('Error enhancing page:', error);
+            alert(`Cannot enhance this page: ${error.message}\n\nTry refreshing the page and try again.`);
+            this.setProcessingState(false);
+            this.isProcessing = false;
+        }
     }
 
     setProcessingState(processing) {
         document.getElementById('enhance-button').style.display = processing ? 'none' : 'block';
         document.getElementById('abort-button').style.display = processing ? 'block' : 'none';
-        document.getElementById('restore-button').style.display = processing ? 'none' : 'block';
+        document.getElementById('restore-button').style.display = 'none';
         document.getElementById('loading').style.display = processing ? 'block' : 'none';
     }
 
-    abortProcessing() {
+    setCompletedState() {
         this.isProcessing = false;
-        this.setProcessingState(false);
-
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            chrome.tabs.sendMessage(tabs[0].id, { action: 'abort' });
-        });
+        document.getElementById('enhance-button').style.display = 'none';
+        document.getElementById('abort-button').style.display = 'none';
+        document.getElementById('restore-button').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
     }
 
-    restoreOriginal() {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            chrome.tabs.sendMessage(tabs[0].id, { action: 'restore' });
-        });
-        this.setProcessingState(false);
+    async abortProcessing() {
         this.isProcessing = false;
+        this.setInitialState();
+
+        try {
+            await chrome.runtime.sendMessage({ action: 'abort' });
+        } catch (error) {
+            console.error('Error aborting:', error);
+        }
     }
 
-    openSignInWindow() {
-        const signInWindow = window.open('', '', 'width=985,height=735');
-        signInWindow.location.href = 'https://auth.example.com?action=sign-in';
-        signInWindow.focus();
+    async restoreOriginal() {
+        try {
+            await chrome.runtime.sendMessage({ action: 'restore' });
+        } catch (error) {
+            console.error('Error restoring:', error);
+        }
+
+        this.setInitialState();
     }
 
-    toggleAccountMenu() {
-        // Implementation for account menu toggle
-        console.log('Account menu toggled');
+    setInitialState() {
+        this.isProcessing = false;
+        document.getElementById('enhance-button').style.display = 'block';
+        document.getElementById('abort-button').style.display = 'none';
+        document.getElementById('restore-button').style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
     }
 
     initializeActivitySelectors() {
@@ -227,13 +244,22 @@ class RussianToolsSidePanel {
     }
 
     loadStoredSettings() {
-        chrome.storage.local.get(['enabled', 'language', 'topic', 'filter', 'activity', 'user'], (items) => {
-            if (items.enabled) {
-                document.getElementById('auto-enhance').checked = items.enabled;
-            }
-            // Store other settings for restoration
-            this.storedSettings = items;
-        });
+        try {
+            chrome.storage.local.get(['enabled', 'language', 'topic', 'filter', 'activity'], (items) => {
+                if (chrome.runtime.lastError) {
+                    console.warn('Error loading settings:', chrome.runtime.lastError);
+                    return;
+                }
+
+                if (items.enabled) {
+                    document.getElementById('auto-enhance').checked = items.enabled;
+                }
+                // Store other settings for restoration
+                this.storedSettings = items;
+            });
+        } catch (error) {
+            console.error('Error accessing storage:', error);
+        }
     }
 
     restoreSelections() {

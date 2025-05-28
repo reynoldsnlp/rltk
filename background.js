@@ -21,6 +21,24 @@ chrome.action.onClicked.addListener((tab) => {
   chrome.sidePanel.open({ tabId: tab.id });
 });
 
+// Helper function to inject content script if needed
+async function ensureContentScriptLoaded(tabId) {
+  try {
+    // Try to ping the content script first
+    await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+  } catch (error) {
+    // Content script not loaded, inject it
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ['content.js']
+      });
+    } catch (injectionError) {
+      throw new Error('Cannot access this page. The extension needs permission to access this site.');
+    }
+  }
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'tokenize') {
         (async () => {
@@ -36,6 +54,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse(response);
             } catch (error) {
                 console.error('BACKGROUND: Error:', error.message);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true; // Keep the message channel open for async response
+    } else if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore') {
+        // Handle side panel requests to communicate with content script
+        (async () => {
+            try {
+                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tabs.length === 0) {
+                    throw new Error('No active tab found');
+                }
+
+                const tabId = tabs[0].id;
+
+                // Ensure content script is loaded
+                await ensureContentScriptLoaded(tabId);
+
+                // Forward the message to content script
+                const response = await chrome.tabs.sendMessage(tabId, request);
+                sendResponse({ success: true, data: response });
+            } catch (error) {
+                console.error('BACKGROUND: Error forwarding message:', error.message);
                 sendResponse({ success: false, error: error.message });
             }
         })();

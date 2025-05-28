@@ -326,7 +326,10 @@
 
     // Listen for messages from side panel or other extension components
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'enhance') {
+        if (request.action === 'ping') {
+            // Respond to ping to confirm content script is loaded
+            sendResponse({ loaded: true });
+        } else if (request.action === 'enhance') {
             try {
                 const bodyText = extractPlainText(document.body);
 
@@ -336,18 +339,24 @@
                 }).then(response => {
                     if (response.success) {
                         highlightTextNodes(document.body, response.data);
+                        sendResponse({ success: true });
                     } else {
                         console.error('Tokenization failed:', response.error);
+                        sendResponse({ success: false, error: response.error });
                     }
                 }).catch(error => {
                     console.error('Error:', error.message);
+                    sendResponse({ success: false, error: error.message });
                 });
             } catch (error) {
                 console.error('Error:', error.message);
+                sendResponse({ success: false, error: error.message });
             }
+            return true; // Keep message channel open for async response
         } else if (request.action === 'abort') {
             // Handle abort functionality if needed
             console.log('Enhancement aborted');
+            sendResponse({ success: true });
         } else if (request.action === 'restore') {
             // Remove all highlighting by removing spans with ʁ class
             document.querySelectorAll('.ʁ').forEach(span => {
@@ -355,6 +364,7 @@
                 parent.replaceChild(document.createTextNode(span.textContent), span);
                 parent.normalize();
             });
+            sendResponse({ success: true });
         }
     });
 

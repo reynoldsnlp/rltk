@@ -117,34 +117,6 @@ header h2 {
     font-style: italic;
 }
 
-.account-section {
-    border-top: 1px solid #ddd;
-    margin-top: 20px;
-    padding-top: 16px;
-}
-
-#sign-in-button,
-#account-menu-button {
-    background-color: #007bff;
-    color: white;
-    width: 100%;
-    padding: 10px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-}
-
-#sign-in-button:hover,
-#account-menu-button:hover {
-    background-color: #0056b3;
-}
-
-#account-menu-button {
-    min-height: 40px;
-    font-size: 16px;
-    font-weight: bold;
-}
-
 /* Russian-specific styling */
 .panel-section select option[value*="case"] {
     font-style: italic;
