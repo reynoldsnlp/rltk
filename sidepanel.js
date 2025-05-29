@@ -73,23 +73,45 @@ class RussianToolsSidePanel {
         filterMenu.innerHTML = '<option value="no-filter">No filter</option><option value="unselected">Select filter...</option>';
         filterSection.style.display = 'none';
 
-        // Russian-specific filter logic
-        if (topic === 'cases') {
-            this.addFilterOptions([
-                { id: 'nominative', val: 'nominative', text: 'Nominative Case' },
-                { id: 'accusative', val: 'accusative', text: 'Accusative Case' },
-                { id: 'genitive', val: 'genitive', text: 'Genitive Case' },
-                { id: 'dative', val: 'dative', text: 'Dative Case' },
-                { id: 'instrumental', val: 'instrumental', text: 'Instrumental Case' },
-                { id: 'prepositional', val: 'prepositional', text: 'Prepositional Case' }
-            ]);
-            filterSection.style.display = 'block';
-        } else if (topic === 'russian-specific') {
-            this.addFilterOptions([
-                { id: 'aspect', val: 'aspect', text: 'Verbal Aspect' },
-                { id: 'motion-verbs', val: 'motion-verbs', text: 'Motion Verbs' },
-                { id: 'soft-hard', val: 'soft-hard', text: 'Soft/Hard Consonants' }
-            ]);
+        // Russian topic filters based on JSON files
+        const topicFilters = {
+            'participles': [
+                { id: 'present-active', val: 'PrsAct', text: 'Present Active' },
+                { id: 'present-passive', val: 'PrsPss', text: 'Present Passive' },
+                { id: 'past-active', val: 'PstAct', text: 'Past Active' },
+                { id: 'past-passive', val: 'PstPss', text: 'Past Passive' }
+            ],
+            'verb-tense': [
+                { id: 'past', val: 'Pst', text: 'Past' },
+                { id: 'present', val: 'Prs', text: 'Present' },
+                { id: 'future', val: 'Fut', text: 'Future' }
+            ],
+            'verbs': [
+                { id: 'imperfective', val: 'Impf', text: 'Imperfective' },
+                { id: 'perfective', val: 'Perf', text: 'Perfective' }
+            ],
+            'verb-aspect-pairs': [
+                { id: 'imperfective', val: 'Impf', text: 'Imperfective' },
+                { id: 'perfective', val: 'Perf', text: 'Perfective' }
+            ],
+            'nouns': [
+                { id: 'singular', val: 'Sg', text: 'Singular' },
+                { id: 'plural', val: 'Pl', text: 'Plural' }
+            ],
+            'adjectives': [
+                { id: 'feminine', val: 'Fem', text: 'Feminine' },
+                { id: 'masculine', val: 'Msc', text: 'Masculine' },
+                { id: 'neutral', val: 'Neu', text: 'Neutral' },
+                { id: 'MFN', val: 'MFN', text: 'No Gender' }
+            ],
+            'gerunds': [
+                { id: 'present-active', val: 'PrsAct', text: 'Present' },
+                { id: 'past-active', val: 'PstAct', text: 'Past' }
+            ]
+        };
+
+        if (topicFilters[topic]) {
+            this.addFilterOptions(topicFilters[topic]);
             filterSection.style.display = 'block';
         }
     }
@@ -123,19 +145,66 @@ class RussianToolsSidePanel {
 
     getRussianActivities(topic) {
         const activities = {
-            'cases': [
-                { val: 'case-identification', text: 'Identify Case' },
-                { val: 'case-practice', text: 'Case Practice' }
+            'adjectives': [
+                { val: 'color', text: 'Color' },
+                { val: 'click', text: 'Click' },
+                { val: 'mc', text: 'Multiple Choice' },
+                { val: 'cloze', text: 'Fill in the blanks' }
             ],
-            'russian-specific': [
-                { val: 'aspect-drill', text: 'Aspect Drill' },
-                { val: 'motion-practice', text: 'Motion Verb Practice' }
+            'assistive-reading': [
+                { val: 'click', text: 'Click' }
             ],
-            'determiners': [
-                { val: 'determiner-practice', text: 'Determiner Practice' }
+            'gerunds': [
+                { val: 'color', text: 'Color' },
+                { val: 'click', text: 'Click' },
+                { val: 'cloze', text: 'Fill in the blanks' }
             ],
-            'Preps': [
-                { val: 'preposition-drill', text: 'Preposition Drill' }
+            'nouns': [
+                { val: 'color', text: 'Color' },
+                { val: 'click', text: 'Click' },
+                { val: 'mc', text: 'Multiple Choice' },
+                { val: 'cloze', text: 'Fill in the blanks' }
+            ],
+            'participles': [
+                { val: 'color', text: 'Color' },
+                { val: 'click', text: 'Click' },
+                { val: 'mc', text: 'Multiple Choice' },
+                { val: 'cloze', text: 'Fill in the blanks' }
+            ],
+            'phonetics': [
+                { val: 'color', text: 'Show Phonetics' },
+                { val: 'click', text: 'Hover' },
+                { val: 'mc', text: 'Multiple Choice' },
+                { val: 'cloze', text: 'Fill in the blanks' }
+            ],
+            'prepositions': [
+                { val: 'color', text: 'Color' },
+                { val: 'click', text: 'Click' },
+                { val: 'cloze', text: 'Fill in the blanks' }
+            ],
+            'verb-aspect-pairs': [
+                { val: 'color', text: 'Color' },
+                { val: 'click', text: 'Click' },
+                { val: 'mc', text: 'Multiple Choice' },
+                { val: 'cloze', text: 'Fill in the blanks' }
+            ],
+            'verb-tense': [
+                { val: 'color', text: 'Color' },
+                { val: 'click', text: 'Click' },
+                { val: 'mc', text: 'Multiple Choice' },
+                { val: 'cloze', text: 'Fill in the blanks' }
+            ],
+            'verbs': [
+                { val: 'color', text: 'Color' },
+                { val: 'click', text: 'Click' },
+                { val: 'mc', text: 'Multiple Choice' },
+                { val: 'cloze', text: 'Fill in the blanks' }
+            ],
+            'word-stress': [
+                { val: 'color', text: 'Mark Stress' },
+                { val: 'click', text: 'Click' },
+                { val: 'mc', text: 'Multiple Choice' },
+                { val: 'cloze', text: 'Hover' }
             ]
         };
 

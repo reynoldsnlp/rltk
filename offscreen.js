@@ -1,5 +1,7 @@
 let hfst = null;
 let tokenizer = null;
+let generator = null;
+let stressGenerator = null;
 let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
 
@@ -37,6 +39,8 @@ async function initHfst() {
             tokenizeSettings.hack_uncompose = true;
             console.log('Tokenize settings:', tokenizeSettings);
 
+            generator = await loadTransducer("resources/models/generator-gt-norm.hfstol", `generator`);
+            stressGenerator = await loadTransducer("resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`);
             tokenizer = await loadTokenizer("resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
         } catch (error) {
             console.error('Failed to initialize HFST:', error);
@@ -46,6 +50,32 @@ async function initHfst() {
     })();
 
     return await initializationPromise;
+}
+
+async function loadTransducer(transducerPath, transducerName) {
+    try {
+        const response = await fetch(chrome.runtime.getURL(transducerPath));
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+
+        const transducerFilePath = `/${transducerName}.hfstol`;
+        hfst.FS.writeFile(transducerFilePath, data);
+
+        let instream = new hfst.HfstInputStream(transducerFilePath);
+        let transducer = instream.read();
+        if (!instream.is_eof()) {  // If stream has not reached end-of-file
+            console.warn(`The given transducer file (${transducerPath}) contains more than one transducer. Only the first one is loaded.`);
+        }
+        instream.close();
+        console.log(`    ...Transducer ${transducerName} loaded.`);
+        return transducer;
+    } catch (error) {
+        console.error(`Error loading transducer ${transducerName}:`, error);
+        return null;
+    }
 }
 
 async function loadTokenizer(tokPath) {
