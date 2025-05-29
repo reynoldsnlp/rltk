@@ -1,0 +1,58 @@
+{
+  "title": "Prepositions",
+  "version": 2,
+  "languages": {
+    "en": {
+      "targets": [
+        {
+          "data": "morph-pos",
+          "match": ["TO", "IN"]
+        }
+      ],
+      "activities": {
+        "color": {
+          "instruction": {
+            "title": "Color",
+            "text": "Spot different prepositions"
+          }
+        },
+        "click": {
+          "instruction": {
+            "title": "Click",
+            "text": "Find the words matching your selections"
+          }
+        },
+        "cloze": {
+          "instruction": {
+            "title": "Fill in the blanks",
+            "text": "Fill in the blanks with the <font color='green'><b>correct</b></font> preposition. If you guessed <span class='click-style-incorrect'>wrong</span> or you find it too difficult you can get help by clicking on <span class='view-style-hint'>?</span>."
+          }
+        }
+      },
+      "selections": []
+    },
+    "de": {
+      "targets": [
+        {
+          "data": "pos",
+          "match": ["APPR"]
+        }
+      ],
+      "activities": {
+        "color": {
+          "instruction": {
+            "title": "Color",
+            "text": "Spot different prepositions"
+          }
+        },
+        "click": {
+          "instruction": {
+            "title": "Click",
+            "text": "Find the words matching your selections"
+          }
+        }
+      },
+      "selections": []
+    }
+  }
+}

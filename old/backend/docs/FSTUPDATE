@@ -1,0 +1,33 @@
+How to maintain the VIEW project?
+
+The VIEW project is divided into the webapp and the firefox addon.
+
+The websites for the webapp can be found in /VIEW/src/main/webapp/tmpl
+which consists of several java server pages, they are not relevant for 
+the addon.
+
+The clientside of the code for the webapp is handled by javascript
+with help of jquery, the files are in /VIEW/src/main/webapp/js-lib
+They describe what is done with the processed information and annotations
+that are directly visible to the client, such as colorize words
+
+Similarly the clientside for the addon is located in 
+/VIEW/src/main/resources/firefox-extension/view/chrome/content
+
+Note that Russian topics are prefixed by "rus".
+Relevant files are ruswordstress.js, in case the stress marker changes
+and sidebar.js in case some features of the FST change.
+
+The serverside is handled by javacode and is doing the "heavy lifting" for
+both, the addon and also the webapp.
+First the website is tokenized and annotated by the FST analyser.
+The annotator files are /VIEW/src/main/java/werti/uima/ae/Vislcg3RusAnnotator.java
+and /VIEW/src/main/java/werti/uima/ae/Vislcg3RusAnnotatorWithTrace.java
+The annotator with trace contains also the readings that are ruled out by
+the constraint grammar.
+
+The enhancer java classes are responsible for the enhancement according to
+selected topic. They target only specific POS etc. They can be found in
+/VIEW/src/main/java/werti/uima/enhancer/
+The relevant ones are all prefixed by Vislcg3Rus.
+

@@ -1,0 +1,57 @@
+{
+    "topic": "determiners",
+    "authors": [
+        "Detmar Meurers",
+        "Aleksandar Dimitrov",
+        "Niels Ott",
+        "Ramon Ziai"
+    ],
+    "description": {
+        "title": "Determiners",
+        "text": "Practice <em>determiners</em>."
+    },
+    "pipelines": [
+        {
+            "language": "GERMAN",
+            "descriptor": "desc/operators/TreeTagger-pos.xml",
+            "configuration": {
+                "TokenEnhancer_Tags": "ART,PDS,PDAT,PIS,PIAT,PIDAT",
+                "TokenEnhancer_UseLemmaFilter": "true"
+            }
+        }
+    ],
+    "activities": [
+        {
+            "activity": "color",
+            "requiresTokens": false,
+            "description": {
+                "title": "Colour",
+                "text": "In the text, VIEW shows you the determiners in <font color='#2222FF'><b>blue</b></font>."
+            }
+        },
+        {
+            "activity": "click",
+            "requiresTokens": true,
+            "description": {
+                "title": "Click",
+                "text": "Click on each determiner you find in the text and VIEW will show you whether you guessed <font color='green'><b>right</b></font> or <font color='red'><b>wrong</b></font>."
+            }
+        },
+        {
+            "activity": "mc",
+            "requiresTokens": false,
+            "description": {
+                "title": "Multiple Choice",
+                "text": "Choose a determiner from the drop-down list and VIEW will show you whether you guessed <font color='green'><b>right</b></font> or <font color='red'><b>wrong</b></font>. You can get help by clicking on <span class='clozeStyleHint'>?</span>."
+            }
+        },
+        {
+            "activity": "cloze",
+            "requiresTokens": true,
+            "description": {
+                "title": "Fill in the Blanks",
+                "text": "Fill in the blanks with the <font color='green'><b>correct</b></font> determiner. If you guessed <font color='red'><b>wrong</b></font> or you find it too difficult you can get help by clicking on <span class='clozeStyleHint'>?</span>."
+            }
+        }
+    ]
+}

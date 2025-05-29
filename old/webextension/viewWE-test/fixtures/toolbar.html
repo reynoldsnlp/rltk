@@ -1,0 +1,89 @@
+<div id="wertiview-toolbar">
+<button id="wertiview-toolbar-toggle-button" class="wertiview-toolbar-btn">X</button>
+<div id="wertiview-VIEW-menu" class="wertiview-toolbar-dropdown">
+    <div id="wertiview-VIEW-menu-bar-box">
+        <div id="wertiview-VIEW-menu-bar-1"></div>
+        <div id="wertiview-VIEW-menu-bar-2"></div>
+        <div id="wertiview-VIEW-menu-bar-3"></div>
+    </div>
+</div>
+<label id="wertiview-toolbar-enabled" title="auto-enhance">
+    <input id="wertiview-toolbar-enabled-checkbox" type="checkbox">
+    <span id="wertiview-toolbar-enabled-slider"></span>
+</label>
+<select id="wertiview-toolbar-language-menu" class="wertiview-toolbar-menu slate">
+    <option id="wertiview-toolbar-language-unselected" value="unselected" selected>Pick a Language</option>
+    <option disabled>──────────</option>
+    <option id="wertiview-toolbar-language-en" value="en">English</option>
+    <option id="wertiview-toolbar-language-de" value="de">German</option>
+    <!-- <option id="wertiview-toolbar-language-es" value="es">Spanish</option>-->
+    <option id="wertiview-toolbar-language-ru" value="ru">Russian</option>
+</select>
+<select id="wertiview-toolbar-topic-menu-unselected" class="wertiview-toolbar-menu wertiview-topic-menu slate">
+    <option id="wertiview-toolbar-topic-unselected" value="unselected" selected>Pick a Topic</option>
+</select>
+<select id="wertiview-toolbar-topic-menu-en" class="wertiview-toolbar-menu wertiview-topic-menu slate"> <!-- All English topics -->
+    <option id="wertiview-toolbar-topic-unselected-en" value="unselected-en" selected>Pick a Topic</option>
+    <option disabled>──────────</option>
+    <option id="wertiview-toolbar-topic-articles" value="articles">Articles</option>
+    <option id="wertiview-toolbar-topic-determiners-en" value="determiners">Determiners</option>
+    <!--<option id="wertiview-toolbar-topic-Preps-en" value="Preps">Prepositions</option>
+    <option id="wertiview-toolbar-topic-Gerunds" value="Gerunds">Gerunds</option>
+    <option id="wertiview-toolbar-topic-NounCountability" value="NounCountability">Noun Countability</option>
+    <option id="wertiview-toolbar-topic-PhrasalVerbs" value="PhrasalVerbs">Phrasal Verbs</option>-->
+    <!-- <option id="wertiview-toolbar-topic-WhQuestions" value="WhQuestions">Wh-Questions</option> TODO: no enhancement from server-->
+    <!-- Not included in old VIEW, reason? -->
+    <!--<option id="wertiview-toolbar-topic-Conditionals" value="Conditionals">Conditionals</option>  TODO: not completed? -->
+    <!--<option id="wertiview-toolbar-topic-Passives" value="Passives">Passives</option> TODO: not completed? -->
+</select>
+<select id="wertiview-toolbar-topic-menu-de" class="wertiview-toolbar-menu wertiview-topic-menu slate">
+    <option id="wertiview-toolbar-topic-unselected-de" value="unselected-de" selected>Pick a Topic</option>
+    <option disabled>──────────</option>
+  <option id="wertiview-toolbar-topic-determiners-de" value="determiners">Determiners</option>
+  <option id="wertiview-toolbar-topic-agreement-de" value="agreement">Agreement</option>
+</select>
+<!--  <select id="wertiview-toolbar-topic-menu-es" class="wertiview-toolbar-menu wertiview-topic-menu slate">
+    <option id="wertiview-toolbar-topic-unselected-es" value="unselected-es" selected>Pick a Topic</option>
+    <option disabled>──────────</option>
+  <option id="wertiview-toolbar-topic-determiners-es" value="determiners">Determiners</option>
+  <option id="wertiview-toolbar-topic-Preps-es" value="Preps">Prepositions</option>
+  <option id="wertiview-toolbar-topic-SerEstar" value="SerEstar">Ser vs. Estar</option>
+</select>-->
+<select id="wertiview-toolbar-topic-menu-ru" class="wertiview-toolbar-menu wertiview-topic-menu slate"> <!-- All Russian topics -->
+    <option id="wertiview-toolbar-topic-unselected-ru" value="unselected-ru" selected>Pick a Topic</option>
+    <option disabled>──────────</option>
+    <option id="wertiview-toolbar-topic-nouns" value="nouns">Nouns</option>
+    <option id="wertiview-toolbar-topic-adjectives" value="adjectives">Adjectives</option>
+    <!--
+    <option id="wertiview-toolbar-topic-RusParticiples" value="RusParticiples">Participles</option>
+    <option id="wertiview-toolbar-topic-RusVerbAspect" value="RusVerbAspect">Verb Aspect</option>
+    <option id="wertiview-toolbar-topic-RusVerbPerfective" value="RusVerbPerfective">Verb Perfective</option>
+    <option id="wertiview-toolbar-topic-RusVerbImperfective" value="RusVerbImperfective">Verb Imperfective</option>
+    <option id="wertiview-toolbar-topic-RusWordStress" value="RusWordStress">Word Stress</option>
+    <option id="wertiview-toolbar-topic-RusVerbPastTense" value="RusVerbPastTense">Verb Past Tense</option>
+    <option id="wertiview-toolbar-topic-RusVerbPresentTense" value="RusVerbPresentTense">Verb Present Tense</option>
+    <option id="wertiview-toolbar-topic-RusAssistiveReading" value="RusAssistiveReading">Assistive Reading</option>-->
+</select>
+<select id="wertiview-toolbar-filter-menu" class="wertiview-toolbar-menu slate">
+    <option id="wertiview-toolbar-filter-no-filter" value="no-filter">No Filter available</option>
+    <option id="wertiview-toolbar-filter-unselected" value="unselected" selected>Pick a Filter</option>
+    <option disabled>──────────</option>
+    <!-- Filters will appear dynamically if present, menu is invisible otherwise -->
+</select>
+<select id="wertiview-toolbar-activity-menu" class="wertiview-toolbar-menu slate">
+    <option id="wertiview-toolbar-activity-unselected" value="unselected" selected>Pick an Activity</option>
+    <option id="wertiview-toolbar-activity-splitter" value="splitter" disabled>──────────</option>
+    <option id="wertiview-toolbar-activity-color" value="color">Color</option>
+    <option id="wertiview-toolbar-activity-click" value="click">Click</option>
+    <option id="wertiview-toolbar-activity-mc" value="mc">Multiple Choice</option>
+    <option id="wertiview-toolbar-activity-cloze" value="cloze">Practice</option>
+</select>
+<button type="button" id="wertiview-toolbar-enhance-button" class="wertiview-toolbar-btn">Enhance</button>
+<!-- Only displayed when the enhancement finished -->
+<button id="wertiview-toolbar-restore-button" class="wertiview-toolbar-btn">Restore</button>
+<!-- Only displayed during the enhancement -->
+<div id="wertiview-toolbar-loading"></div>
+<button id="wertiview-toolbar-abort-button" class="wertiview-toolbar-btn">Abort</button>
+<button id="wertiview-toolbar-account-sign-in-button" class="wertiview-toolbar-btn">Sign in</button>
+<button id="wertiview-toolbar-account-menu-button" class="wertiview-toolbar-btn"></button><!-- value to be filled dynamically -->
+</div>

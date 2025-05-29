@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<analysisEngineDescription xmlns="http://uima.apache.org/resourceSpecifier">
+  <frameworkImplementation>org.apache.uima.java</frameworkImplementation>
+  <primitive>false</primitive>
+  <delegateAnalysisEngineSpecifiers>
+    <delegateAnalysisEngine key="TokenEnhancer">
+      <import location="../enhancers/TokenEnhancer.xml"/>
+    </delegateAnalysisEngine>
+    <delegateAnalysisEngine key="HFSTRusAssistiveReadingEnhancer">
+      <import location="../enhancers/HFSTRusAssistiveReadingEnhancer.xml"/>
+    </delegateAnalysisEngine>
+  </delegateAnalysisEngineSpecifiers>
+  <analysisEngineMetaData>
+    <name>HFSTPostProc_RusAssistiveReading</name>
+    <description/>
+    <version>1.0</version>
+    <vendor/>
+    <flowConstraints>
+      <fixedFlow>
+        <node>TokenEnhancer</node>
+        <node>HFSTRusAssistiveReadingEnhancer</node>
+      </fixedFlow>
+    </flowConstraints>
+    <fsIndexCollection/>
+    <capabilities>
+      <capability>
+        <inputs>
+          <type allAnnotatorFeatures="true">werti.uima.types.annot.CGToken</type>
+        </inputs>
+        <outputs>
+          <type allAnnotatorFeatures="true">werti.uima.types.Enhancement</type>
+          <type allAnnotatorFeatures="true">werti.uima.types.annot.CGToken</type>
+        </outputs>
+        <languagesSupported/>
+      </capability>
+    </capabilities>
+    <operationalProperties>
+      <modifiesCas>true</modifiesCas>
+      <multipleDeploymentAllowed>true</multipleDeploymentAllowed>
+      <outputsNewCASes>false</outputsNewCASes>
+    </operationalProperties>
+  </analysisEngineMetaData>
+  <resourceManagerConfiguration/>
+</analysisEngineDescription>

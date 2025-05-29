@@ -1,0 +1,40 @@
+{
+  "topic": "assistive-reading",
+  "authors": [
+    "Konnor Petersen"
+  ],
+  "description": {
+    "title": "Russian Assistive Reading",
+    "text": "<em>Assistive Reading</em>."
+  },
+  "pipelines": [
+    {
+      "language": "RUSSIAN",
+      "descriptor": "desc/operators/HFSTRusAssistiveReadingPipe",
+      "configuration": {
+        "isWithTrace": "false",
+        "language": "ru"
+      },
+      "select": [
+        {
+          "type": "werti.uima.types.annot.Token",
+          "with": {},
+          "without": {}
+        }
+      ]
+    }
+  ],
+  "activities": [
+    {
+      "activity": "click",
+      "description": {
+        "title": "Click",
+        "text": "By clicking on a Russian word, VIEW will show you the paradigm of the readings with all possible readings bolded and point out the ruled out readings."
+      },
+      "enhance": {
+        "with": "werti.uima.enhancer.EnhancementsAndTokens",
+        "configuration": { "type": "hit ambiguity" }
+      }
+    }
+  ]
+}

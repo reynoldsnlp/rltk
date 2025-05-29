@@ -1,0 +1,24 @@
+#wertiview-percentage-of-exercises-value {
+    display: none;
+}
+
+#wertiview-first-offset-value {
+    display: none;
+}
+
+#wertiview-interval-size-value {
+    display: none;
+}
+
+#wertiview-options-saved {
+    display: none;
+    color: green;
+}
+
+ul {
+    padding-left: 0;
+}
+
+ul li {
+    list-style: none;
+}

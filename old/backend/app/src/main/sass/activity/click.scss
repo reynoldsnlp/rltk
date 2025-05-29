@@ -1,0 +1,13 @@
+viewToken {
+    cursor: pointer;
+
+    &.view-correct-click {
+        font-weight: bold;
+        color: #0F0;
+    }
+
+    &.view-incorrect-click {
+        font-weight: bold;
+        color: #F00;
+    }
+}

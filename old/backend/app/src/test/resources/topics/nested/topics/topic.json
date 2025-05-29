@@ -1,0 +1,38 @@
+{
+    "topic": "articles",
+    "authors": [
+        "Test Author"
+    ],
+    "description": {
+        "title": "Determiners",
+        "text": "foo"
+    },
+    "pipelines": [
+        {
+            "language": "ENGLISH",
+            "descriptor": "desc/operators/OpenNlpTokenizerPipe",
+            "configuration": {},
+            "select": [
+                {
+                    "type": "werti.uima.types.annot.Token",
+                    "with": {},
+                    "without": {}
+                }
+            ]
+        }
+    ],
+    "activities": [
+        {
+            "activity": "color",
+            "requiresTokens": false,
+            "description": {
+                "title": "Color",
+                "fromFile": "src/test/resources/topics/nested/topics/description.html"
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Tokens",
+                "configuration": {}
+            }
+        }
+    ]
+}

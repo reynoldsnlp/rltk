@@ -1,0 +1,30 @@
+{
+  "ru": {
+    "activities": {
+      "color": {
+        "instruction": {
+          "title": "Show Phonetics",
+          "text": "In the text, VIEW shows you the phonetic representation of each Russian word."
+        }
+      },
+      "click": {
+        "instruction": {
+          "title": "Hover",
+          "text": "VIEW will show you the <span class='click-style-correct'>correct</span> phonetic transcription for the Russian word marked in <span class='click-style-correct'>green</span> when you hover over it."
+        }
+      },
+      "mc": {
+        "instruction": {
+          "title": "Multiple Choice",
+          "text": "Choose a Russian phonetic sequence from the drop-down list and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>. You can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      },
+      "cloze": {
+        "instruction": {
+          "title": "Fill in the blanks",
+          "text": "Fill in the blanks with the <font color='green'><b>correct</b></font> Russian phonetic sequence. If you guessed <span class='click-style-incorrect'>wrong</span> or you find it too difficult you can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      }
+    }
+  }
+}

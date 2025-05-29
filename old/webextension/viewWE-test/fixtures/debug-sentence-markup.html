@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test page for debugging sentence markup.</title>
+</head>
+<body>
+<p>
+<sentence>This is a normal sentence with an <a
+        href="http://example.com" title="anchor">anchor</a> tag.</sentence>
+<sentence data-isbasedonblock="true">This sentence was inferred using blocks.</sentence>
+<sentence><sentence>This sentence is nested.</sentence></sentence>
+</p>
+</body>
+</html>

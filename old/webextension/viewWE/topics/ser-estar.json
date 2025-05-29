@@ -1,0 +1,30 @@
+{
+  "es": {
+    "activities": {
+      "color": {
+        "instruction": {
+          "title": "Color",
+          "text": "In the text, VIEW shows you the forms of <span class='colorize-style-ser'>ser</span> and <span class='colorize-style-estar'>estar</span>."
+        }
+      },
+      "click": {
+        "instruction": {
+          "title": "Click",
+          "text": "A dialog window will instruct you to click on forms of either <b><i>ser</i></b> or <b><i>estar</i></b>.  Click on each form you find in the text and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>."
+        }
+      },
+      "mc": {
+        "instruction": {
+          "title": "Multiple Choice",
+          "text": "Choose the form of <b><i>ser</i></b> or <b><i>estar</i></b> from the drop-down list and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>. You can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      },
+      "cloze": {
+        "instruction": {
+          "title": "Fill in the blanks",
+          "text": "Fill in the blanks with the <font color='green'><b>correctly</b></font> conjugated form of <b><i>ser</i></b> or <b><i>estar</i></b>.  If you guessed <span class='click-style-incorrect'>wrong</span> or you find it too difficult you can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      }
+    }
+  }
+}

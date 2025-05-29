@@ -1,0 +1,15 @@
+# Binary files
+*.jar
+*.xpi
+*.class
+
+# Idea-specific
+*.iml
+*.ipr
+*.iws
+.idea
+
+*~
+.classpath
+.project
+.settings

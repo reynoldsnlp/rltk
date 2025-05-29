@@ -1,0 +1,171 @@
+#wertiview-toolbar {
+    background: #d6d8db;
+    padding: 6px;
+    overflow: auto;
+}
+
+#wertiview-toolbar-toggle-button {
+    margin-right: 5px;
+    background-color: unset;
+    color: black;
+    padding: 4px 5px;
+    font-size: 18px;
+}
+
+#wertiview-toolbar-toggle-button:hover {
+    background-color: #f1f1f1
+}
+
+#wertiview-VIEW-menu {
+    float: left;
+}
+
+#wertiview-VIEW-menu:hover {
+    background-color: #f1f1f1
+}
+
+#wertiview-VIEW-menu-bar-box {
+    margin: 6px;
+}
+
+#wertiview-VIEW-menu-bar-box div{
+    width: 25px;
+    height: 3px;
+    background-color: black;
+}
+
+#wertiview-VIEW-menu-bar-2,
+#wertiview-VIEW-menu-bar-3  {
+    margin-top: 4px;
+}
+
+/* Select Box Styles: bavotasan.com Method (with special adaptations by ericrasch.com) */
+/* Source: http://bavotasan.com/2011/style-select-box-using-only-css/ */
+.wertiview-toolbar-menu {
+    height: 29px;
+    overflow: hidden;
+    width: 180px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    float: left;
+    margin: 0 0 0 5px;
+    font-size: 16px;
+    font-family: sans-serif;
+}
+
+.wertiview-toolbar-menu.slate {
+    background: white url(../../icons/select_menu_arrow_32.png) no-repeat right center;
+}
+
+.wertiview-toolbar-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 5px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    float: left;
+    margin: 0 0 0 5px;
+    height: 29px;
+    font-family: sans-serif;
+    line-height: normal;
+}
+
+.wertiview-toolbar-btn:hover:not(:disabled),
+.wertiview-toolbar-btn:focus:not(:disabled) {
+    background-color: #3e8e41;
+}
+
+#wertiview-toolbar-enhance-button:disabled {
+    opacity: 0.5;
+    cursor: initial;
+}
+
+#wertiview-toolbar-filter-no-filter {
+    display: none;
+}
+
+/* The switch - the box around the slider */
+#wertiview-toolbar-enabled {
+    margin-top: 4px;
+    position: relative;
+    width: 44px;
+    height: 22px;
+    float:left;
+    margin-left: 5px;
+}
+
+/* Hide default HTML checkbox */
+#wertiview-toolbar-enabled-checkbox {
+    display:none;
+}
+
+/* The slider */
+#wertiview-toolbar-enabled-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: white;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+#wertiview-toolbar-enabled-slider:before {
+    position: absolute;
+    content: "";
+    height: 15px;
+    width: 15px;
+    left: 4px;
+    bottom: 4px;
+    background-color: black;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+#wertiview-toolbar-enabled-checkbox:checked + #wertiview-toolbar-enabled-slider {
+    background-color: #4CAF50;
+}
+
+#wertiview-toolbar-enabled-checkbox:focus + #wertiview-toolbar-enabled-slider {
+    box-shadow: 0 0 2px #4CAF50;
+}
+
+#wertiview-toolbar-enabled-checkbox:checked + #wertiview-toolbar-enabled-slider:before {
+    transform: translateX(20px);
+}
+
+#wertiview-toolbar-loading {
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #4CAF50;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    animation: spin 2s linear infinite;
+    float: left;
+    margin-left: 5px;
+    box-sizing: unset;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#wertiview-toolbar-account-sign-in-button,
+#wertiview-toolbar-account-menu-button {
+    right: 50px;
+    position: absolute;
+}
+
+#wertiview-toolbar-account-menu-button {
+    height: 30px;
+    width: 30px;
+    border-radius: 50%;
+    border: 2px solid red;
+}

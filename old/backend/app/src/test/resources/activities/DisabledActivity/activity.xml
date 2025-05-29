@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<!-- Single configuration file for an activity. -->
+<!-- <!DOCTYPE activity SYSTEM "../../../../../../main/webapp/activities/activity.dtd"> -->
+<activity version="0.1" enabled="no">
+  <meta>
+    <name>Disabled Activity</name>
+    <author>Aleksandar Dimitrov</author>
+  </meta>
+  <client-cfg>
+  </client-cfg>
+  <server-cfg>
+    <lang code="en">
+      <pre>
+        <pipeline desc="/operators/Lingpipe.xml"/>
+      </pre>
+    </lang>
+  </server-cfg>
+</activity>

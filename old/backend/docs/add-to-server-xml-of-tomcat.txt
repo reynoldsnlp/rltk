@@ -1,0 +1,9 @@
+Add the following snippet to the server.xml of the Tomcat to give VIEW access
+to the MySQL database:
+
+	<Resource name="jdbc/MySQLDB" auth="Container" type="javax.sql.DataSource"
+		maxActive="10" maxIdle="5" maxWait="10000" username="wertiview"
+		password="bu2hAsEw" driverClassName="com.mysql.jdbc.Driver"
+		url="jdbc:mysql://localhost/wertiview" validationQuery="/* ping */" />
+
+It goes inside the <Context/> element of VIEW.

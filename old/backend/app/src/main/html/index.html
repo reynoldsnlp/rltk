@@ -1,0 +1,93 @@
+{{<base}} {{$content}} {{#view}} <div class="columns small-12">
+    <div class="row">
+        <div class="columns small-12">
+            <fieldset>
+                <legend>Choose a language:</legend>
+                {{#supportedLanguages}}
+                <div class="radio-button supported-language">
+                    <input type="radio"
+                        class="button"
+                           {{#iter.isFirst}}checked{{/iter.isFirst}}
+                        name="language"
+                        value="{{toString}}"
+                        id="language-{{toString}}">
+                    <label for="language-{{toString}}">
+                        {{humanLabel}}
+                    </label>
+                </div>
+                {{/supportedLanguages}}
+            </fieldset>
+        </div>
+    </div>
+    <div class="row">
+        <div class="columns small-12">
+            <label>Target:
+                <div class="input-group">
+                    <input id="enhance-this"
+                           type="text"
+                           placeholder="URL or search term"
+                           aria-describedby="urlHelpText"
+                           class="input-group-field"
+                           data-abide-ignore>
+                    <div class="input-group-button">
+                        <!-- 
+                        <button class="button">
+                            Go
+                        </button>
+                        -->
+                    </div>
+                </div>
+                <p class="help-text" id="urlHelpText">
+                    You can paste a URL or just search for a topic.
+                </p>
+            </label>
+        </div>
+    </div>
+    <div class="row">
+        <div class="columns small-12">
+            <h2>Available topics:</h2>
+            {{#topicsByLanguage}}
+            <ul id="topics-for-{{languageCode}}"
+                class="accordion {{^iter.isFirst}}hidden{{/iter.isFirst}}"
+                data-accordion role="tablist">
+                {{#topics}}
+                <li id="{{languageCode}}-{{topic}}"
+                    class="topic accordion-item {{#iter.isFirst}}is-active{{/iter.isFirst}}">
+                    {{#description}}
+                    <a href="#{{languageCode}}-{{topic}}-panel"
+                       role="tab"
+                       class="accordion-title"
+                       aria-controls="{{languageCode}}-{{topic}}-panel">
+                        <h3>{{title}}</h3>
+                    </a>
+                    <div id="{{languageCode}}-{{topic}}-panel"
+                         class="accordion-content"
+                         role="tabpanel"
+                         data-tab-content
+                         aria-labelledby="{{languageCode}}-{{topic}}-panel-heading">
+                        <p>{{{description}}}</p>
+                        <ul id="activities-for-{{languageCode}}-{{topic}}">
+                            {{#activities}}
+                            <li class="activity" id="{{languageCode}}-{{topic}}-{{activity}}">
+                                {{#description}}
+                                <h4>{{title}}</h4>
+                                <p>{{{description}}}</p>
+                                <button class="button activity-start"
+                                        data-language="{{languageCode}}"
+                                        data-topic="{{topic}}"
+                                        data-activity="{{activity}}">
+                                    Practice!
+                                </button>
+                                {{/description}}
+                            </li>
+                            {{/activities}}
+                        </ul>
+                    </div>
+                    {{/description}}
+                </li>
+                {{/topics}}
+            </ul>
+            {{/topicsByLanguage}}
+        </div>
+    </div>
+</div>{{/view}} {{/content}} {{/base}}

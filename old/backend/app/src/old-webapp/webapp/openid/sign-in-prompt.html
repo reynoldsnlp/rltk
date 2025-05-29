@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<script type="text/javascript" src="//www.gstatic.com/authtoolkit/js/gitkit.js"></script>
+    <link type="text/css" rel="stylesheet" href="//www.gstatic.com/authtoolkit/css/gitkit.css" />
+    <script type="text/javascript">
+      window.google.identitytoolkit.signInButton(
+        '#wertiview-identity-signin', // accepts any CSS selector
+        {
+          widgetUrl: "http://localhost:8080/VIEW/openid/sign-in-prompt.html",
+          signOutUrl: "http://localhost:8080/VIEW/openid/logout.jsp",
+          // Optional - Begin the sign-in flow in a popup window
+          //popupMode: true,
+
+          // Optional - Begin the sign-in flow immediately on page load.
+          //            Note that if this is true, popupMode param is ignored
+          //loginFirst: true,
+
+          // Optional - Cookie name (default: gtoken)
+          //            NOTE: Also needs to be added to config of ‘widget
+          //                  page’. See below
+          //cookieName: ‘example_cookie’,
+        }
+      );
+    </script>
+    
+    <script type="text/javascript">
+      var config = {
+          apiKey: 'AIzaSyAnW76TUFysUOnPVPLGwjS5wZG92veMJ7M',
+          signInSuccessUrl: 'http://localhost:8080/VIEW/openid/signed-in.html',
+          signInOptions: ["password", "google", "microsoft", "facebook", "aol"],
+          oobActionUrl: '/',
+          siteName: 'this site',
+
+          // Optional - function called after sign in completes and before
+          // redirecting to signInSuccessUrl. Return false to disable
+          // redirect.           
+           callbacks: {
+               signInSuccess: function(tokenString, accountInfo,
+                 opt_signInSuccessUrl) {
+	               	var userid = accountInfo.email;
+	               	var prevUserid = wertiview.cookies.getCookie(document, wertiview.COOKIE_NAME);
+	               	wertiview.cookies.setCookie(document, wertiview.COOKIE_NAME, userid, 10, wertiview.COOKIE_PATH);
+                   	return true;
+                 }
+              },
+          // Optional - key for query parameter that overrides
+          // signInSuccessUrl value (default: 'signInSuccessUrl')
+          // queryParameterForSignInSuccessUrl: 'url'
+
+          // Optional - URL of site ToS (linked and req. consent for signup)
+          // tosUrl: 'http://example.com/terms_of_service',
+
+          // Optional - URL of callback page (default: current url)
+          // callbackUrl: 'http://example.com/callback',
+
+          // Optional - Cookie name (default: gtoken)
+          //            NOTE: Also needs to be added to config of the ‘page with
+          //                  sign in button’. See above
+          // cookieName: ‘example_cookie’,
+
+           // Optional - UI configuration for accountchooser.com
+           /*acUiConfig: {
+               title: 'Sign in to example.com',
+               favicon: 'http://example.com/favicon.ico',
+               branding: 'http://example.com/account_choooser_branding'
+           },
+           */
+
+           // Optional - Function to send ajax POST requests to your Recover URL
+           //            Intended for CSRF protection, see Advanced Topics
+           //      url - URL to send the POST request to
+           //     data - Raw data to include as the body of the request
+           //completed - Function to call with the object that you parse from
+           //            the JSON response text. {} if no response
+           /*ajaxSender: function(url, data, completed) {
+                         },
+           */
+      };
+      // The HTTP POST body should be escaped by the server to prevent XSS
+      window.google.identitytoolkit.start(
+          '#wertiview-identity-signin', // accepts any CSS selector
+          config,
+          'JAVASCRIPT_ESCAPED_POST_BODY');
+    </script>
+    
+<title>VIEW: Sign in with your account</title>
+<script src="../js-lib/jquery-1.8.3.min.js"></script>
+<script src="../js-lib/view.js"></script>
+<script src="../js-lib/cookies.js"></script>
+<script>
+
+function main() {
+	// set the action URL for the form
+	//var form = document.getElementById('openid-form-sign-in');
+	//form.action = wertiview.serverURL + "/VIEW";
+
+	// check if cookies are enabled
+	var divCookiesOn = document.getElementById('if-cookies-enabled');
+	var divCookiesOff = document.getElementById('if-cookies-disabled');
+	if (wertiview.cookies.areCookiesEnabled(document, wertiview.COOKIE_PATH)) {
+		divCookiesOn.style.display = 'block';
+		divCookiesOff.style.display = 'none';
+	}
+	else {
+		divCookiesOn.style.display = 'none';
+		divCookiesOff.style.display = 'block';
+		var span = document.getElementById("server-url");
+		span.innerHTML = wertiview.serverURL;
+	}
+}
+</script>
+<meta http-equiv="Content-Type"
+	content="application/xhtml+xml; charset=UTF-8" />
+<link type="text/css" href="/VIEW/view.css" rel="stylesheet" />
+</head>
+<body onload="main()">
+	<div id="wrapper">
+		<div id="main">
+			<div id="mainpartwrapper">
+				<div id="mainpart">
+					<div id="if-cookies-enabled">
+						<h1>Sign in with your account</h1>
+						<div>
+							<div id="wertiview-identity-signin"></div>
+						</div>	
+					</div>
+					<div id="if-cookies-disabled" style="display: none;">
+						<h1>Cookies Required</h1>
+						<p>
+							You have cookies disabled in your browser, but
+							they need to be enabled for signing in with OpenID.
+							Please enable cookies either for all websites or
+							only for <span id="server-url"></span>
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

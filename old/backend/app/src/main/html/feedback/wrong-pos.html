@@ -1,0 +1,20 @@
+{{<hint-btn-and-hint}}
+    {{$hint-number}}1{{/hint-number}}
+    {{$btn-text}}General info{{/btn-text}}
+    {{$hint-content}}Are you sure that your word belongs to the correct category
+    (part-of-speech)?{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}2{{/hint-number}}
+    {{$btn-text}}What is the part-of-speech of my submission?{{/btn-text}}
+    {{$hint-content}}Your submission belongs to the following category:
+    {{<colored-span}}
+        {{$span-color}}red{{/span-color}}
+        {{$span-text}}{{submission-pos}}{{/span-text}}
+    {{/colored-span}}{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}3{{/hint-number}}
+    {{$btn-text}}Which part-of-speech should it have?{{/btn-text}}
+    {{$hint-content}}Take a look at the selected topic.{{/hint-content}}
+{{/hint-btn-and-hint}}

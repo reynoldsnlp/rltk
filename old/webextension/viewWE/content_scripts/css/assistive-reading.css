@@ -1,0 +1,145 @@
+#view-assistive-reading-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: #d6d8db;
+    border-right: solid 2px;
+    display: inline-block;
+    width: 350px;
+    z-index: 1000000000;
+    font-size: 0;
+}
+
+#view-assistive-reading-container > div {
+    font-size: 14px;
+}
+
+.view-assistive-reading-title {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    width:auto;
+    padding-top: 5px;
+}
+
+#view-assistive-reading-word-container {
+    width: auto;
+    border-bottom: solid 1px;
+    text-align: center;
+}
+
+#view-assistive-reading-word {
+    font-size: 1.5em;
+    font-weight: bold;
+    padding: 5px;
+}
+
+#view-assistive-reading-translation {
+    width: 340px;
+    display: inline-block;
+    padding-right: 5px;
+    padding-left: 5px;
+    overflow-y: auto;
+    max-height: 20%;
+    border-bottom: solid 1px;
+    border-top: solid 1px;
+}
+
+.view-assistive-reading-translation-item {
+    padding: 5px;
+}
+
+#view-assistive-reading-description {
+    width: 340px;
+    display: inline-block;
+    padding-right: 5px;
+    padding-left: 5px;
+    padding-bottom: 5px;
+    overflow-y: auto;
+    max-height: 50%;
+    border-bottom: solid 1px;
+    border-top: solid 1px;
+}
+
+.view-assistive-reading-paradigm-title {
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+  width:auto;
+  padding-top: 10px;
+  padding-bottom: 5px;
+}
+
+#view-assistive-reading-word-list {
+    border-top: solid 1px;
+    width: 340px;
+    padding-left: 5px;
+    padding-right: 5px;
+    display: inline-block;
+    overflow-y: auto;
+    position:relative;
+}
+
+#view-assistive-reading-word-list-download {
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 5px;
+    margin-right: 10px;
+    background-color: #d6d8db;
+}
+
+#view-assistive-reading-word-list-download:hover {
+    background-color: #f1f1f1
+}
+
+.view-assistive-reading-word-item {
+    padding: 2.5px;
+    font-size: 1em;
+    display: inline-block;
+}
+
+.view-assistive-reading-paradigm-item {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    font-size: 1em;
+}
+
+.view-assistive-reading-word-list-button {
+    display: inline-block;
+    margin-right: 5px;
+    color: red;
+    background-color: #d6d8db;
+}
+
+.view-assistive-reading-word-list-button:hover {
+    background-color: #f1f1f1
+}
+
+#view-assistive-reading-container ::-webkit-scrollbar {
+  -webkit-appearance: none;
+  width: 10px;
+}
+
+#view-assistive-reading-container ::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background-color: rgba(0,0,0,.5);
+  -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
+}
+
+#view-assistive-reading-container table {
+  margin: 2px;
+  padding: 2.5px;
+}
+
+#view-assistive-reading-container td, #view-assistive-reading-container th {
+  border: solid 1px;
+  padding: 2px;
+}
+
+#view-assistive-reading-container th {
+  font-weight: bold;
+}

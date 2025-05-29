@@ -1,0 +1,28 @@
+{{<wrong-form}}
+{{$hint-show-wrong-form}}{{<hint-btn-and-hint}}
+    {{$hint-number}}2{{/hint-number}}
+    {{$btn-text}}Which form did I enter?{{/btn-text}}
+    {{$hint-content}}You typed the word in
+    {{<colored-span}}
+        {{$span-color}}red{{/span-color}}
+        {{$span-text}}{{submission-number}}{{/span-text}}
+    {{/colored-span}} and
+    {{<colored-span}}
+        {{$span-color}}red{{/span-color}}
+        {{$span-text}}{{submission-case}}{{/span-text}}
+    {{/colored-span}} form.{{/hint-content}}
+{{/hint-btn-and-hint}}<br>{{/hint-show-wrong-form}}
+{{$hint-show-correct-form}}{{<hint-btn-and-hint}}
+    {{$hint-number}}3{{/hint-number}}
+    {{$btn-text}}Which form is correct?{{/btn-text}}
+    {{$hint-content}}We look for a word in
+    {{<colored-span}}
+        {{$span-color}}green{{/span-color}}
+        {{$span-text}}{{correct-answer-number}}{{/span-text}}
+    {{/colored-span}} and
+    {{<colored-span}}
+        {{$span-color}}green{{/span-color}}
+        {{$span-text}}{{correct-answer-case}}{{/span-text}}
+    {{/colored-span}} form.{{/hint-content}}
+{{/hint-btn-and-hint}}{{/hint-show-correct-form}}
+{{/wrong-form}}

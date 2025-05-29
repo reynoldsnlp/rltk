@@ -1,0 +1,19 @@
+{{<hint-btn-and-hint}}
+    {{$hint-number}}1{{/hint-number}}
+    {{$btn-text}}General info{{/btn-text}}
+    {{$hint-content}}{{> wrong-click-basic}}{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+{{$hint-number}}2{{/hint-number}}
+    {{$btn-text}}What is wrong with the word?{{/btn-text}}
+    {{$hint-content}}It belongs to the wrong part-of-speech
+    ({{<colored-span}}
+        {{$span-color}}red{{/span-color}}
+        {{$span-text}}{{submission-pos}}{{/span-text}}
+    {{/colored-span}}).{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}3{{/hint-number}}
+    {{$btn-text}}What can I do better next time?{{/btn-text}}
+    {{$hint-content}}Avoid this category and take another look at the topic.{{/hint-content}}
+{{/hint-btn-and-hint}}

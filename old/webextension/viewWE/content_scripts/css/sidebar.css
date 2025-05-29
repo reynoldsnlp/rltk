@@ -1,0 +1,54 @@
+#wertiview-sidebar {
+    background-color: AliceBlue;
+    float: left;
+    font-family: Arial;
+    font-size: 16px;
+    margin-left: 5px;
+}
+
+#wertiview-sidebar-container {
+    background-color: AliceBlue;
+    position: fixed;
+    height: 100%;
+}
+
+#wertiview-split-bar {
+    background-color: black;
+    width: 6px;
+    height: inherit;
+    float: right;
+    cursor: col-resize;
+}
+
+#wertiview-sidebar-top {
+    background-color: AliceBlue;
+    height: 60%;
+    overflow: auto;
+    margin-left: 5px;
+}
+
+#wertiview-sidebar-top-bottom-split {
+    background-color: black;
+    width: 100%;
+    height: 6px;
+    cursor: row-resize;
+}
+
+#wertiview-sidebar-bottom {
+    overflow: auto;
+    height: 40%;
+    margin-left: 5px;
+}
+
+#wertiview-sidebar-top-header,
+#wertiview-sidebar-bottom-header {
+    font-size: 20px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#wertiview-sidebar-bottom div {
+    cursor: pointer;
+}

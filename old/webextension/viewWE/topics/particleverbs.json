@@ -1,0 +1,38 @@
+{
+  "title": "Particle Verbs",
+  "version": 2,
+  "languages": {
+    "de": {
+      "activities": {
+        "color": {
+          "instruction": {
+            "title": "Color",
+            "text": "Spot particle verbs"
+          }
+        },
+        "click": {
+          "instruction": {
+            "title": "Click",
+            "text": "Click on verbs and their particles"
+          }
+        },
+        "place": {
+          "instruction": {
+            "title": "Particle placement",
+            "text": "Place the particle in the correct position"
+          }
+        }
+      },
+      "targets": "particles",
+      "selections": [],
+      "features": {
+        "morphology": {
+          "pos": "spacy"
+        },
+        "syntax": {
+          "dependency": "spacy"
+        }
+      }
+    }
+  }
+}

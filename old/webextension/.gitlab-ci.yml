@@ -1,0 +1,50 @@
+image: adimit/docker-node-chromium:latest
+
+stages:
+  - setup
+  - test
+  - bundle
+
+cache:
+  key: "$CI_COMMIT_REF_NAME"
+  paths:
+    - "./node_modules"
+
+npm:
+  stage: setup
+  script:
+    - npm install
+  tags:
+    - node
+
+karma:
+  stage: test
+  script:
+    - npm run test:unit
+  tags:
+    - node
+    - chromium-headless
+
+chromium:
+  stage: bundle
+  script:
+    - npm install
+    - npm run build:chromium
+    - npm run bundle
+  artifacts:
+    paths:
+      - "./*.zip"
+  only:
+    - master
+
+firefox:
+  stage: bundle
+  script:
+    - npm install
+    - npm run build:firefox
+    - node_modules/.bin/web-ext sign -a . -s addon --api-key=${MOZILLA_USER} --api-secret=${MOZILLA_KEY} --id=${MOZILLA_ID}
+  only:
+    - tags
+  artifacts:
+    paths:
+      - "./*.xpi"

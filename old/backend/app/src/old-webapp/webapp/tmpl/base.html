@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>VIEW — {{$title}}{{/title}}</title>
+        <link type="text/css" href="/css/app.css" rel="stylesheet"/>
+    </head>
+    <body>
+        <div class="row">
+            <div id="header" class="columns small-16">
+                <h1 id="pageHeading">
+                    {{$header}}Welcome to VIEW{{/header}}
+                </h1>
+            </div>
+        </div>
+        <div class="row">
+            <div id="content" class="columns small-16">
+                {{$content}}{{/content}}
+            </div>
+        </div>
+        <div class="row">
+            <div class="columns small-16">
+                {{$footer}}
+                    {{> footer}}
+                {{/footer}}
+            </div>
+        </div>
+        <script src="/js/vendor.js"></script>
+        <script src="/js/view.js"></script>
+    </body>
+</html>

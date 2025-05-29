@@ -1,0 +1,40 @@
+.tooltip {
+    position: absolute;
+    z-index: 999;
+    left: -9999px;
+    background-color: #dedede;
+    padding: 5px;
+    border: 1px solid #fff;
+}
+
+.tooltip p {
+    margin: 0;
+    padding: 0;
+    color: #fff;
+    background-color: #222;
+    padding: 2px 7px;
+}
+
+.tooltip td {
+    padding: 5px;
+}
+
+.paradigm td {
+    padding: 2px;
+}
+
+span.disambiguated {
+    font-weight: bold;
+    background-color: #666600;
+}
+
+.tableClick {
+    color: #fff;
+    background-color: #222;
+    cursor: pointer;
+}
+
+.translations a {
+    color: #A1A1FF;
+    text-decoration: underline;
+}

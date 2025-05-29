@@ -1,0 +1,28 @@
+{{<hint-btn-and-hint}}
+    {{$hint-number}}1{{/hint-number}}
+    {{$btn-text}}General info{{/btn-text}}
+    {{$hint-content}}The declination of this word is irregular.<br>
+    Except of the nominative singular form, all other forms have a changed stem.<br>
+    For example the genitive singular form of отец (father) is
+    {{<colored-span}}
+        {{$span-color}}green{{/span-color}}
+        {{$span-text}}отца{{/span-text}}
+        {{/colored-span}} and not
+    {{<colored-span}}
+        {{$span-color}}red{{/span-color}}
+        {{$span-text}}отеца{{/span-text}}
+    {{/colored-span}}.{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}2{{/hint-number}}
+    {{$btn-text}}What is the cause of the irregularity?{{/btn-text}}
+    {{$hint-content}}The stem contains a fleeting vowel which can only be found in the<br>
+    nominative singular form.<br> Fleeting vowels are 'о' and 'е'.{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}3{{/hint-number}}
+    {{$btn-text}}Where is the fleeting vowel?{{/btn-text}}
+    {{$hint-content}}The
+    {{fleeting-vowel-position}}{{#isEq fleeting-vowel-position 1}}st{{/isEq}}{{#isEq fleeting-vowel-position 2}}nd{{/isEq}}{{#isEq fleeting-vowel-position 3}}rd{{/isEq}}{{#numExpr fleeting-vowel-position 3 op="gt"}}th{{/numExpr}}
+    letter is the fleeting vowel.{{/hint-content}}
+{{/hint-btn-and-hint}}

@@ -1,0 +1,63 @@
+{
+    "topic": "agreement",
+    "authors": [
+        "Aleksandar Dimitrov"
+    ],
+    "description": {
+        "title": "Agreement",
+        "text": "Practice <em>agreement</em> in case, number, or gender."
+    },
+    "pipelines": [
+        {
+            "language": "GERMAN",
+            "descriptor": "fit:RfTaggerGermanPipeline",
+            "configuration": {}
+        }
+    ],
+    "activities": [
+        {
+            "activity": "color",
+            "description": {
+                "title": "Colour",
+                "text": "Color nominal, genitive, dative and accusative case differently"
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": {}
+            }
+        },
+        {
+            "activity": "click",
+            "description": {
+                "title": "Click",
+                "text": "Click on a finite form and select which case/number/gender it is"
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": {}
+            }
+        },
+        {
+            "activity": "cloze",
+            "description": {
+                "title": "Fill in the Blanks",
+              "text": "Given a lemma and optionally case/number, type in the correct form."
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": {}
+            }
+        },
+        {
+            "activity": "mc",
+            "description": {
+                "title": "Multiple Choice",
+                "text": "Choose a form among the given ones."
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": {}
+            }
+        }
+    ]
+}

@@ -1,0 +1,101 @@
+{
+
+  "description": "VIEW is an intelligent computer-assisted language learning (ICALL) system designed to provide language learning activity resources.",
+  "homepage_url": "http://sifnos.sfs.uni-tuebingen.de/VIEW",
+  "manifest_version": 2,
+  "name": "VIEW",
+  "version": "1.0.3063",
+  
+  "icons": {
+      "48": "icons/view-48.png",
+      "64": "icons/view-64.png",
+      "96": "icons/view-96.png",
+      "128": "icons/view-128.png"
+    },
+ 
+  "browser_action": {
+    "browser_style": true,
+ 
+    "default_icon": {
+      "16": "icons/view-16.png",
+      "19": "icons/view-19.png",
+      "32": "icons/view-32.png",
+      "38": "icons/view-38.png",
+      "64": "icons/view-64.png"
+    }
+  },
+  
+  "background": {
+      "scripts": [
+      "lib/jquery-3.1.1.min.js", 
+      "background.js"
+      ]
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": [
+      "lib/jquery-ui.min.css", 
+      "content_scripts/interaction.css",
+      "content_scripts/view-menu.css",
+      "content_scripts/about.css",  
+      "content_scripts/notification.css", 
+      "content_scripts/sidebar.css", 
+      "content_scripts/tooltip.css"
+      ],
+      "js": [
+      "lib/jquery-3.1.1.min.js", 
+      "lib/jquery-ui.min.js",
+      "content_scripts/view.js", 
+      "content_scripts/interaction.js",
+      "content_scripts/view-menu.js",
+      "content_scripts/about.js",
+      "content_scripts/blur.js",
+      "content_scripts/notification.js",
+      "content_scripts/lib.js",
+      "content_scripts/sidebar.js",
+      "content_scripts/topics/ru/rusnouns.js",
+      "content_scripts/topics/ru/rusadjectives.js",
+      "content_scripts/topics/ru/rusverbs.js",
+      "content_scripts/topics/ru/rusverbaspect.js",
+      "content_scripts/topics/ru/rusparticiples.js",
+      "content_scripts/topics/ru/ruswordstress.js",
+      "content_scripts/topics/ru/rusassistivereading.js",
+      "content_scripts/topics/es/serestar.js",
+      "content_scripts/topics/en/pos.js",      
+      "content_scripts/topics/en/gerunds.js",      
+      "content_scripts/topics/en/nouncountability.js",      
+      "content_scripts/topics/en/phrasalverbs.js",
+      "content_scripts/topics/en/whquestions.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "options_ui": {
+    "page": "options/options.html"
+  },
+
+  "permissions": [
+    "tabs",
+    "storage",
+    "notifications",
+    "cookies",
+    "*://sifnos.sfs.uni-tuebingen.de/*",
+    "*://view.aleks.bg/*"
+  ], 
+  
+  "web_accessible_resources": [
+  	"toolbar/toolbar.html",
+    "content_scripts/about.html",
+    "content_scripts/interaction.html",
+    "content_scripts/view-menu.html",
+    "icons/view-128.png",
+    "icons/loading.gif",
+    "topics/en/articles.json",
+    "topics/en/determiners.json",
+    "topics/de/determiners.json"
+  ]  
+
+}

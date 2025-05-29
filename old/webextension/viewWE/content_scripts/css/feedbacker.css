@@ -1,0 +1,82 @@
+.ui-dialog {
+    min-width: 10%;
+}
+
+/* Style the buttons that are used to open and close the accordion panel */
+.feedback-hint-btn,
+#feedback-rule-btn {
+    background-color: #eee;
+    color: #444;
+    cursor: pointer;
+    padding: 5px;
+    width: 100%;
+    text-align: left;
+    border: none;
+    outline: none;
+    transition: 0.4s;
+}
+
+.feedback-hint-btn:after,
+#feedback-rule-btn:after {
+    content: "\02795"; /* Unicode character for "plus" sign (+) */
+    font-size: 13px;
+    color: #777;
+    float: left;
+    margin-right: 5px;
+}
+
+.feedback-hint-btn.active:after,
+#feedback-rule-btn.active:after {
+    content: "\2796"; /* Unicode character for "minus" sign (-) */
+}
+
+.feedback-hint-btn,
+.feedback-hint,
+#feedback-rule {
+    display: none;
+}
+
+.hint-answer-style-substitution,
+.feedback-style-blue {
+    color: blue;
+}
+
+.hint-answer-style-insertion {
+    background: yellow;
+}
+
+.hint-answer-style-deletion,
+.feedback-style-red {
+    color: red;
+}
+
+.feedback-style-green {
+    color: green;
+}
+
+#feedback-case-table  {
+    border-collapse:collapse;
+    border-spacing:0;
+}
+
+#feedback-case-table td,
+#feedback-case-table th {
+    font-family:Arial, sans-serif;
+    font-size:14px;
+    padding:10px 5px;
+    overflow:hidden;
+    word-break:normal;
+    border: 1px solid #999;
+    text-align:center;
+    vertical-align:top
+}
+
+#feedback-case-table td{
+    color:#444;
+    background-color:#F7FDFA;
+}
+
+#feedback-case-table th{
+    color:#fff;
+    background-color:#26ADE4;
+}

@@ -1,0 +1,18 @@
+version: "2"
+
+services:
+  tomcat:
+    image: reynoldsnlp/view-tomcat:latest
+    volumes:
+      - ./app/target/VIEW:/usr/local/tomcat/webapps/ROOT:z
+      - ./db/:/usr/local/view/db:z
+    ports:
+      - "8080:8080"
+    environment:
+      VIRTUAL_HOST: "view.*"
+      VIRTUAL_PORT: 8080
+      CERT_NAME: "dev"
+      JAVA_OPTS: "-Xmx4g -Xms4g -XX:MaxPermSize=2g"
+      JVM_OPTS: "-Xmx4g -Xms4g -XX:MaxPermSize=2g"
+    networks:
+      - default

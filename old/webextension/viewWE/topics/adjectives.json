@@ -1,0 +1,57 @@
+{
+  "ru": {
+    "filters": {
+      "all": {
+        "id": "wertiview-toolbar-filter-all",
+        "val": "all",
+        "text": "All"
+      },
+      "feminine": {
+        "id": "wertiview-toolbar-filter-Fem",
+        "val": "Fem",
+        "text": "Feminine"
+      },
+      "masculine": {
+        "id": "wertiview-toolbar-filter-Msc",
+        "val": "Msc",
+        "text": "Masculine"
+      },
+      "neutral": {
+        "id": "wertiview-toolbar-filter-Neu",
+        "val": "Neu",
+        "text": "Neutral"
+      },
+      "MFN": {
+        "id": "wertiview-toolbar-filter-MFN",
+        "val": "MFN",
+        "text": "No Gender"
+      }
+    },
+    "activities": {
+      "color": {
+        "instruction": {
+          "title": "Color",
+          "text": "In the text, VIEW shows you the <span class='colorize-style-adjectives'>Russian adjectives</span>."
+        }
+      },
+      "click": {
+        "instruction": {
+          "title": "Click",
+          "text": "Click on each Russian adjective you find in the text and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>."
+        }
+      },
+      "mc": {
+        "instruction": {
+          "title": "Multiple Choice",
+          "text": "Choose a Russian adjective from the drop-down list and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>. You can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      },
+      "cloze": {
+        "instruction": {
+          "title": "Fill in the blanks",
+          "text": "Fill in the blanks with the <font color='green'><b>correct</b></font> Russian adjective. If you guessed <span class='click-style-incorrect'>wrong</span> or you find it too difficult you can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      }
+    }
+  }
+}

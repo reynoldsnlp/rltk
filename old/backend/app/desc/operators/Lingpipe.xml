@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<analysisEngineDescription xmlns="http://uima.apache.org/resourceSpecifier">
+  <frameworkImplementation>org.apache.uima.java</frameworkImplementation>
+  <primitive>false</primitive>
+  <delegateAnalysisEngineSpecifiers>
+    <delegateAnalysisEngine key="OpenNlpSentenceDetector">
+      <import location="../annotators/OpenNlpSentenceDetector.xml"/>
+    </delegateAnalysisEngine>
+    <delegateAnalysisEngine key="DummyHTMLSentenceAnnotator">
+      <import location="../annotators/DummyHTMLSentenceAnnotator.xml"/>
+    </delegateAnalysisEngine>
+    <delegateAnalysisEngine key="LGPTagger">
+      <import location="../annotators/taggers/LGPTagger.xml"/>
+    </delegateAnalysisEngine>
+    <delegateAnalysisEngine key="LGPTokenizer">
+      <import location="../annotators/LGPTokenizer.xml"/>
+    </delegateAnalysisEngine>
+  </delegateAnalysisEngineSpecifiers>
+  <analysisEngineMetaData>
+    <name>LingPipeTester</name>
+    <description/>
+    <version>1.0</version>
+    <vendor/>
+	<configurationParameters>
+	</configurationParameters>
+    <configurationParameterSettings>
+    </configurationParameterSettings>
+    <flowConstraints>
+      <fixedFlow>
+        <node>EnhanceXMLAnnotator</node>
+        <node>GenericRelevanceAnnotator</node>
+        <node>LGPTokenizer</node>
+        <node>OpenNlpSentenceDetector</node>
+        <node>DummyHTMLSentenceAnnotator</node>
+        <node>LGPTagger</node>
+      </fixedFlow>
+    </flowConstraints>
+    <fsIndexCollection/>
+    <capabilities>
+      <capability>
+        <inputs/>
+        <outputs/>
+        <languagesSupported/>
+      </capability>
+    </capabilities>
+    <operationalProperties>
+      <modifiesCas>true</modifiesCas>
+      <multipleDeploymentAllowed>true</multipleDeploymentAllowed>
+      <outputsNewCASes>false</outputsNewCASes>
+    </operationalProperties>
+  </analysisEngineMetaData>
+  <resourceManagerConfiguration/>
+</analysisEngineDescription>

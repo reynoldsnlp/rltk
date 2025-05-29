@@ -1,0 +1,14 @@
+@import "foundation";
+@import "settings";
+
+@include foundation-grid;
+@include foundation-global-styles;
+@include foundation-typography;
+@include foundation-forms;
+@include foundation-switch;
+@include foundation-accordion;
+@include foundation-button;
+@include foundation-float-classes;
+@include foundation-visibility-classes;
+
+@import "main";

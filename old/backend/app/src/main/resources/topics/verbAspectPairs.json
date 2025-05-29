@@ -1,0 +1,73 @@
+{
+    "topic": "verb-aspect-pairs",
+    "authors": [
+        "Eduard Schaf"
+    ],
+    "description": {
+        "title": "Russian Verbs",
+        "text": "Practice <em>Russian Aspect Pairs</em>."
+    },
+    "pipelines": [
+        {
+            "language": "RUSSIAN",
+            "descriptor": "desc/operators/HFSTRusVerbAspectPairPipe",
+            "configuration": {
+                "isWithTrace": "false",
+                "language": "ru"
+            },
+            "select": [
+                {
+                    "type": "werti.uima.types.annot.Token",
+                    "with": {},
+                    "without": {}
+                }
+            ]
+        }
+    ],
+    "activities": [
+        {
+            "activity": "color",
+            "description": {
+                "title": "Colour",
+                "text": "In the text, VIEW shows you the Russian perfective verbs in <font color='#ff8200'><b>orange</b></font> and the Russian imperfective verbs in <font color='#A020F0'><b>purple</b></font>."
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": { "type": "hit ambiguity"}
+            }
+        },
+        {
+            "activity": "click",
+            "description": {
+                "title": "Click",
+                "text": "Click on each Russian verb you find in the text and VIEW will show you whether you guessed <font color='green'><b>right</b></font> or <font color='red'><b>wrong</b></font>."
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.EnhancementsAndTokens",
+                "configuration": { "type": "hit ambiguity" }
+            }
+        },
+        {
+            "activity": "cloze",
+            "description": {
+                "title": "Fill in the Blanks",
+              "text": "Fill in the blanks with the <font color='green'><b>correct</b></font> Russian verb. If you guessed <font color='red'><b>wrong</b></font> or you find it too difficult you can get help by clicking on <span class='clozeStyleHint'>?</span>."
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": { "type": "hit" }
+            }
+        },
+        {
+            "activity": "mc",
+            "description": {
+                "title": "Multiple Choice",
+                "text": "Choose a Russian verb from the drop-down list and VIEW will show you whether you guessed <font color='green'><b>right</b></font> or <font color='red'><b>wrong</b></font>. You can get help by clicking on <span class='clozeStyleHint'>?</span>."
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": { "type": "hit" }
+            }
+        }
+    ]
+}

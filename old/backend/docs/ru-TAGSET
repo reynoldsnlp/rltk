@@ -1,0 +1,122 @@
+This file is a manual copy from part of Gieallatekno's source file:
+https://victorio.uit.no/langtech/trunk/langs/rus/src/morphology/root.lexc
+Therefore, it may be out of date. The file in GT's repo is the up-to-date version.
+
+!! !!POS
++A      !!= * @CODE@ = Adjective
++Abbr   !!= * @CODE@ = Abbreviation
++Adv    !!= * @CODE@ = Adverb
++CC     !!= * @CODE@ = Coordinating conjunction
++CS     !!= * @CODE@ = Subordinating conjunction
++Det    !!= * @CODE@ = Determiner
++Interj !!= * @CODE@ = Interjection
++N      !!= * @CODE@ = Noun
++Num    !!= * @CODE@ = Numeral
++Paren  !!= * @CODE@ = Parenthetical вводное слово
++Pcle   !!= * @CODE@ = Particle
++Po     !!= * @CODE@ = Postposition (ради is the only postposition)
++Pr     !!= * @CODE@ = Preposition
++Pron   !!= * @CODE@ = Pronoun
++V      !!= * @CODE@ = Verb
+
+!! !!Sub-POS
++All    !!= * @CODE@ = All: весь
++Coll   !!= * @CODE@ = Collective numerals
++Def    !!= * @CODE@ = Definite
++Dem    !!= * @CODE@ = Demonstrative
++Indef  !!= * @CODE@ = Indefinite: кто-то, кто-нибудь, кто-либо, кое-кто, etc.
++Interr !!= * @CODE@ = Interrogative: кто, что, какой, ли, etc.
++Neg    !!= * @CODE@ = Negative: никто, некого, etc.
++Pers   !!= * @CODE@ = Personal
++Pos    !!= * @CODE@ = Possessive, e.g. его, наш
++Prcnt  !!= * @CODE@ = Percent
++Prop   !!= * @CODE@ = Proper
++Recip  !!= * @CODE@ = Reciprocal: друг друга
++Refl   !!= * @CODE@ = Pronoun себя, possessive свой
++Rel    !!= * @CODE@ = Relativizer, e.g. который, где, как, куда, сколько, etc.
+
+!! !!Verbal MSP
++Impf +Perf       !!= * @CODE@ = Imperfective, perfective
++IV +TV           !!= * @CODE@ = Intransitive, transitive (Zaliznjak does not mark trans-only, so transitive verbs all have both TV and IV)
++Inf +Imp         !!= * @CODE@ = Imperatives: 2nd person = читай, 1st person = прочитаем
++Pst +Prs +Fut    !!= * @CODE@ = Past, present, future
++Sg1 +Sg2 +Sg3    !!= * @CODE@ = person sg
++Pl1 +Pl2 +Pl3    !!= * @CODE@ = person pl
++PrsAct +PrsPss   !!= * @CODE@ = Participles (+PrsAct+Adv and +PstAct+Adv are used for the verbal adverbs)
++PstAct +PstPss   !!= * @CODE@ = Participles
++Pass             !!= * @CODE@ = Passive
++Imprs            !!= * @CODE@ = Impersonal (cannot have explicit subject)
+
+!! !!Nominal MSP
++Msc +Fem +Neu +MFN  !!= * @CODE@ = grammatical gender,  +MFN = gender unspecifiable (pl tantum)
++Inan +Anim +AnIn    !!= * @CODE@ = animacy (+AnIn = ambivalent animacy for non-accusative modifiers)
++Sem/Sur +Sem/Pat    !!= * @CODE@ = Surname (фамилия), Patronymic
++Sem/Ant +Sem/Alt    !!= * @CODE@ = Anthroponym/Given name, Other
++Sg +Pl              !!= * @CODE@ = number
++Nom +Acc +Gen       !!= * @CODE@
++Loc +Dat +Ins       !!= * @CODE@
++Loc2 +Gen2 +Voc     !!= * @CODE@
++Count               !!= * @CODE@ = Count (for человек/людей or лет/годов, etc. also шага́/шара́/часа́/etc.)
++Ord    !!= * @CODE@  = Ordinal
++Cmpar  !!= * @CODE@  = Comparative
++Sint   !!= * @CODE@  = Synthetic comparative is possible, e.g. старее
++Pred   !!= * @CODE@  = "Predicate", also used for short-form adjectives
++Cmpnd  !!= * @CODE@  = "Compound", used for compounding adjectives, such as русско-английский
++Att    !!= * @CODE@  = Attenuative comparatives like получше, поновее, etc.
+
+!! !!Punctuation
++SENT   !!= * @CODE@ = Clause boundary
++COMMA  !!= * @CODE@ = Comma
++DASH   !!= * @CODE@ = Dash
++LQUOT   !!= * @CODE@ = Left quotation
++RQUOT   !!= * @CODE@ = Right quotation
++QUOT   !!= * @CODE@ = 'Ambidextrous' quotation
++LPAR    !!= * @CODE@ = Left parenthesis/bracket
++RPAR    !!= * @CODE@ = Right parenthesis/bracket
+
+!! !!Other tags
++Prb     !!= * @CODE@ = +Prb(lematic): затруднительно - предположительно - нет
++Fac     !!= * @CODE@ = Facultative
++PObj    !!= * @CODE@ = Object of preposition (epenthetic н: него нее них) TODO FIX WITHFRAN merge PObj and Epenth > Epenth? Sandhi?
++Epenth  !!= * @CODE@ = epenthesis on prepositions (о~об~обо or в~во)      TODO FIX WITHFRAN merge PObj and Epenth > Epenth? Sandhi?
++Leng    !!= * @CODE@ = Lengthened доброй~доброю (marks less-canonical wordform that has more syllables)
++Elid    !!= * @CODE@ = Elided (Иванович~Иваныч, новее~новей, чтобы~чтоб, или~иль, коли~коль)
++Use/NG  !!= * @CODE@ = Do not generate (used for apertium, etc.)
++Use/Obs !!= * @CODE@ = Obsolete
++Use/Ant !!= * @CODE@ = Antiquated "устаревшее"
++Err/Orth !!= * @CODE@ = Substandard
++Err/L2_Pal  !!= * @CODE@ = L2 error: failure to place soft-indicating symbol after soft stem, e.g. земла (compare земля)
++Err/L2_FV   !!= * @CODE@ = L2 error: presence of fleeting vowel where it should be deleted, e.g. отеца (compare отца)
++Err/L2_NoFV !!= * @CODE@ = L2 error: lack of fleeting vowel where it should be inserted, e.g. окн (compare окон)
+
+
+! More use tags:
+! ласкательное - +Use/Aff(ectionate)
+! литературное - +Use/Lit(erary)
+! народнопоэтическое - +Use/Flk (folk poetry)
+! областное - +Use/Dia(lectal)
+! поэтический - +Use/Poet(ic)
+! просторечное - +Err/Orth(standard)
+! профессиональо - +Use/Prof(essional)
+! старинное - +Use/Anc(ient)
+! увеличительное - +Use/Aug(mentative)
+! уменьшительное - +Use/Dim(inutive)
+! устаревающее - +Use/Old (going out of date)
+! устаревшее - +Use/Ant(iquated)
+! anatomical - +Use/Anat
+! biological - +Use/Bio
+! botanical - +Use/Bot
+! geological - +Use/Geo
+! grammatical - +Use/Gram
+! zoological - +Use/Zoo
+! historical - +Use/Hist(orical)
+! mathematical - +Use/Math
+! medical - +Use/Med
+! musical - +Use/Mus
+! agriculatural - +Use/Agr
+! technical - +Use/Tech
+! chemical - +Use/Chem
+! church - +Use/Relig
+! law - +Use/Law
+! etc. +Use/Mari(time)
+

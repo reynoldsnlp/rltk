@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<!-- Single configuration file for an activity. -->
+<!-- <!DOCTYPE activity SYSTEM "../../../../../../main/webapp/activities/activity.dtd"> -->
+<activity version="0.1" enabled="yes">
+  <meta>
+    <name>Test Activity</name>
+    <author>Aleksandar Dimitrov</author>
+  </meta>
+  <client-cfg>
+    <entry key="TestProperty" value="TestValue" overridable="yes"/>
+    <entry key="NonOverridable" value="Constant" overridable="no"/>
+  </client-cfg>
+  <server-cfg>
+    <lang code="en">
+      <pre>
+        <pipeline desc="/operators/TestOperator.xml"/>
+        <entry key="TestProperty" value="TestValue" overridable="yes"/>
+        <entry key="NonOverridable" value="Constant" overridable="no"/>
+      </pre>
+    </lang>
+    <lang code="es">
+      <pre>
+        <pipeline desc="/operators/TestOperator2.xml"/>
+        <entry key="TokenEnhancer_Tags" value="ART,DM" overridable="yes"/>
+        <entry key="TokenEnhancer_UseLemmaFilter" value="true" overridable="yes"/>
+      </pre>
+    </lang>
+  </server-cfg>
+</activity>

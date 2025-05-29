@@ -1,0 +1,12 @@
+{
+  "ru": {
+    "activities": {
+      "click": {
+        "instruction": {
+          "title": "Click",
+          "text": "By clicking on a Russian word, VIEW will show you the paradigm of the readings with all possible readings bolded and point out the ruled out readings."
+        }
+      }
+    }
+  }
+}

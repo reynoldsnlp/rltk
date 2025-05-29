@@ -1,0 +1,30 @@
+{
+  "ru": {
+    "activities": {
+      "color": {
+        "instruction": {
+          "title": "Mark Stress",
+          "text": "In the text, VIEW shows you the <span class='colorize-style-word-stress'>stress of Russian words</span>."
+        }
+      },
+      "click": {
+        "instruction": {
+          "title": "Click",
+          "text": "Click on each stressed vowel in the Russian words you find in the text and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>."
+        }
+      },
+      "mc": {
+        "instruction": {
+          "title": "Multiple Choice",
+          "text": "Choose a Russian word with the correct stress from the drop-down list and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>. You can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      },
+      "cloze": {
+        "instruction": {
+          "title": "Hover",
+          "text": "VIEW will show you the <span class='click-style-correct'>correct</span> stress for the Russian word marked in <span class='click-style-correct'>green</span> when you hover over it."
+        }
+      }
+    }
+  }
+}

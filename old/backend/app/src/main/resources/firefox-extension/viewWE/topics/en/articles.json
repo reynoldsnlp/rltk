@@ -1,0 +1,53 @@
+{
+    "topic": "articles",
+    "authors": [
+        "Adriane Boyd"
+    ],
+    "description": {
+        "title": "Articles",
+        "text": "<p>The <b>articles</b> topic just highlights the use of the words <i>a, an, the</i>. If you'd like to practice with more types of articles and determiners, try the <a href=\"/#en-determiners-panel\">determiners</a> topic.</p>"
+    },
+    "pipelines": [
+        {
+            "language": "ENGLISH",
+            "descriptor": "desc/operators/OpenNlpTokenizerPipe",
+            "configuration": {
+                "WordEnhancer_Words": "a,an,the"
+            }
+        }
+    ],
+    "activities": [
+        {
+            "activity": "color",
+            "requiresTokens": false,
+            "description": {
+                "title": "Color",
+                "text": "In the text, VIEW shows you the articles <i>a, an, the</i> in <font color=\"#ff8200\"><b>orange</b></font>."
+            }
+        },
+        {
+            "activity": "click",
+            "requiresTokens": true,
+            "description": {
+                "title": "Click",
+                "text": "Click on each article you find in the text and VIEW will show you whether you guessed <font color='green'><b>right</b></font> or <font color='red'><b>wrong</b></font>."
+            }
+        },
+        {
+            "activity": "mc",
+            "requiresTokens": false,
+            "description": {
+                "title": "Multiple Choice",
+                "text": "Choose an article from the drop-down list and VIEW will show you whether you guessed <font color='green'><b>right</b></font> or <font color='red'><b>wrong</b></font>. You can get help by clicking on <span class='clozeStyleHint'>?</span>."
+            }
+        },
+        {
+            "activity": "cloze",
+            "requiresTokens": false,
+            "description": {
+                "title": "Practice",
+                "text": "Fill in the blanks with the <font color='green'><b>correct</b></font> article. If you guessed <font color='red'><b>wrong</b></font> or you find it too difficult you can get help by clicking on <span class='clozeStyleHint'>?</span>."
+            }
+        }
+    ]
+}

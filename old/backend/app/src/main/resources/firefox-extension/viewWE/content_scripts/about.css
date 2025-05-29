@@ -1,0 +1,21 @@
+.ui-dialog {
+	position: fixed;
+}
+
+#view-title, 
+#view-version {
+	color: white;
+}
+
+#view-icon {
+	float: left;
+    margin-right: 20px;
+}
+
+#view-icon-container {
+	overflow: auto;
+}
+
+#homepage {
+	margin-left: 5em;
+}

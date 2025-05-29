@@ -1,0 +1,71 @@
+#wertiview-notification {
+	position: fixed;
+	bottom: 30px;
+	right: 30px;
+	min-height: 60px;
+	width: 300px;
+	background: #333333;
+	-moz-border-radius: 5px;
+	border-radius: 5px;
+	border: 1px solid #999999;
+	z-index: 9999;
+	display: none;
+}
+
+#wertiview-notification-message {
+	padding: 10px;
+	color: #eeeeee;
+	display: block;
+	font-family: sans-serif;
+	font-size: 12pt;
+	position: relative;
+	text-align: left;
+	display: none;
+}
+
+#wertiview-inst-notification {
+	position: fixed;
+	background: white;
+	-moz-border-radius: 5px;
+	border-radius: 5px;
+	border: 1px solid #999999;
+	z-index: 9999;
+	font-size : 12pt;
+	padding : 5px;
+	top : 0px;
+	left : 0px;
+	display: none;
+}
+
+#wertiview-inst-message {
+	padding: 10px;
+	color: black;
+	display: block;
+	font-family: sans-serif;
+	font-size: 120%;
+	position: relative;
+}
+
+#wertiview-inst-click-ok {
+	color: black;
+	display: inline;
+	font-family: sans-serif;
+	font-size: 100%;
+	position: relative;
+	margin : auto;
+	width : 50px;
+	padding: 1px;
+	background: lightgray;
+	-moz-border-radius: 5px;
+	border: 1px solid black;
+	text-align: center;
+	cursor: pointer;
+}
+
+#wertiview-inst-button {
+	text-align: center;
+}
+
+#wertiview-inst-check-dontagain {
+	cursor: pointer;
+}

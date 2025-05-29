@@ -1,0 +1,21 @@
+{{<hint-btn-and-hint}}
+    {{$hint-number}}1{{/hint-number}}
+    {{$btn-text}}General info{{/btn-text}}
+    {{$hint-content}}The category (part-of-speech) is correct, but you
+    should think about your word choice.{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}2{{/hint-number}}
+    {{$btn-text}}What is the lemma of my submission?{{/btn-text}}
+    {{$hint-content}}The lemma of your submission is:
+    {{<colored-span}}
+        {{$span-color}}red{{/span-color}}
+        {{$span-text}}{{submission-lemma}}{{/span-text}}
+    {{/colored-span}}{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}3{{/hint-number}}
+    {{$btn-text}}Which lemma should it have?{{/btn-text}}
+    {{$hint-content}}Take a look at the word next to the input field.<br>
+    Your submission should be one form of this word.{{/hint-content}}
+{{/hint-btn-and-hint}}

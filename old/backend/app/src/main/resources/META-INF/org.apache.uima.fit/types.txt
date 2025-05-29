@@ -1,0 +1,2 @@
+classpath*:werti/WERTiTypeSystem.xml
+classpath*:werti/vislcg3TypeSystem.xml

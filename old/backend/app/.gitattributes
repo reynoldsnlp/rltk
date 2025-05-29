@@ -1,0 +1,15 @@
+*.bin.gz filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.ohfst filter=lfs diff=lfs merge=lfs -text
+*.hfstol filter=lfs diff=lfs merge=lfs -text
+*.ser filter=lfs diff=lfs merge=lfs -text
+*.HiddenMarkovModel filter=lfs diff=lfs merge=lfs -text
+*.mco filter=lfs diff=lfs merge=lfs -text
+*.events filter=lfs diff=lfs merge=lfs -text
+*.fem filter=lfs diff=lfs merge=lfs -text
+*.mas filter=lfs diff=lfs merge=lfs -text
+tagdict filter=lfs diff=lfs merge=lfs -text
+head_rules filter=lfs diff=lfs merge=lfs -text
+acronyms filter=lfs diff=lfs merge=lfs -text
+*.obj.gz filter=lfs diff=lfs merge=lfs -text
+*.par filter=lfs diff=lfs merge=lfs -text

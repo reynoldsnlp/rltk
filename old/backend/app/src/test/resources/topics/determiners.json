@@ -1,0 +1,57 @@
+{
+    "topic": "determiners",
+    "authors": [
+        "Detmar Meurers",
+        "Aleksandar Dimitrov",
+        "Niels Ott",
+        "Ramon Ziai"
+    ],
+    "description": {
+        "title": "Practice determiners.",
+        "text": "Practice <em>determiners</em>."
+    },
+    "pipelines": [
+        {
+            "language": "ENGLISH",
+            "descriptor": "desc/operators/Lingpipe",
+            "configuration": {
+                "partOfSpeech": "at;dt;dti;dts;dtx"
+            }
+        }
+    ],
+    "activities": [
+        {
+            "activity": "color",
+            "description": {
+                "title": "Color",
+                "text": "In the text, VIEW shows you the determiners in <font color='#2222FF'><b>blue</b></font>."
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": {}
+            }
+        },
+        {
+            "activity": "click",
+            "description": {
+                "title": "Click",
+                "text": "Click on each determiner you find in the text and VIEW will show you whether you guessed <font color='green'><b>right</b></font> or <font color='red'><b>wrong</b></font>."
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.EnhancementsAndTokens",
+                "configuration": {}
+            }
+        },
+        {
+            "activity": "multipleChoice",
+            "description": {
+                "title": "Multiple Choice",
+                "text": "Multiple choice"
+            },
+            "enhance": {
+                "with": "werti.uima.enhancer.Enhancements",
+                "configuration": {}
+            }
+        }
+    ]
+}

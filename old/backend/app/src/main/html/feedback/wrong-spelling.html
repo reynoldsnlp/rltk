@@ -1,0 +1,22 @@
+{{<hint-btn-and-hint}}
+    {{$hint-number}}1{{/hint-number}}
+    {{$btn-text}}General info{{/btn-text}}
+    {{$hint-content}}Your submission is not an existing word.<br>
+    Maybe you misspelled the ending or some other part of the word?{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}2{{/hint-number}}
+    {{$btn-text}}How many mistakes did I make?{{/btn-text}}
+    {{$hint-content}}{{#isEq edit-distance 1}}There is a slight spelling mistake.<br>
+    You only have to {{spelling-correction}} one letter.{{/isEq}}{{#isEq edit-distance 2}}There
+    should be two spelling mistakes.{{/isEq}}{{#numExpr edit-distance 2 op="gt"}}There are more
+    than two spelling mistakes ({{edit-distance}}).<br>
+    Your submission might be too far from the correct answer.{{/numExpr}}{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}3{{/hint-number}}
+    {{$btn-text}}Show the spelling correction{{/btn-text}}
+    {{$hint-content}}Let me help you correct your spelling mistake:<br>
+    {{& hint-answer}}<br>
+    {{> legend}}{{/hint-content}}
+{{/hint-btn-and-hint}}

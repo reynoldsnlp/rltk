@@ -1,0 +1,47 @@
+{
+  "ru": {
+    "filters": {
+      "all": {
+        "id": "wertiview-toolbar-filter-all",
+        "val": "all",
+        "text": "All"
+      },
+      "imperfective": {
+        "id": "wertiview-toolbar-filter-Impf",
+        "val": "Impf",
+        "text": "Imperfective"
+      },
+      "perfective": {
+        "id": "wertiview-toolbar-filter-Perf",
+        "val": "Perf",
+        "text": "Perfective"
+      }
+    },
+    "activities": {
+      "color": {
+        "instruction": {
+          "title": "Color",
+          "text": "In the text, VIEW shows you the <span class='colorize-style-verb-perfective-aspect'>Russian perfective verbs</span> and the <span class='colorize-style-verb-imperfective-aspect'>Russian imperfective verbs</span>."
+        }
+      },
+      "click": {
+        "instruction": {
+          "title": "Click",
+          "text": "Click on each Russian verb you find in the text and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>."
+        }
+      },
+      "mc": {
+        "instruction": {
+          "title": "Multiple Choice",
+          "text": "Choose a Russian verb from the drop-down list and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>. You can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      },
+      "cloze": {
+        "instruction": {
+          "title": "Fill in the blanks",
+          "text": "Fill in the blanks with the <font color='green'><b>correct</b></font> Russian verb. If you guessed <span class='click-style-incorrect'>wrong</span> or you find it too difficult you can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      }
+    }
+  }
+}

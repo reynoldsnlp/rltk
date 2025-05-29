@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>VIEW: Sign in with your OpenID</title>
+<script src="../js-lib/jquery-1.4.2.min.js"></script>
+<script src="../js-lib/view.js"></script>
+<script src="../js-lib/cookies.js"></script>
+<script>
+// <!--
+function main() {
+	// set the action URL for the form
+	var form = document.getElementById('openid-form-sign-in');
+	form.action = wertiview.serverURL + "/VIEW";
+
+	// check if cookies are enabled
+	var divCookiesOn = document.getElementById('if-cookies-enabled');
+	var divCookiesOff = document.getElementById('if-cookies-disabled');
+	if (wertiview.cookies.areCookiesEnabled(document, wertiview.COOKIE_PATH)) {
+		divCookiesOn.style.display = 'block';
+		divCookiesOff.style.display = 'none';
+	}
+	else {
+		divCookiesOn.style.display = 'none';
+		divCookiesOff.style.display = 'block';
+		var span = document.getElementById("server-url");
+		span.innerHTML = wertiview.serverURL;
+	}
+}
+// -->
+</script>
+<meta http-equiv="Content-Type"
+	content="application/xhtml+xml; charset=UTF-8" />
+<link type="text/css" href="/VIEW/view.css" rel="stylesheet" />
+</head>
+<body onload="main()">
+	<div id="wrapper">
+		<div id="main">
+			<div id="mainpartwrapper">
+				<div id="mainpart">
+					<div id="if-cookies-enabled">
+						<h1>Sign in with your OpenID</h1>
+						<form id="openid-form-sign-in" name="openid-form-sign-in"
+							action='' method="get" accept-charset="utf-8">
+							<p>
+								<input id="openid-input-userid" type="hidden" name="openid_authentication" value="true" />
+							</p>
+							<p>
+								Your OpenID: <input type="text" name="user_openid" size="30" />&nbsp; <a
+									href="http://openid.net/">What is OpenID?</a>
+							</p>
+							<p>The next page will ask you for your password.</p>
+							<p>
+								<input type="submit" value="Next" />
+							</p>
+						</form>
+					</div>
+					<div id="if-cookies-disabled" style="display: none;">
+						<h1>Cookies Required</h1>
+						<p>
+							You have cookies disabled in your browser, but
+							they need to be enabled for signing in with OpenID.
+							Please enable cookies either for all websites or
+							only for <span id="server-url"></span>
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

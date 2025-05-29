@@ -1,0 +1,43 @@
+{{<base}}
+    {{$content}}
+        {{#view}}
+        <div class="row">
+            <label>Choose a language:
+                <select>{{#languages}}
+                    <option value="{{toString}}">
+                        {{humanLabel}}
+                    </option>
+                    {{/languages}}</select>
+            </label>
+        </div>
+        <div class="row">
+            <label>Target:
+                <input id="target-input" type="text" placeholder="URL or search term" aria-describedby="urlHelpText" data-abide-ignore>
+            </label>
+            <p class="help-text" id="urlHelpText">You can paste a URL or just search for a topic.</p>
+        </div>
+        <div class="row">
+            <h2>Available activities:</h2>
+            <ul class="accordion" data-accordion role="tablist">{{#activities}}
+                <li class="accordion-item {{#iter.isFirst}}is-active{{/iter.isFirst}}"
+                    data-available-for="{{availableLanguages}}">
+                    <a href="#activity{{iter.index}}-panel"
+                       role="tab"
+                       class="accordion-title"
+                       id="activity{{iter.index}}-panel-heading"
+                       aria-controls="activity{{iter.index}}-panel">
+                        {{name}}
+                    </a>
+                    <div id="activity{{iter.index}}-panel"
+                         class="accordion-content"
+                         role="tabpanel"
+                         data-tab-content
+                         aria-labelledby="activity{{iter.index}}-panel-heading">
+                        {{{content}}}
+                    </div>
+                </li>
+            {{/activities}}</ul>
+        </div>
+        {{/view}}
+    {{/content}}
+{{/base}}

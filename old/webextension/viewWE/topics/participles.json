@@ -1,0 +1,57 @@
+{
+  "ru": {
+    "filters": {
+      "all": {
+        "id": "wertiview-toolbar-filter-all",
+        "val": "all",
+        "text": "All"
+      },
+      "present-active": {
+        "id": "wertiview-toolbar-filter-PrsAct",
+        "val": "PrsAct",
+        "text": "Present Active"
+      },
+      "present-passive": {
+        "id": "wertiview-toolbar-filter-PrsPss",
+        "val": "PrsPss",
+        "text": "Present Passive"
+      },
+      "past-active": {
+        "id": "wertiview-toolbar-filter-PstAct",
+        "val": "PstAct",
+        "text": "Past Active"
+      },
+      "past-passive": {
+        "id": "wertiview-toolbar-filter-PstPss",
+        "val": "PstPss",
+        "text": "Past Passive"
+      }
+    },
+    "activities": {
+      "color": {
+        "instruction": {
+          "title": "Color",
+          "text": "In the text, VIEW shows you the <span class='colorize-style-participles'>Russian participles</span>."
+        }
+      },
+      "click": {
+        "instruction": {
+          "title": "Click",
+          "text": "Click on each Russian participle you find in the text and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>."
+        }
+      },
+      "mc": {
+        "instruction": {
+          "title": "Multiple Choice",
+          "text": "Choose a Russian participle from the drop-down list and VIEW will show you whether you guessed <span class='click-style-correct'>right</span> or <span class='click-style-incorrect'>wrong</span>. You can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      },
+      "cloze": {
+        "instruction": {
+          "title": "Fill in the blanks",
+          "text": "Fill in the blanks with the <font color='green'><b>correct</b></font> Russian participle. If you guessed <span class='click-style-incorrect'>wrong</span> or you find it too difficult you can get help by clicking on <span class='view-style-hint'>?</span>."
+        }
+      }
+    }
+  }
+}

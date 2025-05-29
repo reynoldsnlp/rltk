@@ -1,0 +1,28 @@
+.view-task-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100px
+}
+
+.view-performances-btn,
+.view-performance-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 150px
+}
+
+.view-task-btn:hover, .view-task-btn:focus,
+.view-performances-btn:hover, .view-performances-btn:focus,
+.view-performance-btn:hover, .view-performance-btn:focus{
+    background-color: #3e8e41;
+}
+
+.view-enhancement-info-style {
+    font-weight: bold;
+}

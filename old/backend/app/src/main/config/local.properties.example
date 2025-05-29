@@ -1,0 +1,9 @@
+# VIEW assumes that this file is encoded in UTF-8, and will correctly read it if
+# it contains UTF-8 multi-byte sequences
+
+# Place any modifications to adapt VIEW to your environment
+# You can override all keys specified in VIEW.properties
+
+visl.cg-conv.binary = /usr/bin/cg-conv
+visl.cg3.binary = /usr/local/werti/bin/vislcg3
+visl.cg3.grammar.ru = /usr/local/werti/rus_resources/apertium-rus.rus.rlx

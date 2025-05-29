@@ -1,0 +1,22 @@
+{{<hint-btn-and-hint}}
+    {{$hint-number}}1{{/hint-number}}
+    {{$btn-text}}General info{{/btn-text}}
+    {{$hint-content}}The correct answer contains a soft consonant, but you didn't use<br>
+    a soft-indicating letter.<br> For example the word 'тётя' [ˈtʲɵtʲə] (aunt)
+    contains two soft consonants,<br>
+    followed by a soft indicating letter each.{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}2{{/hint-number}}
+    {{$btn-text}}What are soft-indicating letters?{{/btn-text}}
+    {{$hint-content}}They indicate that the preceding consonant has a soft pronunciation. <br>
+    In other words, the consonant is palatalized. <br>
+    The soft-indicating letters are: я, е, ё, и, ю{{/hint-content}}
+{{/hint-btn-and-hint}}<br>
+{{<hint-btn-and-hint}}
+    {{$hint-number}}3{{/hint-number}}
+    {{$btn-text}}Which consonant isn't followed by a soft-indicating letter?{{/btn-text}}
+    {{$hint-content}}The
+    {{soft-consonant-position}}{{#isEq soft-consonant-position 1}}st{{/isEq}}{{#isEq soft-consonant-position 2}}nd{{/isEq}}{{#isEq soft-consonant-position 3}}rd{{/isEq}}{{#numExpr soft-consonant-position 3 op="gt"}}th{{/numExpr}}
+    letter is the soft consonant in question.{{/hint-content}}
+{{/hint-btn-and-hint}}

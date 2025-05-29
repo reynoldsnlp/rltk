@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<analysisEngineDescription xmlns="http://uima.apache.org/resourceSpecifier">
+  <frameworkImplementation>org.apache.uima.java</frameworkImplementation>
+  <primitive>true</primitive>
+  <annotatorImplementationName>werti.uima.enhancer.OpenNlpEnhancer</annotatorImplementationName>
+  <analysisEngineMetaData>
+    <name>OpenNlpEnhancer</name>
+    <description>
+      Simple enhancer, with no configuration options. It will transfer PoS and
+      lemma information (if present) to the enhancement.
+    </description>
+    <version>1.0</version>
+    <vendor/>
+    <configurationParameters />
+    <fsIndexCollection/>
+    <capabilities>
+      <capability>
+        <inputs>
+          <type>werti.uima.types.annot.Token</type>
+          <feature>werti.uima.types.annot.Token:tag</feature>
+          <feature>werti.uima.types.annot.Token:end</feature>
+          <feature>werti.uima.types.annot.Token:begin</feature>
+        </inputs>
+        <outputs>
+          <type allAnnotatorFeatures="true">werti.uima.types.EnhancementAnnotation</type>
+        </outputs>
+        <languagesSupported/>
+      </capability>
+    </capabilities>
+    <operationalProperties>
+      <modifiesCas>true</modifiesCas>
+      <multipleDeploymentAllowed>true</multipleDeploymentAllowed>
+      <outputsNewCASes>false</outputsNewCASes>
+    </operationalProperties>
+  </analysisEngineMetaData>
+  <resourceManagerConfiguration/>
+</analysisEngineDescription>

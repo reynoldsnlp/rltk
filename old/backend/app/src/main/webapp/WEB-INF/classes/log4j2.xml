@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Configuration>
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout>
+        <Pattern>VIEW: %d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Pattern>
+      </PatternLayout>
+    </Console>
+    <File name="Main" fileName="logs/view.log">
+      <PatternLayout>
+        <Pattern>%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Pattern>
+      </PatternLayout>
+    </File>
+    <File name="RusNLP" fileName="logs/rusNLP.log">
+      <PatternLayout>
+        <Pattern>%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Pattern>
+      </PatternLayout>
+    </File>
+  </Appenders>
+  <Loggers>
+    <Logger name="org.apache.catalina.core" level="debug">
+      <AppenderRef ref="Console"/>
+    </Logger>
+    <Logger name="rusNLPLogger" additivity="false">
+        <level value="DEBUG"/>
+        <appender-ref ref="RusNLP"/>
+    </Logger>
+    <Root level="info">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="Main"/>
+    </Root>
+  </Loggers>
+</Configuration>
+

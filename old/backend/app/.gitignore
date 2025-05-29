@@ -1,0 +1,24 @@
+# Generated files
+/target
+/src/main/java/werti/uima/types
+/src/main/webapp/js-lib/*
+/node_modules
+# FIXME: These are in the same directory, but not generated.
+!/src/main/webapp/js-lib/html.js
+!/src/main/webapp/js-lib/platform.js
+!/src/main/webapp/js-lib/view.js
+!/src/main/webapp/js-lib/werti.css
+
+/src/main/config/local.properties
+
+# Miscellaneous
+/private
+/rus_resources
+/rus_output
+
+# Ignore phantomjs log
+phantomjsdriver.log
+
+# Don't commit private configuration
+/src/main/config/private/*
+!/src/main/config/private/Readme.md

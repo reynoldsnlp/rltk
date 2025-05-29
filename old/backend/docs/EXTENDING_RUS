@@ -1,0 +1,99 @@
+Creating a New Topic/Activity in VIEW on Server Side
+=====================================================
+
+This is just an tutorial, so you should do handle it as such.
+This means when you try it out, you should not commit it when you
+are finished unless it is the topic or activity you really want to add.
+
+Take note that when it is stated that you should change/rename
+something in a file it always refers to all occurrences. So e.g.
+change "A" to "B" in a file with the content "There is A and also A.xml"
+will change the content to "There is B and also B.xml".
+
+When you define a new tag pattern, you should make sure that it does not
+conflict with other tags. E.g. in Russian we have the tags "Pr" and "Pred",
+if you want to target "Pr" then make sure not to target "Pred" as well.
+
+Take note that this is only the server side of a new topic/activity.
+The simplest way to check if this side of your topic/activity works
+as expected you need to acquaint yourself with the testing module!
+
+In everything that you change or add you should always change or add
+tests accordingly. So if you add a new topic you need to test the
+topic. This is very important. This way you can make sure that your
+topic works as expected and should it no longer work in the future
+it will be noticed as soon as you run the test, don't neglect this!
+
+How to create a new Topic/Activity for Russian
+-------------------------------------
+
+We're going to make a copy of the Russian adjective topic and modify it to 
+target Russian prepositions instead.
+
+1. Create a new topic json file and edit it.
+
+a. Make a copy of 'view/app/src/main/resources/topics/adjectives.json' and
+call it 'preps.json'
+b. Change "topic": "adjectives" to "topic": "prepositions" (the same name is used later in the add-on)
+c. Change "HFSTRusAdjectivePipe" to "HFSTRusPrepPipe",
+d. Change "adjective" into "preposition" in the topic and activity descriptions
+e. Optionally you can add or remove activities as you wish in this place
+
+2. Create descriptors for the new topic.
+
+a. Make a copy of 'view/app/desc/operators/HFSTRusAdjectivePipe.xml' and
+call it 'HFSTRusPrepPipe.xml' (as specified in preps.json earlier)
+
+Change  "HFSTPostProc_RusAdjectives" to  "HFSTPostProc_RusPreps"
+
+Change  "HFSTRusAdjectivePipe" to  "HFSTRusPrepPipe"
+
+b. Make a copy of 'view/app/desc/operators/HFSTPostProc_RusAdjectives.xml and
+call it 'HFSTPostProc_RusPreps.xml' (as specified in HFSTRusPrepPipe.xml earlier)
+
+Change  "HFSTRusAdjectiveEnhancer" to  "HFSTRusPrepEnhancer"
+
+Change "HFSTPostProc_RusAdjectives" to "HFSTPostProc_RusPreps"
+
+c. Make a copy of 'view/app/desc/enhancers/HFSTRusAdjectiveEnhancer.xml' and
+call it 'HFSTRusPrepEnhancer.xml' (as specified in HFSTPostProc_RusPreps.xml earlier)
+
+Change "HFSTRusAdjectiveEnhancer" to "HFSTRusPrepEnhancer"
+
+4. Create the enhancer java class for the new topic.
+
+a. Make a copy of  'view/app/src/main/java/werti/uima/enhancer/HFSTRusAdjectiveEnhancer.java' and
+call it 'HFSTRusPrepEnhancer.java'  (as specified in HFSTRusPrepEnhancer.xml earlier)
+
+b. Change the TOPIC from "adjectives" to "prepositions" (as specified in preps.json earlier)
+
+c. Change the pos pattern to "Pr\\+"
+
+d. Change the filter pattern to "". Why? Because the filter pattern targets subcategories
+that could be selected by the user like "Sg" and "Pl" for "Nouns". "Prepositions" don't have any.
+
+e. Change the exclude token pattern to "". Why? Because the exclude token pattern targets
+matches that also can have other readings. E.g. "на" can be "Pr" and "Pcle".
+If we don't want to target such cases we put "Pcle" into this pattern. Usually
+this pattern needs careful consideration. We accept any match of "Pr" regardless of other
+possible readings in this case.
+
+f. Expand the distractor generation located in 'view/app/src/main/java/werti/util/RusDistractorGenerator.java'.
+For prepositions we need to add a case called "prepositions" (same as TOPIC in b.) in the
+createDistractors function. We can simply select a set of prepositions as distractors here.
+Distractors are used in the multiple choice activity.
+
+5. Create tests for the new topic.
+
+a. Make a copy of 'view/app/src/test/java/werti/uima/enhancer/HFSTRusAdjectiveEnhancerTest.java' and
+call it 'HFSTRusPrepEnhancerTest.java'
+
+b. Change "HFSTRusAdjectiveEnhancer" to "HFSTRusPrepEnhancer"
+
+c. Modify existing tests or add new tests. Make sure that all edge cases are handled, so that any
+situation is handled properly.
+
+d. If you use "IntelliJ IDEA", then you can run the tests via right click on the test class
+and selecting Run 'HFSTRusPrepEnhancerTest'. You can also test a specific test inside
+the test class. You can also make a breakpoint inside your enhancer and run
+the debugger using the test class for simple debugging.

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="options.css"/>
+    <script src="../lib/jquery-3.1.1.min.js"></script>
+    <script src="options.js"></script>
+  </head>
+  <body>    	
+    	<h1>Options:</h1><br>
+		
+		<!-- Choice between a fixed number or percentage of exercises  -->
+		Number of exercises:<br>
+		<label for="wertiview-fixed-number-of-exercises"></label>
+		<input type="radio" name="fixedOrPercentage" id="wertiview-fixed-number-of-exercises" value="0">A fixed number:
+		<input type="number" name="fixedNumberOfExercises" id="wertiview-fixed-number-of-exercises-value"  min="0" step="5" size="5" value="25"/><br>
+		
+		<label for="wertiview-proportion-of-exercises"></label>
+		<input type="radio" name="fixedOrPercentage" id="wertiview-proportion-of-exercises" value="1">A percentage:
+		<input type="number" name="proportionOfExercises" id="wertiview-proportion-of-exercises-value"  min="0" max="100" step="5" value="100"/><br>
+		
+		<hr>
+		
+		<!-- Choice how exercises should be chosen  -->
+		How exercises are chosen:<br>
+		<label for="wertiview-random"></label>
+		<input type="radio" name="choiceMode" id="wertiview-random" value="0">Randomly<br>
+		
+		<label for="wertiview-first-offset"></label>
+		<input type="radio" name="choiceMode" id="wertiview-first-offset" value="1">The first ones after an offset of:
+		<input type="number" name="firstOffset" id="wertiview-first-offset-value"  min="0" step="1" size="5" value="0"/><br>
+		
+		<label for="wertiview-interval-size"></label>
+		<input type="radio" name="choiceMode" id="wertiview-interval-size" value="2">In intervals of:
+		<input type="number" name="intervalSize" id="wertiview-interval-size-value"  min="1"  step="1" size="3" value="1"/><br>
+		
+		<hr>
+		
+		<!-- Choice whether instructions should be showed or not -->
+		<label for="wertiview-show-instructions"></label>
+		<input type="checkbox" name="showInst" id="wertiview-show-instructions">Show instructions<br><br>
+	
+        <button type="button" id="wertiview-save-options">Save</button>
+  </body>
+</html>
