@@ -76,16 +76,16 @@
      * Phase 1: Extract plain text and build position maps
      * Phase 2: Use tokenization results with position maps to place spans
      */
-    function highlightTextNodes(root, segmentsArray) {
+    function highlightTextNodes(root, cohortArray, topicFilterFunc, subfilterFunc, enhanceFunc) {
         // Phase 1: Extract plain text and build position mappings
         const analysisResult = extractTextWithPositionMapping(root);
         const { plainText, positionMap, textNodes } = analysisResult;
 
         // Phase 2: Build token position mappings
-        const tokenPositions = buildTokenPositions(segmentsArray, plainText);
+        const tokenPositions = buildTokenPositions(cohortArray, plainText, topicFilterFunc, subfilterFunc);
 
         // Phase 3: Apply highlighting using position mappings
-        applyHighlightingWithPositions(tokenPositions, positionMap, textNodes);
+        applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, enhanceFunc);
     }
 
     /**
@@ -195,60 +195,66 @@
     }
 
     /**
-     * Phase 2: Build token positions from segments and plain text
+     * Phase 2: Build token positions from cohorts and plain text
      */
-    function buildTokenPositions(segmentsArray, plainText) {
+    function buildTokenPositions(cohortArray, plainText, topicFilterFunc, subfilterFunc) {
         const tokenPositions = [];
         let currentOffset = 0;
 
-        for (let i = 0; i < segmentsArray.length; i++) {
-            const segment = segmentsArray[i];
-            let segmentText = '';
-            let isWordSegment = false;
+        for (let i = 0; i < cohortArray.length; i++) {
+            const cohort = cohortArray[i];
+            let cohortToken = '';
+            let isWordCohort = false;
 
-            if (segment.w !== undefined) {
-                segmentText = segment.w;
-                isWordSegment = true;
-            } else if (segment.t !== undefined) {
+            if (cohort.w !== undefined) {
+                cohortToken = cohort.w;
+                isWordCohort = true;
+            } else if (cohort.t !== undefined) {
                 // Remove tPrefix if present
-                segmentText = segment.t.startsWith(':') ? segment.t.substring(1) : segment.t;
-                isWordSegment = false;
+                cohortToken = cohort.t.startsWith(':') ? cohort.t.substring(1) : cohort.t;
+                isWordCohort = false;
             } else {
-                console.warn('Invalid segment at index', i);
+                console.warn('Invalid cohort at index', i);
                 continue;
             }
 
-            if (segmentText === '') {
+            if (cohortToken === '') {
                 continue;
             }
 
-            const segmentStart = plainText.indexOf(segmentText, currentOffset);
+            const cohortStart = plainText.indexOf(cohortToken, currentOffset);
 
-            if (segmentStart === -1) {
-                console.warn(`Could not find segment "${segmentText}" at offset ${currentOffset}`);
+            if (cohortStart === -1) {
+                console.warn(`Could not find cohort "${cohortToken}" at offset ${currentOffset}`);
                 // Try to recover by searching from the beginning
-                const fallbackStart = plainText.indexOf(segmentText, 0);
+                const fallbackStart = plainText.indexOf(cohortToken, 0);
                 if (fallbackStart !== -1 && fallbackStart >= currentOffset) {
                     currentOffset = fallbackStart;
                 } else {
-                    continue; // Skip this segment
+                    continue; // Skip this cohort
                 }
             } else {
-                currentOffset = segmentStart;
+                currentOffset = cohortStart;
             }
 
-            const segmentEnd = currentOffset + segmentText.length;
+            const cohortEnd = currentOffset + cohortToken.length;
 
-            if (isWordSegment) {
+            // Apply both topic filter and subfilter functions to determine if this token should be highlighted
+            if (isWordCohort &&
+                cohort.rs &&  // Check if cohort has readings
+                topicFilterFunc && topicFilterFunc(cohort) &&
+                subfilterFunc && subfilterFunc(cohort)) {
+
                 tokenPositions.push({
                     start: currentOffset,
-                    end: segmentEnd,
-                    text: segmentText,
-                    segmentIndex: i
+                    end: cohortEnd,
+                    text: cohortToken,
+                    cohortIndex: i,
+                    cohort: cohort
                 });
             }
 
-            currentOffset = segmentEnd;
+            currentOffset = cohortEnd;
         }
 
         return tokenPositions;
@@ -257,7 +263,7 @@
     /**
      * Phase 3: Apply highlighting using position mappings
      */
-    function applyHighlightingWithPositions(tokenPositions, positionMap, textNodes) {
+    function applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, enhanceFunc) {
         // Group tokens by the text nodes they span
         const nodeModifications = new Map(); // node -> array of modifications
 
@@ -279,7 +285,8 @@
                     nodeModifications.get(mapping.node).push({
                         start: tokenStartInNode,
                         end: tokenEndInNode,
-                        segmentIndex: token.segmentIndex
+                        cohortIndex: token.cohortIndex,
+                        cohort: token.cohort
                     });
                 }
             }
@@ -305,9 +312,17 @@
                     );
                 }
 
-                const span = document.createElement('span');
-                span.className = `ʁ ʁ${mod.segmentIndex}`;
-                span.textContent = originalText.substring(mod.start, mod.end);
+                const originalTokenText = originalText.substring(mod.start, mod.end);
+
+                const span = enhanceFunc ?
+                    enhanceFunc(originalTokenText, mod.cohort, mod.cohortIndex) :
+                    (() => {
+                        const defaultSpan = document.createElement('span');
+                        defaultSpan.className = `ʁ ʁ${mod.cohortIndex}`;
+                        defaultSpan.textContent = originalTokenText;
+                        return defaultSpan;
+                    })();
+
                 fragment.insertBefore(span, fragment.firstChild);
 
                 lastPos = mod.start;
@@ -326,45 +341,84 @@
 
     // Listen for messages from side panel or other extension components
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'ping') {
-            // Respond to ping to confirm content script is loaded
-            sendResponse({ loaded: true });
-        } else if (request.action === 'enhance') {
-            try {
-                const bodyText = extractPlainText(document.body);
+        switch (request.action) {
+            case 'ping':
+                sendResponse({ loaded: true });
+                break;
 
-                chrome.runtime.sendMessage({
-                    action: 'tokenize',
-                    text: bodyText
-                }).then(response => {
-                    if (response.success) {
-                        highlightTextNodes(document.body, response.data);
-                        sendResponse({ success: true });
-                    } else {
-                        console.error('Tokenization failed:', response.error);
-                        sendResponse({ success: false, error: response.error });
-                    }
-                }).catch(error => {
+            case 'enhance':
+                try {
+                    const bodyText = extractPlainText(document.body);
+
+                    chrome.runtime.sendMessage({
+                        action: 'tokenize',
+                        text: bodyText
+                    }).then(response => {
+                        if (response.success) {
+                            // Get filter and span functions based on topic and filter
+                            const topic = request.selections.topic ;
+                            const filter = request.selections.filter ;
+                            const activity = request.selections.activity ;
+
+                            // Check if the requested topic is implemented
+                            if (!window.FilterFuncs || !window.FilterFuncs[topic]) {
+                                alert(`Topic "${topic}" is not implemented yet.`);
+                                sendResponse({ success: false, error: `Topic "${topic}" not implemented` });
+                                return;
+                            }
+
+                            // Check if the requested filter is implemented
+                            if (!window.SubFilterFuncs || !window.SubFilterFuncs[filter]) {
+                                alert(`Filter "${filter}" is not implemented yet.`);
+                                sendResponse({ success: false, error: `Filter "${filter}" not implemented` });
+                                return;
+                            }
+
+                            const enhanceFunc = window.EnhanceFuncs[`${topic}-${activity}`];
+                            if (activity == 'click') {
+                                const topicFilterFunc = window.FilterFuncs.all;
+                                const subfilterFunc = window.SubFilterFuncs.noFilter;
+                            } else {
+                                const topicFilterFunc = window.FilterFuncs[topic];
+                                const subfilterFunc = window.SubFilterFuncs[filter];
+                            }
+
+                            highlightTextNodes(document.body, response.data, topicFilterFunc, subfilterFunc, enhanceFunc);
+                            sendResponse({ success: true });
+                        } else {
+                            console.error('Tokenization failed:', response.error);
+                            sendResponse({ success: false, error: response.error });
+                        }
+                    }).catch(error => {
+                        console.error('Error:', error.message);
+                        sendResponse({ success: false, error: error.message });
+                    });
+                } catch (error) {
                     console.error('Error:', error.message);
                     sendResponse({ success: false, error: error.message });
+                }
+                return true; // Keep message channel open for async response
+
+            case 'abort':
+                // Handle abort functionality if needed
+                sendResponse({ success: true });
+                break;
+
+            case 'restore':
+                // Remove all highlighting by removing spans with ʁ class
+                document.querySelectorAll('.ʁ').forEach(span => {
+                    const parent = span.parentNode;
+                    parent.replaceChild(document.createTextNode(span.textContent), span);
+                    parent.normalize();
                 });
-            } catch (error) {
-                console.error('Error:', error.message);
-                sendResponse({ success: false, error: error.message });
-            }
-            return true; // Keep message channel open for async response
-        } else if (request.action === 'abort') {
-            // Handle abort functionality if needed
-            console.log('Enhancement aborted');
-            sendResponse({ success: true });
-        } else if (request.action === 'restore') {
-            // Remove all highlighting by removing spans with ʁ class
-            document.querySelectorAll('.ʁ').forEach(span => {
-                const parent = span.parentNode;
-                parent.replaceChild(document.createTextNode(span.textContent), span);
-                parent.normalize();
-            });
-            sendResponse({ success: true });
+                sendResponse({ success: true });
+                break;
+
+            default:
+                // Handle unknown actions
+                console.warn('Unknown action:', request.action);
+                sendResponse({ success: false, error: 'Unknown action' });
+                break;
         }
     });
 

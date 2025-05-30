@@ -229,11 +229,9 @@ class RussianToolsSidePanel {
         this.setProcessingState(true);
 
         const selections = {
-            language: 'ru',
             topic: document.getElementById('topic-menu').value,
             filter: document.getElementById('filter-menu').value,
             activity: document.getElementById('activity-menu').value,
-            timestamp: Date.now()
         };
 
         try {
@@ -241,6 +239,7 @@ class RussianToolsSidePanel {
             await chrome.storage.local.set(selections);
 
             // Send message through background script
+            console.log('Sending enhance request from sidepanel.js with selections:', selections);
             const response = await chrome.runtime.sendMessage({
                 action: 'enhance',
                 selections: selections
@@ -255,7 +254,7 @@ class RussianToolsSidePanel {
 
         } catch (error) {
             console.error('Error enhancing page:', error);
-            alert(`Cannot enhance this page: ${error.message}\n\nTry refreshing the page and try again.`);
+            alert(`Cannot enhance this page: ${error.message}\n\nRefresh the page and try again.`);
             this.setProcessingState(false);
             this.isProcessing = false;
         }
