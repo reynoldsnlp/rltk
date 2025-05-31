@@ -4,7 +4,7 @@ async function createOffscreenDocument() {
   if (offscreenCreated) return;
 
   await chrome.offscreen.createDocument({
-    url: 'offscreen.html',
+    url: 'src/offscreen.html',
     reasons: ['DOM_SCRAPING'],
     justification: 'HFST WASM processing requires relaxed CSP'
   });
@@ -54,7 +54,8 @@ async function ensureContentScriptLoaded(tabId) {
         ]
       });
     } catch (injectionError) {
-      throw new Error('Cannot access this page. The extension needs permission to access this site.');
+      console.error('Script injection failed:', injectionError);
+      throw new Error(`Cannot access this page. Script injection failed: ${injectionError.message}`);
     }
   }
 }

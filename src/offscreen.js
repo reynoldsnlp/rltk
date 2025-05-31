@@ -22,7 +22,7 @@ async function initHfst() {
             const moduleConfig = {
                 locateFile: function(path, scriptDirectory) {
                     if (path.endsWith('.wasm')) {
-                        return chrome.runtime.getURL('resources/js/' + path);
+                        return chrome.runtime.getURL('src/resources/js/' + path);
                     }
                     return scriptDirectory + path;
                 }
@@ -39,9 +39,9 @@ async function initHfst() {
             tokenizeSettings.hack_uncompose = true;
             console.log('Tokenize settings:', tokenizeSettings);
 
-            generator = await loadTransducer("resources/models/generator-gt-norm.hfstol", `generator`);
-            stressGenerator = await loadTransducer("resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`);
-            tokenizer = await loadTokenizer("resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
+            generator = await loadTransducer("src/resources/models/generator-gt-norm.hfstol", `generator`);
+            stressGenerator = await loadTransducer("src/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`);
+            tokenizer = await loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
         } catch (error) {
             console.error('Failed to initialize HFST:', error);
             initializationPromise = null;
