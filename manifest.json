@@ -11,28 +11,43 @@
     "storage"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": [
-        "filterFuncs.js",
-        "enhanceFuncs.js",
-        "content.js"
+        "src/commonFilterFuncs.js",
+        "src/commonEnhanceFuncs.js",
+        "src/activities.js",
+        "src/topics/adjectives.js",
+        "src/topics/adverbs.js",
+        "src/topics/aspects.js",
+        "src/topics/assistive-reading.js",
+        "src/topics/cases.js",
+        "src/topics/conjunctions.js",
+        "src/topics/gerunds.js",
+        "src/topics/nouns.js",
+        "src/topics/participles.js",
+        "src/topics/phonetics.js",
+        "src/topics/prepositions.js",
+        "src/topics/pronouns.js",
+        "src/topics/stress.js",
+        "src/topics/verbs.js",
+        "src/content.js"
       ]
     }
   ],
   "web_accessible_resources": [
     {
       "resources": [
-        "resources/js/*.js",
-        "resources/js/*.wasm",
-        "resources/css/*.css",
-        "resources/img/*.png",
-        "resources/img/*.jpg",
-        "resources/models/*.hfstol",
-        "resources/models/*.pmhfst"
+        "src/resources/js/*.js",
+        "src/resources/js/*.wasm",
+        "src/resources/css/*.css",
+        "src/resources/img/*.png",
+        "src/resources/img/*.jpg",
+        "src/resources/models/*.hfstol",
+        "src/resources/models/*.pmhfst"
       ],
       "matches": [
         "<all_urls>"
@@ -40,14 +55,14 @@
     }
   ],
   "side_panel": {
-    "default_path": "sidepanel.html"
+    "default_path": "src/sidepanel.html"
   },
   "action": {
     "default_title": "RLTK",
     "default_icon": {
-      "16": "icon.png",
-      "48": "icon.png",
-      "128": "icon.png"
+      "16":  "src/resources/img/icon.png",
+      "48":  "src/resources/img/icon.png",
+      "128": "src/resources/img/icon.png"
     }
   },
   "content_security_policy": {

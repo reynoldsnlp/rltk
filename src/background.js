@@ -22,6 +22,7 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 // Helper function to inject content script if needed
+// TODO is this actually needed? Doesn't manifest v3 handle this automatically?
 async function ensureContentScriptLoaded(tabId) {
   try {
     // Try to ping the content script first
@@ -31,7 +32,26 @@ async function ensureContentScriptLoaded(tabId) {
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tabId },
-        files: ['content.js']
+        files: [
+          'src/commonFilterFuncs.js',
+          'src/commonEnhanceFuncs.js',
+          'src/activities.js',
+          'src/topics/adjectives.js',
+          'src/topics/adverbs.js',
+          'src/topics/aspects.js',
+          'src/topics/assistive-reading.js',
+          'src/topics/cases.js',
+          'src/topics/conjunctions.js',
+          'src/topics/gerunds.js',
+          'src/topics/nouns.js',
+          'src/topics/participles.js',
+          'src/topics/phonetics.js',
+          'src/topics/prepositions.js',
+          'src/topics/pronouns.js',
+          'src/topics/stress.js',
+          'src/topics/verbs.js',
+          'src/content.js'
+        ]
       });
     } catch (injectionError) {
       throw new Error('Cannot access this page. The extension needs permission to access this site.');

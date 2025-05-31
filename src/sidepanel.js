@@ -146,28 +146,28 @@ class RussianToolsSidePanel {
     getRussianActivities(topic) {
         const activities = {
             'adjectives': [
-                { val: 'color', text: 'Color' },
-                { val: 'click', text: 'Click' },
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'click', text: 'Click to identify' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'assistive-reading': [
-                { val: 'click', text: 'Click' }
+                { val: 'click', text: 'Click to identify' }
             ],
             'gerunds': [
-                { val: 'color', text: 'Color' },
-                { val: 'click', text: 'Click' },
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'click', text: 'Click to identify' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'nouns': [
-                { val: 'color', text: 'Color' },
-                { val: 'click', text: 'Click' },
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'click', text: 'Click to identify' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'participles': [
-                { val: 'color', text: 'Color' },
-                { val: 'click', text: 'Click' },
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'click', text: 'Click to identify' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
@@ -178,31 +178,31 @@ class RussianToolsSidePanel {
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'prepositions': [
-                { val: 'color', text: 'Color' },
-                { val: 'click', text: 'Click' },
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'click', text: 'Click to identify' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'verb-aspect-pairs': [
-                { val: 'color', text: 'Color' },
-                { val: 'click', text: 'Click' },
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'click', text: 'Click to identify' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'verb-tense': [
-                { val: 'color', text: 'Color' },
-                { val: 'click', text: 'Click' },
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'click', text: 'Click to identify' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'verbs': [
-                { val: 'color', text: 'Color' },
-                { val: 'click', text: 'Click' },
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'click', text: 'Click to identify' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'word-stress': [
                 { val: 'color', text: 'Mark Stress' },
-                { val: 'click', text: 'Click' },
+                { val: 'click', text: 'Click on stressed vowels' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Hover' }
             ]

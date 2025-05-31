@@ -3,9 +3,20 @@
     const style = document.createElement('style');
     style.textContent = `
         .ʁ {
-            background-color: rgba(255, 255, 0, 0.3);
             border-radius: 2px;
-            padding: 1px;
+        }
+        .ʁ-click-green, .ʁ-click-red {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .ʁ-click-green:hover, .ʁ-click-red:hover {
+            background-color: rgba(255, 255, 0, 0.1);
+        }
+        .ʁ-click-green.clicked {
+            background-color: rgba(0, 255, 0, 0.3);
+        }
+        .ʁ-click-red.clicked {
+            background-color: rgba(255, 0, 0, 0.3);
         }
     `;
     document.head.appendChild(style);
@@ -86,6 +97,21 @@
 
         // Phase 3: Apply highlighting using position mappings
         applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, enhanceFunc);
+    }
+
+    /**
+     * Updated highlighting function that uses Activity classes
+     */
+    function highlightTextNodesWithActivity(root, cohortArray, activity) {
+        // Phase 1: Extract plain text and build position mappings
+        const analysisResult = extractTextWithPositionMapping(root);
+        const { plainText, positionMap, textNodes } = analysisResult;
+
+        // Phase 2: Build token position mappings using activity logic
+        const tokenPositions = buildTokenPositionsWithActivity(cohortArray, plainText, activity);
+
+        // Phase 3: Apply highlighting using position mappings
+        applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity);
     }
 
     /**
@@ -261,9 +287,48 @@
     }
 
     /**
+     * Build token positions using Activity class logic
+     */
+    function buildTokenPositionsWithActivity(cohortArray, plainText, activity) {
+        const tokenPositions = [];
+        let currentOffset = 0;
+
+        for (let i = 0; i < cohortArray.length; i++) {
+            const cohort = cohortArray[i];
+
+            // Only process word cohorts
+            if (cohort.w === undefined) continue;
+
+            const cohortToken = cohort.w;
+            if (cohortToken === '') continue;
+
+            const cohortStart = plainText.indexOf(cohortToken, currentOffset);
+            if (cohortStart === -1) continue;
+
+            currentOffset = cohortStart;
+            const cohortEnd = currentOffset + cohortToken.length;
+
+            // Use the activity's logic to determine if this token should be highlighted
+            if (activity.shouldHighlightToken(cohort)) {
+                tokenPositions.push({
+                    start: currentOffset,
+                    end: cohortEnd,
+                    text: cohortToken,
+                    cohortIndex: i,
+                    cohort: cohort
+                });
+            }
+
+            currentOffset = cohortEnd;
+        }
+
+        return tokenPositions;
+    }
+
+    /**
      * Phase 3: Apply highlighting using position mappings
      */
-    function applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, enhanceFunc) {
+    function applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity) {
         // Group tokens by the text nodes they span
         const nodeModifications = new Map(); // node -> array of modifications
 
@@ -314,14 +379,8 @@
 
                 const originalTokenText = originalText.substring(mod.start, mod.end);
 
-                const span = enhanceFunc ?
-                    enhanceFunc(originalTokenText, mod.cohort, mod.cohortIndex) :
-                    (() => {
-                        const defaultSpan = document.createElement('span');
-                        defaultSpan.className = `ʁ ʁ${mod.cohortIndex}`;
-                        defaultSpan.textContent = originalTokenText;
-                        return defaultSpan;
-                    })();
+                // Use the activity's createSpan method
+                const span = activity.createSpan(originalTokenText, mod.cohort, mod.cohortIndex);
 
                 fragment.insertBefore(span, fragment.firstChild);
 
@@ -355,36 +414,33 @@
                         text: bodyText
                     }).then(response => {
                         if (response.success) {
-                            // Get filter and span functions based on topic and filter
-                            const topic = request.selections.topic ;
-                            const filter = request.selections.filter ;
-                            const activity = request.selections.activity ;
+                            const { selections } = request;
 
                             // Check if the requested topic is implemented
-                            if (!window.FilterFuncs || !window.FilterFuncs[topic]) {
-                                alert(`Topic "${topic}" is not implemented yet.`);
-                                sendResponse({ success: false, error: `Topic "${topic}" not implemented` });
+                            if (!window.FilterFuncs || !window.FilterFuncs[selections.topic]) {
+                                alert(`Topic "${selections.topic}" is not implemented yet.`);
+                                sendResponse({ success: false, error: `Topic "${selections.topic}" not implemented` });
                                 return;
                             }
 
                             // Check if the requested filter is implemented
-                            if (!window.SubFilterFuncs || !window.SubFilterFuncs[filter]) {
-                                alert(`Filter "${filter}" is not implemented yet.`);
-                                sendResponse({ success: false, error: `Filter "${filter}" not implemented` });
+                            if (!window.SubFilterFuncs || !window.SubFilterFuncs[selections.filter]) {
+                                alert(`Filter "${selections.filter}" is not implemented yet.`);
+                                sendResponse({ success: false, error: `Filter "${selections.filter}" not implemented` });
                                 return;
                             }
 
-                            const enhanceFunc = window.EnhanceFuncs[`${topic}-${activity}`];
-                            if (activity == 'click') {
-                                const topicFilterFunc = window.FilterFuncs.all;
-                                const subfilterFunc = window.SubFilterFuncs.noFilter;
-                            } else {
-                                const topicFilterFunc = window.FilterFuncs[topic];
-                                const subfilterFunc = window.SubFilterFuncs[filter];
-                            }
+                            try {
+                                // Create the appropriate activity using the factory
+                                const activity = window.ActivityFactory.createActivity(selections);
 
-                            highlightTextNodes(document.body, response.data, topicFilterFunc, subfilterFunc, enhanceFunc);
-                            sendResponse({ success: true });
+                                // Use the unified highlighting function
+                                highlightTextNodesWithActivity(document.body, response.data, activity);
+                                sendResponse({ success: true });
+                            } catch (error) {
+                                console.error('Error creating activity:', error);
+                                sendResponse({ success: false, error: error.message });
+                            }
                         } else {
                             console.error('Tokenization failed:', response.error);
                             sendResponse({ success: false, error: response.error });
