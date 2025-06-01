@@ -478,4 +478,31 @@
         }
     });
 
+    /**
+     * Helper function to send generation requests to offscreen
+     */
+    async function generateForms(input, useStress = false) {
+        console.log('generateForms(): input:', input, 'useStress:', useStress);
+        try {
+            const response = await chrome.runtime.sendMessage({
+                target: 'offscreen',
+                action: 'generate',
+                input: input,
+                useStress: useStress
+            });
+
+            if (response.success) {
+                return response.data;
+            } else {
+                throw new Error(response.error);
+            }
+        } catch (error) {
+            console.error('Error generating forms:', error);
+            throw error;
+        }
+    }
+
+    // Make the function globally available
+    window.generateForms = generateForms;
+
 })();

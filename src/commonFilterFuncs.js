@@ -1,28 +1,33 @@
 (function() {
     'use strict';
 
-    // Initialize FilterFuncs namespace if it doesn't exist
+    // =======================================================================
+    // Initialize FilterFuncs and SubFilterFuncs namespaces
+    // =======================================================================
+
     if (!window.FilterFuncs) {
         window.FilterFuncs = {};
     }
-
-    // Initialize SubFilterFuncs namespace
     if (!window.SubFilterFuncs) {
         window.SubFilterFuncs = {};
     }
 
+    // =======================================================================
+    // Default filters "all"
+    // =======================================================================
 
-    // Common filter function for all words
     window.FilterFuncs.all = function(cohort) {
         return cohort && cohort.w !== undefined;
     };
 
-    // Default subfilter - accept all tokens that pass topic filter
-    window.SubFilterFuncs["no-filter"] = function(cohort) {
+    window.SubFilterFuncs.all = function(cohort) {
         return true;
     };
 
-    // Common gender filters
+    // =======================================================================
+    // Common tag filters
+    // =======================================================================
+
     window.SubFilterFuncs["Fem"] = function(cohort) {
         for (const reading of cohort.rs) {
             if (reading.ts && reading.ts.includes('Fem')) return true;
@@ -60,46 +65,4 @@
         }
     };
 
-    // Legacy filters for backward compatibility // TODO: Remove need for these
-    window.SubFilterFuncs.animate = function(cohort) {
-        for (const reading of cohort.rs) {
-            if (reading.ts && reading.ts.includes('Anim')) return true;
-        }
-    };
-
-    window.SubFilterFuncs.inanimate = function(cohort) {
-        for (const reading of cohort.rs) {
-            if (reading.ts && reading.ts.includes('Inan')) return true;
-        }
-    };
-
-    window.SubFilterFuncs.masculine = function(cohort) {
-        for (const reading of cohort.rs) {
-            if (reading.ts && reading.ts.includes('Msc')) return true;
-        }
-    };
-
-    window.SubFilterFuncs.feminine = function(cohort) {
-        for (const reading of cohort.rs) {
-            if (reading.ts && reading.ts.includes('Fem')) return true;
-        }
-    };
-
-    window.SubFilterFuncs.neuter = function(cohort) {
-        for (const reading of cohort.rs) {
-            if (reading.ts && reading.ts.includes('Neu')) return true;
-        }
-    };
-
-    window.SubFilterFuncs.singular = function(cohort) {
-        for (const reading of cohort.rs) {
-            if (reading.ts && reading.ts.includes('Sg')) return true;
-        }
-    };
-
-    window.SubFilterFuncs.plural = function(cohort) {
-        for (const reading of cohort.rs) {
-            if (reading.ts && reading.ts.includes('Pl')) return true;
-        }
-    };
 })();

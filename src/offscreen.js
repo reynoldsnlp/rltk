@@ -137,12 +137,46 @@ async function jsonlToJsonArray(jsonlString) {
     return jsonArray;
 }
 
+async function handleGenerateRequest(input, useStress = false) {
+    const transducer = useStress ? stressGenerator : generator;
+
+    if (!transducer) {
+        throw new Error(`${useStress ? 'Stress generator' : 'Generator'} not initialized`);
+    }
+
+    try {
+        const results = transducer.lookup(input);
+
+        // Convert HFST results to array of strings
+        const forms = [];
+        for (const result of results) {
+            let form = result[0].join('');
+            forms.push(form);
+        }
+        return forms;
+    } catch (error) {
+        console.error('Error in generation:', error);
+        throw error;
+    }
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.target === 'offscreen' && request.action === 'tokenize') {
         (async () => {
             try {
                 await initHfst();
                 const result = await handleTokenizeRequest(request.text);
+                sendResponse({ success: true, data: result });
+            } catch (error) {
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true; // Keep the message channel open for async response
+    } else if (request.target === 'offscreen' && request.action === 'generate') {
+        (async () => {
+            try {
+                await initHfst();
+                const result = await handleGenerateRequest(request.input, request.useStress);
                 sendResponse({ success: true, data: result });
             } catch (error) {
                 sendResponse({ success: false, error: error.message });

@@ -3,12 +3,31 @@ let offscreenCreated = false;
 async function createOffscreenDocument() {
   if (offscreenCreated) return;
 
-  await chrome.offscreen.createDocument({
-    url: 'src/offscreen.html',
-    reasons: ['DOM_SCRAPING'],
-    justification: 'HFST WASM processing requires relaxed CSP'
-  });
-  offscreenCreated = true;
+  try {
+    // Check if an offscreen document already exists
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT']
+    });
+
+    if (existingContexts.length > 0) {
+      offscreenCreated = true;
+      return;
+    }
+
+    await chrome.offscreen.createDocument({
+      url: 'src/offscreen.html',
+      reasons: ['DOM_SCRAPING'],
+      justification: 'HFST WASM processing requires relaxed CSP'
+    });
+    offscreenCreated = true;
+  } catch (error) {
+    if (error.message.includes('Only a single offscreen document may be created')) {
+      // Document already exists, just mark as created
+      offscreenCreated = true;
+    } else {
+      throw error;
+    }
+  }
 }
 
 // Set up side panel on installation
@@ -79,6 +98,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
         })();
         return true; // Keep the message channel open for async response
+    } else if (request.target === 'offscreen' && request.action === 'generate') {
+        // Forward generate requests to offscreen document
+        (async () => {
+            try {
+                await createOffscreenDocument();
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    action: 'generate',
+                    input: request.input,
+                    useStress: request.useStress
+                });
+                sendResponse(response);
+            } catch (error) {
+                console.error('BACKGROUND: Error forwarding generate request:', error.message);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true;
     } else if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore') {
         // Handle side panel requests to communicate with content script
         (async () => {

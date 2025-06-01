@@ -70,7 +70,7 @@ class RussianToolsSidePanel {
         const filterSection = document.getElementById('filter-section');
 
         // Clear existing filter options
-        filterMenu.innerHTML = '<option value="no-filter">No filter</option><option value="unselected">Select filter...</option>';
+        filterMenu.innerHTML = '<option value="all">No filter</option><option value="unselected">Select filter...</option>';
         filterSection.style.display = 'none';
 
         // Russian topic filters based on JSON files
@@ -95,14 +95,14 @@ class RussianToolsSidePanel {
                 { id: 'perfective', val: 'Perf', text: 'Perfective' }
             ],
             'nouns': [
-                { id: 'singular', val: 'Sg', text: 'Singular' },
-                { id: 'plural', val: 'Pl', text: 'Plural' }
+                { id: 'Sg', val: 'Sg', text: 'Singular' },
+                { id: 'Pl', val: 'Pl', text: 'Plural' }
             ],
             'adjectives': [
-                { id: 'feminine', val: 'Fem', text: 'Feminine' },
-                { id: 'masculine', val: 'Msc', text: 'Masculine' },
-                { id: 'neutral', val: 'Neu', text: 'Neutral' },
-                { id: 'MFN', val: 'MFN', text: 'No Gender' }
+                { id: 'Fem', val: 'Fem', text: 'Feminine' },
+                { id: 'Msc', val: 'Msc', text: 'Masculine' },
+                { id: 'Neu', val: 'Neu', text: 'Neuter' },
+                { id: 'MFN', val: 'MFN', text: 'All genders' }
             ],
             'gerunds': [
                 { id: 'present-active', val: 'PrsAct', text: 'Present' },
