@@ -52,8 +52,7 @@ async function ensureContentScriptLoaded(tabId) {
       await chrome.scripting.executeScript({
         target: { tabId: tabId },
         files: [
-          'src/commonFilterFuncs.js',
-          'src/commonEnhanceFuncs.js',
+          'src/misc.js',
           'src/activities.js',
           'src/topics/adjectives.js',
           'src/topics/adverbs.js',
