@@ -1,4 +1,6 @@
 let hfst = null;
+let cg3 = null;
+let cg3GrammarString = null;
 let tokenizer = null;
 let generator = null;
 let stressGenerator = null;
@@ -6,44 +8,77 @@ let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
 
 async function initHfst() {
-    if (hfst !== null) return;
+    const moduleConfig = {
+        locateFile: function(path, scriptDirectory) {
+            if (path.endsWith('.wasm')) {
+                return chrome.runtime.getURL('src/resources/js/' + path);
+            }
+            return scriptDirectory + path;
+        }
+    };
+
+    // Initialize HFST module
+    hfst = await createHfstModule(moduleConfig);
+    console.log('    ...HFST module loaded as `hfst`');
+
+    tokenizeSettings = hfst.getDefaultTokenizeSettings();
+    tokenizeSettings.output_format = 8; // JSONL
+    tokenizeSettings.print_all = true;
+    tokenizeSettings.print_weights = true;
+    tokenizeSettings.dedupe = true;
+    tokenizeSettings.hack_uncompose = true;
+    console.log('Tokenize settings:', tokenizeSettings);
+
+    generator = await loadTransducer("src/resources/models/generator-gt-norm.hfstol", `generator`);
+    stressGenerator = await loadTransducer("src/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`);
+    tokenizer = await loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
+}
+
+async function initCg3() {
+    const moduleConfig = {
+        locateFile: function(path, scriptDirectory) {
+            if (path.endsWith('.wasm')) {
+                return chrome.runtime.getURL('src/resources/js/' + path);
+            }
+            return scriptDirectory + path;
+        }
+    };
+
+    // Initialize CG3 module
+    cg3 = await createCG3Module(moduleConfig);
+    console.log('    ...CG3 module loaded as `cg3`');
+
+    // Retrieve the CG3 grammar string from src/resources/models/disambiguator.cg3
+    const response = await fetch(chrome.runtime.getURL('src/resources/models/disambiguator.cg3'));
+    cg3GrammarString = await response.text();
+    console.log('CG3 grammar loaded successfully');
+}
+
+async function initWasmTools() {
+    const hfstToolsReady = hfst !== null && generator !== null && stressGenerator !== null && tokenizer !== null;
+    const cg3Ready = cg3 !== null;
+
+    if (hfstToolsReady && cg3Ready) return;
 
     // If initialization is already in progress, wait for it
     if (initializationPromise !== null) {
         return await initializationPromise;
     }
 
-    console.log('Loading HFST module...');
+    console.log('Loading WASM modules...');
 
     // Create and store the initialization promise
     initializationPromise = (async () => {
         try {
-            // Configure module to use extension resources
-            const moduleConfig = {
-                locateFile: function(path, scriptDirectory) {
-                    if (path.endsWith('.wasm')) {
-                        return chrome.runtime.getURL('src/resources/js/' + path);
-                    }
-                    return scriptDirectory + path;
-                }
-            };
+            if (!hfstToolsReady) {
+                await initHfst();
+            }
 
-            hfst = await createHfstModule(moduleConfig);
-            console.log('    ...HFST module loaded as `hfst`');
-
-            tokenizeSettings = hfst.getDefaultTokenizeSettings();
-            tokenizeSettings.output_format = 8; // JSONL
-            tokenizeSettings.print_all = true;
-            tokenizeSettings.print_weights = true;
-            tokenizeSettings.dedupe = true;
-            tokenizeSettings.hack_uncompose = true;
-            console.log('Tokenize settings:', tokenizeSettings);
-
-            generator = await loadTransducer("src/resources/models/generator-gt-norm.hfstol", `generator`);
-            stressGenerator = await loadTransducer("src/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`);
-            tokenizer = await loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
+            if (!cg3Ready) {
+                await initCg3();
+            }
         } catch (error) {
-            console.error('Failed to initialize HFST:', error);
+            console.error('Failed to initialize WASM modules:', error);
             initializationPromise = null;
             throw error;
         }
@@ -51,6 +86,48 @@ async function initHfst() {
 
     return await initializationPromise;
 }
+
+
+async function vislcg3(input_stream, grammar = null) {
+    if (!cg3) {
+        throw new Error('CG3 module not initialized');
+    }
+    if (!grammar) {
+        grammar = cg3GrammarString;
+    }
+
+    const cglb = cg3.cwrap('cg3_grammar_load_buffer', 'number', ['string', 'number']);
+    const cac = cg3.cwrap('cg3_applicator_create', 'number', ['number']);
+    const crgotf = cg3.cwrap('cg3_run_grammar_on_text_fns', null, ['number', 'string', 'string']);
+
+    const g = cglb(grammar, grammar.length);
+    if (g === 0) throw new Error('Failed to load CG3 grammar');
+
+    const a = cac(g);
+    if (a === 0) throw new Error('Failed to create CG3 applicator');
+
+    const timestamp = Date.now();
+    const randomFloat = Math.random();
+    const inputFile = `/tmp/${timestamp}-${randomFloat}.in`;
+    const outputFile = `/tmp/${timestamp}-${randomFloat}.out`;
+    cg3.FS.writeFile(inputFile, input_stream, { encoding: 'utf8' });
+
+    crgotf(a, inputFile, outputFile);
+    const output_stream = cg3.FS.readFile(outputFile, { encoding: 'utf8' });
+
+    cg3.FS.unlink(inputFile);
+    cg3.FS.unlink(outputFile);
+
+    return output_stream;
+}
+
+
+async function test_vislcg3() {
+    const testInput = '"<woærd>"\n\t"woørd" tag\n\t"woård" nottag\n';
+    const testGrammar = 'DELIMITERS = "<.>"; SELECT (tag) ;';
+    return await vislcg3(testInput, testGrammar);
+}
+
 
 async function loadTransducer(transducerPath, transducerName) {
     try {
@@ -70,7 +147,7 @@ async function loadTransducer(transducerPath, transducerName) {
             console.warn(`The given transducer file (${transducerPath}) contains more than one transducer. Only the first one is loaded.`);
         }
         instream.close();
-        console.log(`    ...Transducer ${transducerName} loaded.`);
+        console.log(`    ...Transducer ${transducerName} loaded successfully.`);
         return transducer;
     } catch (error) {
         console.error(`Error loading transducer ${transducerName}:`, error);
@@ -164,7 +241,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.target === 'offscreen' && request.action === 'tokenize') {
         (async () => {
             try {
-                await initHfst();
+                await initWasmTools();
                 const result = await handleTokenizeRequest(request.text);
                 sendResponse({ success: true, data: result });
             } catch (error) {
@@ -175,7 +252,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.target === 'offscreen' && request.action === 'generate') {
         (async () => {
             try {
-                await initHfst();
+                await initWasmTools();
                 const result = await handleGenerateRequest(request.input, request.useStress);
                 sendResponse({ success: true, data: result });
             } catch (error) {
@@ -186,4 +263,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-initHfst();
+initWasmTools();

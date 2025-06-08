@@ -1,5 +1,11 @@
 old/
 
+src/resources/models/*.cg3
+src/resources/models/*.hfstol
+src/resources/models/*.pmhfst
+src/resources/js/lib*.js
+src/resources/js/lib*.wasm
+src/resources/js/lib*.wasm.map
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

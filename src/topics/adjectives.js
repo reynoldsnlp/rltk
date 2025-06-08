@@ -35,7 +35,6 @@
 
     window.EnhanceFuncs["adjectives-mc"] = function(originalText, cohort, cohortIndex, isCorrect) {
         if (!isCorrect) {
-            console.log('Token not marked as correct, returning plain text');
             const span = document.createElement('span');
             span.textContent = originalText;
             return span;
@@ -51,13 +50,10 @@
         const reading = cohort.rs[0];
         const baseForm = reading.l;
         if (!baseForm) {
-            console.log('No base form (lemma) found in reading:', reading);
             const span = document.createElement('span');
             span.textContent = originalText;
             return span;
         }
-
-        console.log('  Creating dropdown for adjective:', { originalText, baseForm, tags: reading.ts });
 
         // Create the dropdown container
         const container = document.createElement('span');
@@ -83,10 +79,8 @@
     };
 
     window.EnhanceFuncs["adjectives-cloze"] = function(originalText, cohort, cohortIndex, isCorrect) {
-        console.log('adjectives-cloze called with:', { originalText, cohortIndex, isCorrect, cohort });
 
         if (!isCorrect) {
-            console.log('Token not marked as correct, returning plain text');
             const span = document.createElement('span');
             span.textContent = originalText;
             return span;
@@ -102,13 +96,10 @@
         const reading = cohort.rs[0];
         const lemma = reading.l;
         if (!lemma) {
-            console.log('No lemma found in reading:', reading);
             const span = document.createElement('span');
             span.textContent = originalText;
             return span;
         }
-
-        console.log('  Creating cloze input for adjective:', { originalText, lemma, tags: reading.ts });
 
         // Create the cloze container
         const container = document.createElement('span');
@@ -296,18 +287,13 @@
         } else if (typeof originalTags === 'string') {
             tagsString = originalTags;
         } else {
-            console.log('Unexpected tags format:', originalTags);
             return distractors;
         }
 
-        console.log('Tags as string:', tagsString);
-
         // Find the current case tag in the original tags
         const currentCaseTag = caseTagsToTry.find(tag => tagsString.includes(tag));
-        console.log('Current case tag found:', currentCaseTag);
 
         if (!currentCaseTag) {
-            console.log('No case tag found, returning only correct form');
             return distractors;
         }
 
@@ -321,9 +307,7 @@
             try {
                 const newTags = tagsString.replace(currentCaseTag, caseTag);
                 const input = `${baseForm}+${newTags}`;
-                console.log('Generating forms for input:', input);
                 const generatedForms = await window.generateForms(input);
-                console.log('Generated forms result:', generatedForms);
 
                 if (generatedForms && generatedForms.length > 0) {
                     // Use the first generated form as distractor

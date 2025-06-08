@@ -482,7 +482,6 @@
      * Helper function to send generation requests to offscreen
      */
     async function generateForms(input, useStress = false) {
-        console.log('generateForms(): input:', input, 'useStress:', useStress);
         try {
             const response = await chrome.runtime.sendMessage({
                 target: 'offscreen',
