@@ -11,52 +11,85 @@
             <h2>RLTK - Russian Tools</h2>
         </header>
 
-        <div class="panel-section">
-            <label for="auto-enhance">Auto-enhance:</label>
-            <input type="checkbox" id="auto-enhance" name="auto-enhance">
+        <nav class="tab-navigation">
+            <button class="tab-button active" data-tab="interact">Interact</button>
+            <button class="tab-button" data-tab="authentic">Authentic texts</button>
+            <button class="tab-button" data-tab="writing">Writing tutor</button>
+        </nav>
+
+        <div id="interact-tab" class="tab-content active">
+            <!-- TODO add auto-enhance? -->
+            <!-- <div class="panel-section">
+                <label for="auto-enhance">Auto-enhance:</label>
+                <input type="checkbox" id="auto-enhance" name="auto-enhance">
+            </div> -->
+
+            <div class="panel-section">
+                <label for="topic-menu">Topic:</label>
+                <select id="topic-menu" name="topic">
+                    <option value="unselected">Select a topic...</option>
+                    <option value="adjectives">Adjectives</option>
+                    <option value="assistive-reading">Russian assistive reading</option>
+                    <option value="gerunds">Verbal adverbs / Gerunds</option>
+                    <option value="nouns">Nouns</option>
+                    <option value="participles">Participles</option>
+                    <option value="phonetics">Phonetics</option>
+                    <option value="prepositions">Prepositions</option>
+                    <option value="verb-aspect-pairs">Verbal aspect</option>
+                    <option value="verb-tense">Verb tense</option>
+                    <option value="verbs">Verbs</option>
+                    <option value="word-stress">Word stress</option>
+                </select>
+            </div>
+
+            <div class="panel-section" id="filter-section" style="display: none;">
+                <label for="filter-menu">Filter:</label>
+                <select id="filter-menu" name="filter">
+                    <option value="all">No filter</option>
+                    <option value="unselected">Select filter...</option>
+                </select>
+            </div>
+
+            <div class="panel-section">
+                <label for="activity-menu">Activity:</label>
+                <select id="activity-menu" name="activity">
+                    <option value="unselected">Pick an Activity</option>
+                </select>
+            </div>
+
+            <div class="panel-actions">
+                <button id="enhance-button" disabled>Enhance</button>
+                <button id="abort-button" style="display: none;">Abort</button>
+                <button id="restore-button" style="display: none;">Restore</button>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <span>Processing...</span>
+            </div>
         </div>
 
-        <div class="panel-section">
-            <label for="topic-menu">Topic:</label>
-            <select id="topic-menu" name="topic">
-                <option value="unselected">Select a topic...</option>
-                <option value="adjectives">Adjectives</option>
-                <option value="assistive-reading">Russian assistive reading</option>
-                <option value="gerunds">Verbal adverbs / Gerunds</option>
-                <option value="nouns">Nouns</option>
-                <option value="participles">Participles</option>
-                <option value="phonetics">Phonetics</option>
-                <option value="prepositions">Prepositions</option>
-                <option value="verb-aspect-pairs">Verbal aspect</option>
-                <option value="verb-tense">Verb tense</option>
-                <option value="verbs">Verbs</option>
-                <option value="word-stress">Word stress</option>
-            </select>
+        <div id="authentic-tab" class="tab-content">
+            <div class="under-construction">
+                <svg width="120" height="120" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#ccc" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#2c5aa0" stroke-width="8" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314">
+                        <animate attributeName="stroke-dashoffset" dur="2s" values="314;0" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+                <p>Under Construction</p>
+            </div>
         </div>
 
-        <div class="panel-section" id="filter-section" style="display: none;">
-            <label for="filter-menu">Filter:</label>
-            <select id="filter-menu" name="filter">
-                <option value="all">No filter</option>
-                <option value="unselected">Select filter...</option>
-            </select>
-        </div>
-
-        <div class="panel-section">
-            <label for="activity-menu">Activity:</label>
-            <select id="activity-menu" name="activity">
-                <option value="unselected">Pick an Activity</option>
-            </select>
-        </div>
-
-        <div class="panel-actions">
-            <button id="enhance-button" disabled>Enhance</button>
-            <button id="abort-button" style="display: none;">Abort</button>
-            <button id="restore-button" style="display: none;">Restore</button>
-        </div>
-
-        <div id="loading" class="loading" style="display: none;">
-            <span>Processing...</span>
+        <div id="writing-tab" class="tab-content">
+            <div class="under-construction">
+                <svg width="120" height="120" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#ccc" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#2c5aa0" stroke-width="8" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314">
+                        <animate attributeName="stroke-dashoffset" dur="2s" values="314;0" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+                <p>Under Construction</p>
+            </div>
         </div>
     </div>
 

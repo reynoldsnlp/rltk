@@ -14,6 +14,13 @@ class RussianToolsSidePanel {
     }
 
     setupEventListeners() {
+        // Tab navigation
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.switchTab(e.target.dataset.tab);
+            });
+        });
+
         // Auto-enhance checkbox
         document.getElementById('auto-enhance').addEventListener('change', (e) => {
             this.setAutoEnhance(e.target.checked);
@@ -46,6 +53,20 @@ class RussianToolsSidePanel {
         document.getElementById('restore-button').addEventListener('click', () => {
             this.restoreOriginal();
         });
+    }
+
+    switchTab(tabName) {
+        // Remove active class from all tabs and buttons
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        // Add active class to selected tab and button
+        document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
+        document.getElementById(`${tabName}-tab`).classList.add('active');
     }
 
     setAutoEnhance(enabled) {
