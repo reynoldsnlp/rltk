@@ -21,10 +21,13 @@ class RussianToolsSidePanel {
             });
         });
 
-        // Auto-enhance checkbox
-        document.getElementById('auto-enhance').addEventListener('change', (e) => {
-            this.setAutoEnhance(e.target.checked);
-        });
+        // Auto-enhance checkbox (only if it exists)
+        const autoEnhanceCheckbox = document.getElementById('auto-enhance');
+        if (autoEnhanceCheckbox) {
+            autoEnhanceCheckbox.addEventListener('change', (e) => {
+                this.setAutoEnhance(e.target.checked);
+            });
+        }
 
         // Topic selection
         document.getElementById('topic-menu').addEventListener('change', (e) => {
@@ -340,8 +343,9 @@ class RussianToolsSidePanel {
                     return;
                 }
 
-                if (items.enabled) {
-                    document.getElementById('auto-enhance').checked = items.enabled;
+                const autoEnhanceCheckbox = document.getElementById('auto-enhance');
+                if (items.enabled && autoEnhanceCheckbox) {
+                    autoEnhanceCheckbox.checked = items.enabled;
                 }
                 // Store other settings for restoration
                 this.storedSettings = items;
