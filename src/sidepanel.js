@@ -154,6 +154,8 @@ class RussianToolsSidePanel {
 
     updateActivities(topic) {
         const activityMenu = document.getElementById('activity-menu');
+        const activitySection = activityMenu.closest('.panel-section');
+
         activityMenu.innerHTML = '<option value="unselected">Pick an Activity</option>';
 
         if (topic !== 'unselected') {
@@ -164,6 +166,9 @@ class RussianToolsSidePanel {
                 option.textContent = activity.text;
                 activityMenu.appendChild(option);
             });
+            activitySection.style.display = 'block';
+        } else {
+            activitySection.style.display = 'none';
         }
     }
 
