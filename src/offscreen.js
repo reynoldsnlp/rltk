@@ -129,6 +129,109 @@ async function test_vislcg3() {
 }
 
 
+async function cgConv(input_stream, options = {}) {
+    if (!cg3) {
+        throw new Error('CG3 module not initialized');
+    }
+
+    // Default options
+    const {
+        input_format = 'auto',   // 'auto', 'cg', 'niceline', 'apertium', 'fst', 'plain', 'jsonl'
+        output_format = 'cg',    // 'cg', 'niceline', 'apertium', 'fst', 'plain', 'jsonl'
+        unicode_tags = false,
+        pipe_deleted = false,
+        no_break = false,
+        parse_dep = false,
+        add_tags = false,
+        sub_ltr = false,
+        mapping_prefix = null,
+        sub_delimiter = null,
+        fst_wtag = null,
+        fst_wfactor = null
+    } = options;
+
+    // Map format strings to cg3_sformat enum values
+    const formatMap = {
+        'cg': 1,        // CG3SF_CG
+        'niceline': 2,  // CG3SF_NICELINE
+        'apertium': 3,  // CG3SF_APERTIUM
+        'fst': 5,       // CG3SF_FST
+        'plain': 6,     // CG3SF_PLAIN
+        'jsonl': 7      // CG3SF_JSONL
+    };
+
+    // Wrap libcg3 functions
+    const cg3_detect_sformat_buffer = cg3.cwrap('cg3_detect_sformat_buffer', 'number', ['string', 'number']);
+    const cg3_sconverter_create = cg3.cwrap('cg3_sconverter_create', 'number', ['number', 'number']);
+    const cg3_sconverter_run_fns = cg3.cwrap('cg3_sconverter_run_fns', null, ['number', 'string', 'string']);
+    const cg3_sconverter_free = cg3.cwrap('cg3_sconverter_free', null, ['number']);
+
+    let input_fmt;
+
+    // Determine input format
+    if (input_format === 'auto') {
+        input_fmt = cg3_detect_sformat_buffer(input_stream, input_stream.length);
+        if (input_fmt === 0) { // CG3SF_INVALID
+            throw new Error('Could not detect input format');
+        }
+    } else {
+        input_fmt = formatMap[input_format];
+        if (!input_fmt) {
+            throw new Error(`Unknown input format: ${input_format}`);
+        }
+    }
+
+    // Determine output format
+    const output_fmt = formatMap[output_format];
+    if (!output_fmt) {
+        throw new Error(`Unknown output format: ${output_format}`);
+    }
+
+    // Create format converter
+    const converter = cg3_sconverter_create(input_fmt, output_fmt);
+    if (converter === 0) {
+        throw new Error('Failed to create format converter');
+    }
+
+    try {
+        // Set converter options if needed
+        // Note: The libcg3 API doesn't expose all the FormatConverter options directly,
+        // so some advanced options from cg-conv might not be available through the C API
+
+        // Create temporary files for input and output
+        const timestamp = Date.now();
+        const randomFloat = Math.random();
+        const inputFile = `/tmp/${timestamp}-${randomFloat}.in`;
+        const outputFile = `/tmp/${timestamp}-${randomFloat}.out`;
+
+        // Write input to temporary file
+        cg3.FS.writeFile(inputFile, input_stream, { encoding: 'utf8' });
+
+        // Run conversion
+        cg3_sconverter_run_fns(converter, inputFile, outputFile);
+
+        // Read output
+        const output_stream = cg3.FS.readFile(outputFile, { encoding: 'utf8' });
+
+        // Clean up temporary files
+        cg3.FS.unlink(inputFile);
+        cg3.FS.unlink(outputFile);
+
+        return output_stream;
+
+    } finally {
+        // Clean up converter
+        cg3_sconverter_free(converter);
+    }
+}
+
+
+async function testCgConv() {
+    const testInput = '"<woærd>"\n\t"woørd" tag\n\t"woård" nottag\n';
+    return await cgConv(testInput, {input_format: "cg", output_format: 'jsonl'});
+}
+
+
 async function loadTransducer(transducerPath, transducerName) {
     try {
         const response = await fetch(chrome.runtime.getURL(transducerPath));
