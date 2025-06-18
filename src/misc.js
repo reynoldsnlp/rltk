@@ -24,14 +24,14 @@
      * Creates a responsive width style for form elements based on text length
      * Uses 'ch' units for font-responsive sizing
      */
-    window.RLTKUtils.getResponsiveWidth = function(text, extraChars = 1, minChars = 4) {
+    window.RLTKUtils.getResponsiveWidth = function(text, extraChars = 6, minChars = 8) {
         return `${Math.max(text.length + extraChars, minChars)}ch`;
     };
 
     /**
      * Shared CSS styles for form elements
      */
-    window.RLTKUtils.getBaseFormStyles = function(width) {
+    window.RLTKUtils.getBaseFormStyles = function(width, extraStyles = '') {
         return `
             background-color: rgba(255, 255, 0, 0.3);
             border: 1px solid #ccc;
@@ -40,6 +40,7 @@
             font-family: inherit;
             font-size: inherit;
             width: ${width};
+            ${extraStyles}
         `;
     };
 

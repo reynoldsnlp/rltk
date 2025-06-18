@@ -101,17 +101,22 @@
             return span;
         }
 
-        // Create the cloze container
+        // Create a wrapper to hold both prompt and input
+        const wrapper = document.createElement('span');
+        wrapper.className = `ʁ ʁ${cohortIndex} ʁ-adjective-cloze-wrapper`;
+
+        // Create the cloze container (for styling/logic)
         const container = document.createElement('span');
-        container.className = `ʁ ʁ${cohortIndex} ʁ-adjective-cloze`;
+        container.className = `ʁ-adjective-cloze`;
 
         // Create prompt and input using shared utilities
         const prompt = window.RLTKUtils.createLemmaPrompt(lemma);
         const input = createClozeInput(originalText);
 
-        container.appendChild(prompt);
         container.appendChild(input);
-        return container;
+        wrapper.appendChild(prompt);
+        wrapper.appendChild(container);
+        return wrapper;
     };
 
     // Helper functions using shared utilities
@@ -128,8 +133,8 @@
 
     function createMultipleChoiceSelect(originalText) {
         const select = document.createElement('select');
-        const width = window.RLTKUtils.getResponsiveWidth(originalText, 1);
-        select.style.cssText = window.RLTKUtils.getBaseFormStyles(width);
+        const width = window.RLTKUtils.getResponsiveWidth(originalText);
+        select.style.cssText = window.RLTKUtils.getBaseFormStyles(width, 'margin-left: 1.2ch;');
 
         // Add stop propagation listeners
         window.RLTKUtils.addStopPropagationListeners(select);
@@ -190,7 +195,7 @@
     function createClozeInput(originalText) {
         const input = document.createElement('input');
         input.type = 'text';
-        const width = window.RLTKUtils.getResponsiveWidth(originalText, 1);
+        const width = window.RLTKUtils.getResponsiveWidth(originalText);
         input.style.cssText = window.RLTKUtils.getBaseFormStyles(width);
         input.placeholder = '?';
         input.dataset.correctAnswer = originalText;
@@ -231,15 +236,16 @@
             if (e.key === 'Enter') {
                 const userInput = this.value.trim();
                 const correctAnswer = this.dataset.correctAnswer;
-                const container = this.closest('.ʁ-adjective-cloze');
-                const cohortIndex = container.className.match(/ʁ(\d+)/)[1];
+                // Find the wrapper instead of just the container
+                const wrapper = this.closest('.ʁ-adjective-cloze-wrapper');
+                const cohortIndex = wrapper.className.match(/ʁ(\d+)/)[1];
 
                 if (userInput.toLowerCase() === correctAnswer.toLowerCase()) {
-                    // Correct answer: replace with success span
+                    // Correct answer: replace wrapper (prompt + input) with success span
                     const correctSpan = window.RLTKUtils.createSuccessSpan(
                         correctAnswer, cohortIndex, 'ʁ-adjective-correct'
                     );
-                    container.parentNode.replaceChild(correctSpan, container);
+                    wrapper.parentNode.replaceChild(correctSpan, wrapper);
                 } else if (userInput !== '') {
                     // Show correct answer briefly, then allow retry
                     const originalValue = this.value;

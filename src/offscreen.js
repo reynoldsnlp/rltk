@@ -1,6 +1,7 @@
 let hfst = null;
 let cg3 = null;
 let cg3GrammarString = null;
+const cg3GrammarPath = '/disambiguator.cg3'; // wasm FS path for default CG3 grammar
 let tokenizer = null;
 let generator = null;
 let stressGenerator = null;
@@ -22,7 +23,7 @@ async function initHfst() {
     console.log('    ...HFST module loaded as `hfst`');
 
     tokenizeSettings = hfst.getDefaultTokenizeSettings();
-    tokenizeSettings.output_format = 8; // JSONL
+    tokenizeSettings.output_format = 5; // CG=3, GIELLACG=5, VISL=7, JSONL=8
     tokenizeSettings.print_all = true;
     tokenizeSettings.print_weights = true;
     tokenizeSettings.dedupe = true;
@@ -48,9 +49,24 @@ async function initCg3() {
     cg3 = await createCG3Module(moduleConfig);
     console.log('    ...CG3 module loaded as `cg3`');
 
+    try {
+        console.log('testing vislcg3()...');
+        console.log(await test_vislcg3()); // Ensure vislcg3 works
+    } catch (error) {
+        console.error('Error in vislcg3 test:', error);
+    }
+
+    try {
+        console.log('testing cgConv()...');
+        console.log(await testCgConv()); // Ensure cgConv works
+    } catch (error) {
+        console.error('Error in cgConv test:', error);
+    }
+
     // Retrieve the CG3 grammar string from src/resources/models/disambiguator.cg3
     const response = await fetch(chrome.runtime.getURL('src/resources/models/disambiguator.cg3'));
     cg3GrammarString = await response.text();
+    cg3.FS.writeFile(cg3GrammarPath, cg3GrammarString, { encoding: 'utf8' });
     console.log('CG3 grammar loaded successfully');
 }
 
@@ -88,33 +104,35 @@ async function initWasmTools() {
 }
 
 
-async function vislcg3(input_stream, grammar = null) {
+async function vislcg3(input_stream, grammar = cg3GrammarString) {
     if (!cg3) {
         throw new Error('CG3 module not initialized');
     }
-    if (!grammar) {
-        grammar = cg3GrammarString;
-    }
-
-    const cglb = cg3.cwrap('cg3_grammar_load_buffer', 'number', ['string', 'number']);
-    const cac = cg3.cwrap('cg3_applicator_create', 'number', ['number']);
-    const crgotf = cg3.cwrap('cg3_run_grammar_on_text_fns', null, ['number', 'string', 'string']);
-
-    const g = cglb(grammar, grammar.length);
-    if (g === 0) throw new Error('Failed to load CG3 grammar');
-
-    const a = cac(g);
-    if (a === 0) throw new Error('Failed to create CG3 applicator');
 
     const timestamp = Date.now();
     const randomFloat = Math.random();
-    const inputFile = `/tmp/${timestamp}-${randomFloat}.in`;
-    const outputFile = `/tmp/${timestamp}-${randomFloat}.out`;
+    const tmpFilename = `/tmp/vislcg3-${timestamp}-${randomFloat}`;
+    const grammarFile = `${tmpFilename}.cg3`;
+    cg3.FS.writeFile(grammarFile, grammar, { encoding: 'utf8' });
+    const inputFile = `${tmpFilename}.in`;
+    const outputFile = `${tmpFilename}.out`;
     cg3.FS.writeFile(inputFile, input_stream, { encoding: 'utf8' });
 
-    crgotf(a, inputFile, outputFile);
+    const cg3_grammar_load = cg3.cwrap('cg3_grammar_load', 'number', ['string']);
+    const cg3_applicator_create = cg3.cwrap('cg3_applicator_create', 'number', ['number']);
+    const cg3_run_grammar_on_text_fns = cg3.cwrap('cg3_run_grammar_on_text_fns', null, ['number', 'string', 'string']);
+
+    const grammar_ptr = cg3_grammar_load(grammarFile);
+    if (grammar_ptr === 0) throw new Error('Failed to load CG3 grammar');
+
+    const applicator_ptr = cg3_applicator_create(grammar_ptr);
+    if (applicator_ptr === 0) throw new Error('Failed to create CG3 applicator');
+
+
+    cg3_run_grammar_on_text_fns(applicator_ptr, inputFile, outputFile);
     const output_stream = cg3.FS.readFile(outputFile, { encoding: 'utf8' });
 
+    cg3.FS.unlink(grammarFile);
     cg3.FS.unlink(inputFile);
     cg3.FS.unlink(outputFile);
 
@@ -150,25 +168,21 @@ async function cgConv(input_stream, options = {}) {
         fst_wfactor = null
     } = options;
 
-    // Map format strings to cg3_sformat enum values
     const formatMap = {
-        'cg': 1,        // CG3SF_CG
-        'niceline': 2,  // CG3SF_NICELINE
-        'apertium': 3,  // CG3SF_APERTIUM
-        'fst': 5,       // CG3SF_FST
-        'plain': 6,     // CG3SF_PLAIN
-        'jsonl': 7      // CG3SF_JSONL
+        'cg': 1,
+        'niceline': 2,
+        'apertium': 3,
+        'fst': 5,
+        'plain': 6,
+        'jsonl': 7
     };
 
-    // Wrap libcg3 functions
     const cg3_detect_sformat_buffer = cg3.cwrap('cg3_detect_sformat_buffer', 'number', ['string', 'number']);
     const cg3_sconverter_create = cg3.cwrap('cg3_sconverter_create', 'number', ['number', 'number']);
     const cg3_sconverter_run_fns = cg3.cwrap('cg3_sconverter_run_fns', null, ['number', 'string', 'string']);
     const cg3_sconverter_free = cg3.cwrap('cg3_sconverter_free', null, ['number']);
 
     let input_fmt;
-
-    // Determine input format
     if (input_format === 'auto') {
         input_fmt = cg3_detect_sformat_buffer(input_stream, input_stream.length);
         if (input_fmt === 0) { // CG3SF_INVALID
@@ -181,13 +195,11 @@ async function cgConv(input_stream, options = {}) {
         }
     }
 
-    // Determine output format
     const output_fmt = formatMap[output_format];
     if (!output_fmt) {
         throw new Error(`Unknown output format: ${output_format}`);
     }
 
-    // Create format converter
     const converter = cg3_sconverter_create(input_fmt, output_fmt);
     if (converter === 0) {
         throw new Error('Failed to create format converter');
@@ -198,29 +210,22 @@ async function cgConv(input_stream, options = {}) {
         // Note: The libcg3 API doesn't expose all the FormatConverter options directly,
         // so some advanced options from cg-conv might not be available through the C API
 
-        // Create temporary files for input and output
         const timestamp = Date.now();
         const randomFloat = Math.random();
-        const inputFile = `/tmp/${timestamp}-${randomFloat}.in`;
-        const outputFile = `/tmp/${timestamp}-${randomFloat}.out`;
+        const tmpFilename = `/tmp/cgconv-${timestamp}-${randomFloat}`;
+        const inputFile = `${tmpFilename}.in`;
+        const outputFile = `${tmpFilename}.out`;
 
-        // Write input to temporary file
         cg3.FS.writeFile(inputFile, input_stream, { encoding: 'utf8' });
-
-        // Run conversion
         cg3_sconverter_run_fns(converter, inputFile, outputFile);
-
-        // Read output
         const output_stream = cg3.FS.readFile(outputFile, { encoding: 'utf8' });
 
-        // Clean up temporary files
         cg3.FS.unlink(inputFile);
         cg3.FS.unlink(outputFile);
 
         return output_stream;
 
     } finally {
-        // Clean up converter
         cg3_sconverter_free(converter);
     }
 }
@@ -287,10 +292,24 @@ async function handleTokenizeRequest(text) {
     }
 
     try {
-        const escapedPreview = text.substring(0, 100).replace(/\n/g, '\\n').replace(/\t/g, '\\t').replace(/ /g, '·');
-        const results = tokenizer.tokenize(text, tokenizeSettings);
-        const resultsObj = await jsonlToJsonArray(results);
-        return resultsObj;
+        const ambigOutput = tokenizer.tokenize(text, tokenizeSettings);
+        const ambigJsonl = await cgConv(ambigOutput, {
+            input_format: 'cg',
+            output_format: 'jsonl'
+        });
+        const ambigArray = await jsonlToJsonArray(ambigJsonl);
+
+        const disambigOutput = await vislcg3(ambigOutput);
+        const disambigJsonl = await cgConv(disambigOutput, {
+            input_format: 'cg',
+            output_format: 'jsonl'
+        });
+        const disambigArray = await jsonlToJsonArray(disambigJsonl);
+
+        return {
+            "ambigArray": ambigArray,
+            "disambigArray": disambigArray
+        };
     } catch (error) {
         console.error('Error in tokenization:', error);
         throw error;
@@ -318,11 +337,15 @@ async function jsonlToJsonArray(jsonlString) {
 }
 
 async function handleGenerateRequest(input, useStress = false) {
-    const transducer = useStress ? stressGenerator : generator;
+    console.log(`Handling generation request with...\n\tinput=${input}\n\tuseStress=${useStress}`);
 
+    const transducer = useStress ? stressGenerator : generator;
     if (!transducer) {
         throw new Error(`${useStress ? 'Stress generator' : 'Generator'} not initialized`);
     }
+
+    // Strip weight tags from input
+    input = input.replace(/\+<W:[^>]+>/g, '').trim();
 
     try {
         const results = transducer.lookup(input);

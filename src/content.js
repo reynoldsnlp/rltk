@@ -87,28 +87,13 @@
      * Phase 1: Extract plain text and build position maps
      * Phase 2: Use tokenization results with position maps to place spans
      */
-    function highlightTextNodes(root, cohortArray, topicFilterFunc, subfilterFunc, enhanceFunc) {
-        // Phase 1: Extract plain text and build position mappings
-        const analysisResult = extractTextWithPositionMapping(root);
-        const { plainText, positionMap, textNodes } = analysisResult;
-
-        // Phase 2: Build token position mappings
-        const tokenPositions = buildTokenPositions(cohortArray, plainText, topicFilterFunc, subfilterFunc);
-
-        // Phase 3: Apply highlighting using position mappings
-        applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, enhanceFunc);
-    }
-
-    /**
-     * Updated highlighting function that uses Activity classes
-     */
-    function highlightTextNodesWithActivity(root, cohortArray, activity) {
+    function highlightTextNodesWithActivity(root, cohortArrays, activity) {
         // Phase 1: Extract plain text and build position mappings
         const analysisResult = extractTextWithPositionMapping(root);
         const { plainText, positionMap, textNodes } = analysisResult;
 
         // Phase 2: Build token position mappings using activity logic
-        const tokenPositions = buildTokenPositionsWithActivity(cohortArray, plainText, activity);
+        const tokenPositions = buildTokenPositionsWithActivity(cohortArrays, plainText, activity);
 
         // Phase 3: Apply highlighting using position mappings
         applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity);
@@ -223,75 +208,13 @@
     /**
      * Phase 2: Build token positions from cohorts and plain text
      */
-    function buildTokenPositions(cohortArray, plainText, topicFilterFunc, subfilterFunc) {
+    function buildTokenPositionsWithActivity(cohortArrays, plainText, activity) {
         const tokenPositions = [];
         let currentOffset = 0;
 
-        for (let i = 0; i < cohortArray.length; i++) {
-            const cohort = cohortArray[i];
-            let cohortToken = '';
-            let isWordCohort = false;
-
-            if (cohort.w !== undefined) {
-                cohortToken = cohort.w;
-                isWordCohort = true;
-            } else if (cohort.t !== undefined) {
-                // Remove tPrefix if present
-                cohortToken = cohort.t.startsWith(':') ? cohort.t.substring(1) : cohort.t;
-                isWordCohort = false;
-            } else {
-                console.warn('Invalid cohort at index', i);
-                continue;
-            }
-
-            if (cohortToken === '') {
-                continue;
-            }
-
-            const cohortStart = plainText.indexOf(cohortToken, currentOffset);
-
-            if (cohortStart === -1) {
-                console.warn(`Could not find cohort "${cohortToken}" at offset ${currentOffset}`);
-                // Try to recover by searching from the beginning
-                const fallbackStart = plainText.indexOf(cohortToken, 0);
-                if (fallbackStart !== -1 && fallbackStart >= currentOffset) {
-                    currentOffset = fallbackStart;
-                } else {
-                    continue; // Skip this cohort
-                }
-            } else {
-                currentOffset = cohortStart;
-            }
-
-            const cohortEnd = currentOffset + cohortToken.length;
-
-            // Apply both topic filter and subfilter functions to determine if this token should be highlighted
-            if (isWordCohort &&
-                cohort.rs &&  // Check if cohort has readings
-                topicFilterFunc && topicFilterFunc(cohort) &&
-                subfilterFunc && subfilterFunc(cohort)) {
-
-                tokenPositions.push({
-                    start: currentOffset,
-                    end: cohortEnd,
-                    text: cohortToken,
-                    cohortIndex: i,
-                    cohort: cohort
-                });
-            }
-
-            currentOffset = cohortEnd;
-        }
-
-        return tokenPositions;
-    }
-
-    /**
-     * Build token positions using Activity class logic
-     */
-    function buildTokenPositionsWithActivity(cohortArray, plainText, activity) {
-        const tokenPositions = [];
-        let currentOffset = 0;
+        // In the future, some activities may use ambigArray, but for now
+        // we assume disambigArray
+        const cohortArray = cohortArrays.disambigArray;
 
         for (let i = 0; i < cohortArray.length; i++) {
             const cohort = cohortArray[i];
