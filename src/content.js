@@ -85,7 +85,7 @@
     /**
      * Two-phase highlighting implementation with position mapping
      * Phase 1: Extract plain text and build position maps
-     * Phase 2: Use tokenization results with position maps to place spans
+     * Phase 2: Use morph analysis results with position maps to place spans
      */
     function highlightTextNodesWithActivity(root, cohortArrays, activity) {
         // Phase 1: Extract plain text and build position mappings
@@ -212,6 +212,9 @@
         const tokenPositions = [];
         let currentOffset = 0;
 
+        // Reset TokenSelector so selection starts fresh for this run
+        window.RLTKUtils.TokenSelector.reset();
+
         // In the future, some activities may use ambigArray, but for now
         // we assume disambigArray
         const cohortArray = cohortArrays.disambigArray;
@@ -232,7 +235,8 @@
             const cohortEnd = currentOffset + cohortToken.length;
 
             // Use the activity's logic to determine if this token should be highlighted
-            if (activity.shouldHighlightToken(cohort)) {
+            // Pass cohort index so activities can use TokenSelector
+            if (activity.shouldHighlightToken(cohort, i)) {
                 tokenPositions.push({
                     start: currentOffset,
                     end: cohortEnd,
@@ -333,7 +337,7 @@
                     const bodyText = extractPlainText(document.body);
 
                     chrome.runtime.sendMessage({
-                        action: 'tokenize',
+                        action: 'morph_analysis',
                         text: bodyText
                     }).then(response => {
                         if (response.success) {
@@ -365,7 +369,7 @@
                                 sendResponse({ success: false, error: error.message });
                             }
                         } else {
-                            console.error('Tokenization failed:', response.error);
+                            console.error('Morphological analysis failed:', response.error);
                             sendResponse({ success: false, error: response.error });
                         }
                     }).catch(error => {

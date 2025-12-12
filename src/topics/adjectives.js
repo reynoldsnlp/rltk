@@ -176,6 +176,9 @@
         select.innerHTML = '';
         select.appendChild(placeholder);
         optionElements.forEach(opt => select.appendChild(opt));
+
+        placeholder.selected = true;
+        select.selectedIndex = 0;
     }
 
     function handleMultipleChoiceSelection(select, container, originalText, cohortIndex) {

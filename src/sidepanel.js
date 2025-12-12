@@ -283,7 +283,7 @@ class RussianToolsSidePanel {
 
         } catch (error) {
             console.error('Error enhancing page:', error);
-            alert(`Cannot enhance this page: ${error.message}\n\nRefresh the page and try again.`);
+            alert(`Cannot enhance this page. Refresh the page and try again.\n\nError: ${error.message}`);
             this.setProcessingState(false);
             this.isProcessing = false;
         }

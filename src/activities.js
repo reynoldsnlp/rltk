@@ -22,7 +22,8 @@ class BaseActivity {
     }
 
     // Default behavior: only highlight tokens that pass both filters
-    shouldHighlightToken(cohort) {
+    // Accept optional cohortIndex for tokenSelector usage
+    shouldHighlightToken(cohort, cohortIndex) {
         const topicFilterFunc = window.FilterFuncs[this.topic];
         const subfilterFunc = window.SubFilterFuncs[this.filter];
 
@@ -32,13 +33,14 @@ class BaseActivity {
     }
 
     // Default behavior: correctness is same as highlighting
-    isTokenCorrect(cohort) {  //TODO rename to isTokenTargeted?
-        return this.shouldHighlightToken(cohort);
+    // Accept optional cohortIndex and forward it
+    isTokenCorrect(cohort, cohortIndex) {
+        return this.shouldHighlightToken(cohort, cohortIndex);
     }
 
     // Create the enhanced span
     createSpan(originalText, cohort, cohortIndex) {
-        const isCorrect = this.isTokenCorrect(cohort);
+        const isCorrect = this.isTokenCorrect(cohort, cohortIndex);
         return this.enhanceFunc(originalText, cohort, cohortIndex, isCorrect);
     }
 }
@@ -80,18 +82,24 @@ class MultipleChoiceActivity extends BaseActivity {
     }
 
     // Multiple choice activities highlight only the target tokens
-    shouldHighlightToken(cohort) {
+    shouldHighlightToken(cohort, cohortIndex) {
         const topicFilterFunc = window.FilterFuncs[this.topic];
         const subfilterFunc = window.SubFilterFuncs[this.filter];
 
-        return cohort.rs &&
+        const base = cohort.rs &&
                topicFilterFunc && topicFilterFunc(cohort) &&
                subfilterFunc && subfilterFunc(cohort);
+
+        if (!base) {
+            return false;
+        } else {
+            return window.RLTKUtils.TokenSelector.shouldSelectToken(cohortIndex);
+        }
     }
 
     // All highlighted tokens are correct in multiple choice activities
-    isTokenCorrect(cohort) {
-        return this.shouldHighlightToken(cohort);
+    isTokenCorrect(cohort, cohortIndex) {
+        return this.shouldHighlightToken(cohort, cohortIndex);
     }
 
     /**
@@ -147,18 +155,24 @@ class MultipleChoiceActivity extends BaseActivity {
  */
 class ClozeActivity extends BaseActivity {
     // Cloze activities highlight only the target tokens
-    shouldHighlightToken(cohort) {
+    shouldHighlightToken(cohort, cohortIndex) {
         const topicFilterFunc = window.FilterFuncs[this.topic];
         const subfilterFunc = window.SubFilterFuncs[this.filter];
 
-        return cohort.rs &&
+        const base = cohort.rs &&
                topicFilterFunc && topicFilterFunc(cohort) &&
                subfilterFunc && subfilterFunc(cohort);
+
+        if (!base) {
+            return false;
+        } else {
+            return window.RLTKUtils.TokenSelector.shouldSelectToken(cohortIndex);
+        }
     }
 
     // All highlighted tokens are correct in cloze activities
-    isTokenCorrect(cohort) {
-        return this.shouldHighlightToken(cohort);
+    isTokenCorrect(cohort, cohortIndex) {
+        return this.shouldHighlightToken(cohort, cohortIndex);
     }
 
     /**

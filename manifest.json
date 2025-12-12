@@ -10,6 +10,10 @@
     "sidePanel",
     "storage"
   ],
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": false
+  },
   "background": {
     "service_worker": "src/background.js"
   },
@@ -17,7 +21,8 @@
     {
       "matches": ["<all_urls>"],
       "js": [
-        "src/misc.js",
+        "src/utils/misc.js",
+        "src/utils/tokenSelector.js",
         "src/activities.js",
         "src/topics/adjectives.js",
         "src/topics/adverbs.js",

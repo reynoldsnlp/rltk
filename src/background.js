@@ -52,7 +52,8 @@ async function ensureContentScriptLoaded(tabId) {
       await chrome.scripting.executeScript({
         target: { tabId: tabId },
         files: [
-          'src/misc.js',
+          'src/utils/misc.js',
+          'src/utils/tokenSelector.js',
           'src/activities.js',
           'src/topics/adjectives.js',
           'src/topics/adverbs.js',
@@ -79,14 +80,14 @@ async function ensureContentScriptLoaded(tabId) {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'tokenize') {
+    if (request.action === 'morph_analysis') {
         (async () => {
             try {
                 await createOffscreenDocument();
                 // Forward the request to the offscreen document
                 const response = await chrome.runtime.sendMessage({
                     target: 'offscreen',
-                    action: 'tokenize',
+                    action: 'morph_analysis',
                     text: request.text
                 });
 

@@ -2,7 +2,7 @@ let hfst = null;
 let cg3 = null;
 let cg3GrammarString = null;
 const cg3GrammarPath = '/disambiguator.cg3'; // wasm FS path for default CG3 grammar
-let tokenizer = null;
+let tokenizer = null;  // Tokenizer for HFST (also provides morphological analysis)
 let generator = null;
 let stressGenerator = null;
 let tokenizeSettings;
@@ -23,7 +23,7 @@ async function initHfst() {
     console.log('    ...HFST module loaded as `hfst`');
 
     tokenizeSettings = hfst.getDefaultTokenizeSettings();
-    tokenizeSettings.output_format = 5; // CG=3, GIELLACG=5, VISL=7, JSONL=8
+    tokenizeSettings.output_format = 5;  // 5 = GIELLACG format which includes morphological analysis
     tokenizeSettings.print_all = true;
     tokenizeSettings.print_weights = true;
     tokenizeSettings.dedupe = true;
@@ -264,7 +264,7 @@ async function loadTransducer(transducerPath, transducerName) {
 }
 
 async function loadTokenizer(tokPath) {
-    console.log(`Loading tokenizer from ${tokPath}...`);
+    console.log(`Loading tokenizer/analyzer from ${tokPath}...`);
     try {
         const response = await fetch(chrome.runtime.getURL(tokPath));
         if (!response.ok) {
@@ -278,17 +278,17 @@ async function loadTokenizer(tokPath) {
         console.log(`Tokenizer file written to HFST FS at ${tokenizerFilePath}`);
 
         const pmatchContainer = hfst.createPmatchContainer(tokenizerFilePath);
-        console.log('    ...Tokenizer loaded.');
+        console.log('    ...Tokenizer/analyzer loaded.');
         return pmatchContainer;
     } catch (error) {
-        console.error('Error loading tokenizer:', error);
+        console.error('Error loading tokenizer/analyzer:', error);
         return null;
     }
 }
 
-async function handleTokenizeRequest(text) {
+async function handleMorphAnalysisRequest(text) {
     if (!tokenizer) {
-        throw new Error('Tokenizer not initialized');
+        throw new Error('Tokenizer/analyzer not initialized');
     }
 
     try {
@@ -311,7 +311,7 @@ async function handleTokenizeRequest(text) {
             "disambigArray": disambigArray
         };
     } catch (error) {
-        console.error('Error in tokenization:', error);
+        console.error('Error in tokenization/morphological analysis:', error);
         throw error;
     }
 }
@@ -364,11 +364,11 @@ async function handleGenerateRequest(input, useStress = false) {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.target === 'offscreen' && request.action === 'tokenize') {
+    if (request.target === 'offscreen' && request.action === 'morph_analysis') {
         (async () => {
             try {
                 await initWasmTools();
-                const result = await handleTokenizeRequest(request.text);
+                const result = await handleMorphAnalysisRequest(request.text);
                 sendResponse({ success: true, data: result });
             } catch (error) {
                 sendResponse({ success: false, error: error.message });
