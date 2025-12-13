@@ -3,10 +3,17 @@
 
     // Adjective filter function
     window.FilterFuncs.adjectives = function(cohort) {
-        for (const reading of cohort.rs) {
-            if (reading.ts
-                && reading.ts.includes('A')) return true;
+        if (!cohort.rs || cohort.rs.length === 0) {
+            return false;
         }
+
+        const hasAdjectiveReading = cohort.rs.some(r => r.ts && r.ts.includes('A'));
+
+        // Exclude if any reading has Pred
+        const excludedTags = ['Pred'];
+        const hasExcludedReading = cohort.rs.some(r => r.ts && r.ts.some(tag => excludedTags.includes(tag)));
+
+        return hasAdjectiveReading && !hasExcludedReading;
     };
 
     // Adjective enhancement functions
@@ -40,20 +47,15 @@
             return span;
         }
 
-        // Validate adjective readings
-        if (!validateAdjectiveReadings(cohort)) {
+        // Find the adjective reading
+        const reading = cohort.rs.find(r => r.ts && r.ts.includes('A'));
+        if (!reading || !reading.l) {
             const span = document.createElement('span');
             span.textContent = originalText;
             return span;
         }
 
-        const reading = cohort.rs[0];
         const baseForm = reading.l;
-        if (!baseForm) {
-            const span = document.createElement('span');
-            span.textContent = originalText;
-            return span;
-        }
 
         // Create the dropdown container
         const container = document.createElement('span');
@@ -94,20 +96,15 @@
             return span;
         }
 
-        // Validate adjective readings
-        if (!validateAdjectiveReadings(cohort)) {
+        // Find the adjective reading
+        const reading = cohort.rs.find(r => r.ts && r.ts.includes('A'));
+        if (!reading || !reading.l) {
             const span = document.createElement('span');
             span.textContent = originalText;
             return span;
         }
 
-        const reading = cohort.rs[0];
         const lemma = reading.l;
-        if (!lemma) {
-            const span = document.createElement('span');
-            span.textContent = originalText;
-            return span;
-        }
 
         // Create a wrapper to hold both prompt and input
         const wrapper = document.createElement('span');
@@ -128,16 +125,6 @@
     };
 
     // Helper functions using shared utilities
-
-    function validateAdjectiveReadings(cohort) {
-        if (!cohort.rs || cohort.rs.length === 0) return false;
-
-        const hasNonAdjectiveReading = cohort.rs.some(reading =>
-            !reading.ts || !reading.ts.includes('A')
-        );
-
-        return !hasNonAdjectiveReading;
-    }
 
     function createMultipleChoiceSelect(originalText) {
         const select = document.createElement('select');
@@ -315,7 +302,7 @@
         }
 
         // Check if the original form is capitalized
-        const isCapitalized = correctForm.length > 0 && correctForm[0] === correctForm[0].toUpperCase();
+        const capType = window.RLTKUtils.detectCapitalization(correctForm);
 
         // Generate distractors by replacing the case tag
         for (const caseTag of caseTagsToTry) {
@@ -331,11 +318,7 @@
                     let distractor = generatedForms[0];
 
                     // Match the capitalization pattern of the original form
-                    if (isCapitalized && distractor.length > 0) {
-                        distractor = distractor[0].toUpperCase() + distractor.slice(1);
-                    } else if (!isCapitalized && distractor.length > 0) {
-                        distractor = distractor[0].toLowerCase() + distractor.slice(1);
-                    }
+                    distractor = window.RLTKUtils.matchCapitalization(distractor, capType);
 
                     if (distractor !== correctForm && !distractors.includes(distractor)) {
                         distractors.push(distractor);

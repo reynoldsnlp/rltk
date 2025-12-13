@@ -10,9 +10,13 @@
         // Equivalent to the old HFSTRusNounEnhancer logic:
         // Must have a noun reading (+N+) and must NOT have readings for other major POS.
         const hasNounReading = cohort.rs.some(r => r.ts && r.ts.includes('N'));
-        const hasOtherReading = cohort.rs.some(r => r.ts && r.ts[0] !== 'N');
 
-        return hasNounReading && !hasOtherReading;
+        // Exclude if any reading has one of these tags:
+        // V, A, Det, Pron, Pcle, Adv, Interj, CC, CS, Pred
+        const excludedTags = ['V', 'A', 'Det', 'Pron', 'Pcle', 'Adv', 'Interj', 'CC', 'CS', 'Pred'];
+        const hasExcludedReading = cohort.rs.some(r => r.ts && r.ts.some(tag => excludedTags.includes(tag)));
+
+        return hasNounReading && !hasExcludedReading;
     };
 
     // Sub-filters for singular and plural
@@ -262,7 +266,7 @@
             return distractors;
         }
 
-        const isCapitalized = correctForm.length > 0 && correctForm[0] === correctForm[0].toUpperCase();
+        const capType = window.RLTKUtils.detectCapitalization(correctForm);
 
         for (const caseTag of allCaseTags) {
             if (caseTag === currentCaseTag) continue;
@@ -276,11 +280,8 @@
 
                 if (generatedForms && generatedForms.length > 0) {
                     let distractor = generatedForms[0];
-                    if (isCapitalized && distractor.length > 0) {
-                        distractor = distractor[0].toUpperCase() + distractor.slice(1);
-                    } else if (!isCapitalized && distractor.length > 0) {
-                        distractor = distractor[0].toLowerCase() + distractor.slice(1);
-                    }
+                    distractor = window.RLTKUtils.matchCapitalization(distractor, capType);
+
                     if (distractor !== correctForm && !distractors.includes(distractor)) {
                         distractors.push(distractor);
                     }

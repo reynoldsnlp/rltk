@@ -98,25 +98,51 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
         })();
         return true; // Keep the message channel open for async response
-    } else if (request.target === 'offscreen' && request.action === 'generate') {
-        // Forward generate requests to offscreen document
+    }
+
+    if (request.action === 'generate') {
         (async () => {
             try {
                 await createOffscreenDocument();
+                // Forward the request to the offscreen document
                 const response = await chrome.runtime.sendMessage({
                     target: 'offscreen',
                     action: 'generate',
                     input: request.input,
                     useStress: request.useStress
                 });
+
                 sendResponse(response);
             } catch (error) {
-                console.error('BACKGROUND: Error forwarding generate request:', error.message);
+                console.error('BACKGROUND: Error:', error.message);
                 sendResponse({ success: false, error: error.message });
             }
         })();
-        return true;
-    } else if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore') {
+        return true; // Keep the message channel open for async response
+    }
+
+    if (request.action === 'get_model_data') {
+        (async () => {
+            try {
+                await createOffscreenDocument();
+                // Forward the request to the offscreen document
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    action: 'get_model_data',
+                    modelName: request.modelName,
+                    key: request.key
+                });
+
+                sendResponse(response);
+            } catch (error) {
+                console.error('BACKGROUND: Error:', error.message);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true; // Keep the message channel open for async response
+    }
+
+    if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore') {
         // Handle side panel requests to communicate with content script
         (async () => {
             try {

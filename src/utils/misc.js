@@ -14,12 +14,10 @@ console.log("Loaded misc.js");
      * Useful for form elements inside clickable containers
      */
     window.RLTKUtils.addStopPropagationListeners = function(element) {
-        element.addEventListener('click', function(e) {
-            e.stopPropagation();
-        });
-
-        element.addEventListener('mousedown', function(e) {
-            e.stopPropagation();
+        ['click', 'mousedown', 'mouseup', 'dblclick', 'contextmenu', 'auxclick'].forEach(eventType => {
+            element.addEventListener(eventType, function(e) {
+                e.stopPropagation();
+            });
         });
     };
 
@@ -82,6 +80,37 @@ console.log("Loaded misc.js");
             element.style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
             if (resetCallback) resetCallback();
         }, 1000);
+    };
+
+    /**
+     * Detects the capitalization pattern of a string
+     * @param {string} text - The text to analyze
+     * @returns {string} 'all-caps', 'title-case', or 'lower-case'
+     */
+    window.RLTKUtils.detectCapitalization = function(text) {
+        if (!text) return 'lower-case';
+        if (text === text.toUpperCase() && text !== text.toLowerCase()) return 'all-caps';
+        if (text[0] === text[0].toUpperCase() && text.slice(1) === text.slice(1).toLowerCase()) return 'title-case';
+        return 'lower-case';
+    };
+
+    /**
+     * Applies a capitalization pattern to a string
+     * @param {string} text - The text to modify
+     * @param {string} pattern - The pattern to apply ('all-caps', 'title-case', 'lower-case')
+     * @returns {string} The modified text
+     */
+    window.RLTKUtils.matchCapitalization = function(text, pattern) {
+        if (!text) return text;
+        switch (pattern) {
+            case 'all-caps':
+                return text.toUpperCase();
+            case 'title-case':
+                return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+            case 'lower-case':
+            default:
+                return text.toLowerCase();
+        }
     };
 
 })();

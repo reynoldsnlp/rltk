@@ -21,6 +21,16 @@ class BaseActivity {
         return enhanceFunc;
     }
 
+    /**
+     * Prepare the activity by loading necessary resources.
+     * Checks for a topic-specific initialization function.
+     */
+    async prepare() {
+        if (window.TopicInitFuncs && window.TopicInitFuncs[this.topic]) {
+            await window.TopicInitFuncs[this.topic]();
+        }
+    }
+
     // Default behavior: only highlight tokens that pass both filters
     // Accept optional cohortIndex for tokenSelector usage
     shouldHighlightToken(cohort, cohortIndex) {
@@ -41,7 +51,14 @@ class BaseActivity {
     // Create the enhanced span
     createSpan(originalText, cohort, cohortIndex) {
         const isCorrect = this.isTokenCorrect(cohort, cohortIndex);
-        return this.enhanceFunc(originalText, cohort, cohortIndex, isCorrect);
+        const element = this.enhanceFunc(originalText, cohort, cohortIndex, isCorrect);
+
+        // Store original text for restoration
+        if (element && element.nodeType === Node.ELEMENT_NODE) {
+            element.dataset.originalText = originalText;
+        }
+
+        return element;
     }
 }
 
@@ -67,21 +84,16 @@ class ClickActivity extends BaseActivity {
 }
 
 /**
- * Multiple Choice Activity Class
- * Base class for multiple choice activities
+ * Targeted Activity Class
+ * Base class for activities that select specific target tokens (like MC and Cloze)
+ * Handles stateful token selection to ensure consistency between highlighting and rendering
  */
-class MultipleChoiceActivity extends BaseActivity {
+class TargetedActivity extends BaseActivity {
     constructor(selections) {
         super(selections);
-        this.distractorGenerator = this.getDistractorGenerator();
+        this.selectedCohorts = new Set();
     }
 
-    getDistractorGenerator() {
-        // Default distractor generator - topics can override this
-        return null;
-    }
-
-    // Multiple choice activities highlight only the target tokens
     shouldHighlightToken(cohort, cohortIndex) {
         const topicFilterFunc = window.FilterFuncs[this.topic];
         const subfilterFunc = window.SubFilterFuncs[this.filter];
@@ -92,15 +104,36 @@ class MultipleChoiceActivity extends BaseActivity {
 
         if (!base) {
             return false;
-        } else {
-            return window.RLTKUtils.TokenSelector.shouldSelectToken(cohortIndex);
         }
+
+        const selected = window.RLTKUtils.TokenSelector.shouldSelectToken(cohortIndex);
+        if (selected) {
+            this.selectedCohorts.add(cohortIndex);
+        }
+        return selected;
     }
 
-    // All highlighted tokens are correct in multiple choice activities
     isTokenCorrect(cohort, cohortIndex) {
-        return this.shouldHighlightToken(cohort, cohortIndex);
+        return this.selectedCohorts.has(cohortIndex);
     }
+}
+
+/**
+ * Multiple Choice Activity Class
+ * Base class for multiple choice activities
+ */
+class MultipleChoiceActivity extends TargetedActivity {
+    constructor(selections) {
+        super(selections);
+        this.distractorGenerator = this.getDistractorGenerator();
+    }
+
+    getDistractorGenerator() {
+        // Default distractor generator - topics can override this
+        return null;
+    }
+
+    // shouldHighlightToken and isTokenCorrect are handled by TargetedActivity
 
     /**
      * Creates a standard multiple choice select element
@@ -153,27 +186,8 @@ class MultipleChoiceActivity extends BaseActivity {
  * Cloze Activity Class
  * Creates fill-in-the-blank exercises where users type the correct form
  */
-class ClozeActivity extends BaseActivity {
-    // Cloze activities highlight only the target tokens
-    shouldHighlightToken(cohort, cohortIndex) {
-        const topicFilterFunc = window.FilterFuncs[this.topic];
-        const subfilterFunc = window.SubFilterFuncs[this.filter];
-
-        const base = cohort.rs &&
-               topicFilterFunc && topicFilterFunc(cohort) &&
-               subfilterFunc && subfilterFunc(cohort);
-
-        if (!base) {
-            return false;
-        } else {
-            return window.RLTKUtils.TokenSelector.shouldSelectToken(cohortIndex);
-        }
-    }
-
-    // All highlighted tokens are correct in cloze activities
-    isTokenCorrect(cohort, cohortIndex) {
-        return this.shouldHighlightToken(cohort, cohortIndex);
-    }
+class ClozeActivity extends TargetedActivity {
+    // shouldHighlightToken and isTokenCorrect are handled by TargetedActivity
 
     /**
      * Creates a standard cloze input element
@@ -287,6 +301,11 @@ class ActivityFactory {
             case 'click':
                 return new ClickActivity(selections);
             case 'cloze':
+                // Special case: 'word-stress' 'cloze' is actually a 'Hover' activity
+                // which should apply to all tokens, not a random selection.
+                if (selections.topic === 'word-stress') {
+                    return new BaseActivity(selections);
+                }
                 return new ClozeActivity(selections);
             case 'mc':
             case 'multiple-choice':

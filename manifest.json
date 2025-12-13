@@ -51,7 +51,8 @@
         "src/resources/img/*.png",
         "src/resources/img/*.jpg",
         "src/resources/models/*.hfstol",
-        "src/resources/models/*.pmhfst"
+        "src/resources/models/*.pmhfst",
+        "src/resources/models/*.json"
       ],
       "matches": [
         "<all_urls>"

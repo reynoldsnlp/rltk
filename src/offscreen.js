@@ -5,8 +5,35 @@ const cg3GrammarPath = '/disambiguator.cg3'; // wasm FS path for default CG3 gra
 let tokenizer = null;  // Tokenizer for HFST (also provides morphological analysis)
 let generator = null;
 let stressGenerator = null;
+let g2p = null;
 let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
+
+const models = {
+    imperfectiveToPerfectiveVerbMap: null,
+    perfectiveToImperfectiveVerbMap: null,
+    lemmaToExemplarMap: null,
+    lemmaToTranslationsMap: null,
+    lemmaToTranslationsMapWiktExtract: null,
+    adjectivesToExcludeFromParticiples: null
+};
+
+async function loadJson(modelName) {
+    if (models[modelName]) return models[modelName];
+
+    console.log(`Loading JSON: ${modelName}...`);
+    try {
+        const url = chrome.runtime.getURL(`src/resources/models/${modelName}.json`);
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch ${modelName}`);
+        models[modelName] = await response.json();
+        console.log(`JSON ${modelName} loaded.`);
+        return models[modelName];
+    } catch (error) {
+        console.error(`Error loading JSON ${modelName}:`, error);
+        throw error;
+    }
+}
 
 async function initHfst() {
     const moduleConfig = {
@@ -32,6 +59,7 @@ async function initHfst() {
 
     generator = await loadTransducer("src/resources/models/generator-gt-norm.hfstol", `generator`);
     stressGenerator = await loadTransducer("src/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`);
+    g2p = await loadTransducer("src/resources/models/g2p.hfstol", `g2p`);
     tokenizer = await loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
 }
 
@@ -71,7 +99,7 @@ async function initCg3() {
 }
 
 async function initWasmTools() {
-    const hfstToolsReady = hfst !== null && generator !== null && stressGenerator !== null && tokenizer !== null;
+    const hfstToolsReady = hfst !== null && generator !== null && stressGenerator !== null && g2p !== null && tokenizer !== null;
     const cg3Ready = cg3 !== null;
 
     if (hfstToolsReady && cg3Ready) return;
@@ -256,6 +284,23 @@ async function loadTransducer(transducerPath, transducerName) {
         }
         instream.close();
         console.log(`    ...Transducer ${transducerName} loaded successfully.`);
+
+        // Test: demonstrate the transducer is functioning
+        try {
+            let input = null;
+            let testResults = null;
+            if (transducerName.match(/[Gg]enerator/)) {
+                input = "работа+N+Fem+Inan+Sg+Nom";
+                testResults = transducer.lookup(input)[0][0].join('');
+            } else if (transducerName === 'g2p') {
+                input = "рабо́та";
+                testResults = transducer.lookup(input)[0][0].join('');
+            }
+            console.log(`Test lookup for "${transducerName}" with input "${input}":`, testResults);
+        } catch (e) {
+            console.warn(`Test lookup failed for transducer "${transducerName}":`, e);
+        }
+
         return transducer;
     } catch (error) {
         console.error(`Error loading transducer ${transducerName}:`, error);
@@ -279,6 +324,16 @@ async function loadTokenizer(tokPath) {
 
         const pmatchContainer = hfst.createPmatchContainer(tokenizerFilePath);
         console.log('    ...Tokenizer/analyzer loaded.');
+
+        // Test: demonstrate the tokenizer/analyzer is functioning
+        try {
+            const testText = "работа";
+            const testOutput = pmatchContainer.tokenize(testText, tokenizeSettings);
+            console.log(`Test tokenize for tokenizer with input "работа":`, testOutput);
+        } catch (e) {
+            console.warn(`Test tokenize failed for tokenizer:`, e);
+        }
+
         return pmatchContainer;
     } catch (error) {
         console.error('Error loading tokenizer/analyzer:', error);
@@ -336,12 +391,23 @@ async function jsonlToJsonArray(jsonlString) {
     return jsonArray;
 }
 
-async function handleGenerateRequest(input, useStress = false) {
-    console.log(`Handling generation request with...\n\tinput=${input}\n\tuseStress=${useStress}`);
+async function handleGenerateRequest(input, mode = 'default') {
+    console.log(`Handling generation request with...\n\tinput=${input}\n\tmode=${mode}`);
 
-    const transducer = useStress ? stressGenerator : generator;
+    let transducer;
+    switch (mode) {
+        case 'stress':
+            transducer = stressGenerator;
+            break;
+        case 'g2p':
+            transducer = g2p;
+            break;
+        default:
+            transducer = generator;
+    }
+
     if (!transducer) {
-        throw new Error(`${useStress ? 'Stress generator' : 'Generator'} not initialized`);
+        throw new Error(`Generator for mode '${mode}' not initialized`);
     }
 
     // Strip weight tags from input
@@ -356,6 +422,7 @@ async function handleGenerateRequest(input, useStress = false) {
             let form = result[0].join('');
             forms.push(form);
         }
+        console.log(`Generated forms:`, forms);
         return forms;
     } catch (error) {
         console.error('Error in generation:', error);
@@ -379,13 +446,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         (async () => {
             try {
                 await initWasmTools();
-                const result = await handleGenerateRequest(request.input, request.useStress);
+                // Support legacy useStress param for backward compatibility
+                const mode = request.mode || (request.useStress ? 'stress' : 'default');
+                const result = await handleGenerateRequest(request.input, mode);
                 sendResponse({ success: true, data: result });
             } catch (error) {
                 sendResponse({ success: false, error: error.message });
             }
         })();
         return true; // Keep the message channel open for async response
+    } else if (request.target === 'offscreen' && request.action === 'get_model_data') {
+        (async () => {
+            try {
+                const model = await loadJson(request.modelName);
+                if (request.key === 'all' || request.key === undefined) {
+                    sendResponse({ success: true, data: model });
+                } else {
+                    const key = request.key;
+                    const data = model[key];
+                    sendResponse({ success: true, data: data });
+                }
+            } catch (error) {
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true;
     }
 });
 

@@ -49,13 +49,106 @@ class RussianToolsSidePanel {
             this.enhancePage();
         });
 
-        document.getElementById('abort-button').addEventListener('click', () => {
-            this.abortProcessing();
-        });
-
         document.getElementById('restore-button').addEventListener('click', () => {
-            this.restoreOriginal();
+            this.restorePage();
         });
+    }
+
+    async enhancePage() {
+        if (this.isProcessing) return;
+
+        this.isProcessing = true;
+        this.setProcessingState(true);
+
+        const selections = {
+            topic: document.getElementById('topic-menu').value,
+            filter: document.getElementById('filter-menu').value,
+            activity: document.getElementById('activity-menu').value,
+        };
+
+        try {
+            // Always restore first
+            await chrome.runtime.sendMessage({ action: 'restore' });
+
+            // Store selections
+            await chrome.storage.local.set(selections);
+
+            // Send message through background script
+            console.log('Sending enhance request from sidepanel.js with selections:', selections);
+            const response = await chrome.runtime.sendMessage({
+                action: 'enhance',
+                selections: selections
+            });
+
+            if (!response.success) {
+                throw new Error(response.error);
+            }
+
+            // Enhancement completed successfully
+            this.setCompletedState();
+
+        } catch (error) {
+            console.error('Error enhancing page:', error);
+            alert(`Cannot enhance this page. Refresh the page and try again.
+
+Error: ${error.message}`);
+            this.setInitialState();
+        } finally {
+            this.isProcessing = false;
+            // Ensure loading is hidden if it wasn't handled by state changes
+            document.getElementById('loading').style.display = 'none';
+        }
+    }
+
+    async restorePage() {
+        try {
+            await chrome.runtime.sendMessage({ action: 'restore' });
+        } catch (error) {
+            console.error('Error restoring:', error);
+        }
+        this.setInitialState();
+    }
+
+    setProcessingState(processing) {
+        const enhanceButton = document.getElementById('enhance-button');
+        const restoreButton = document.getElementById('restore-button');
+
+        enhanceButton.disabled = true;
+        restoreButton.disabled = true;
+
+        enhanceButton.textContent = processing ? 'Processing...' : 'Enhance';
+        document.getElementById('loading').style.display = processing ? 'block' : 'none';
+    }
+
+    setCompletedState() {
+        const enhanceButton = document.getElementById('enhance-button');
+        const restoreButton = document.getElementById('restore-button');
+
+        enhanceButton.disabled = false;
+        enhanceButton.textContent = 'Enhance';
+
+        restoreButton.disabled = false;
+
+        document.getElementById('loading').style.display = 'none';
+    }
+
+    setInitialState() {
+        const enhanceButton = document.getElementById('enhance-button');
+        const restoreButton = document.getElementById('restore-button');
+
+        enhanceButton.disabled = false;
+        enhanceButton.textContent = 'Enhance';
+
+        restoreButton.disabled = true;
+
+        document.getElementById('loading').style.display = 'none';
+
+        // Re-check button state based on selections
+        this.toggleEnhanceButton();
+    }
+
+    initializeActivitySelectors() {
+// ...existing code...
     }
 
     switchTab(tabName) {
@@ -203,12 +296,12 @@ class RussianToolsSidePanel {
             'phonetics': [
                 { val: 'color', text: 'Show Phonetics' },
                 { val: 'click', text: 'Hover' },
-                { val: 'mc', text: 'Multiple Choice' },
-                { val: 'cloze', text: 'Fill in the blanks' }
+                { val: 'mc', text: 'Multiple Choice' }
             ],
             'prepositions': [
                 { val: 'color', text: 'Highlight / Color' },
                 { val: 'click', text: 'Click to identify' },
+                { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
             ],
             'verb-aspect-pairs': [
@@ -249,88 +342,6 @@ class RussianToolsSidePanel {
         const activitySelected = activityMenu.value !== 'unselected';
 
         enhanceButton.disabled = !(filterSelected && activitySelected);
-    }
-
-    async enhancePage() {
-        if (this.isProcessing) return;
-
-        this.isProcessing = true;
-        this.setProcessingState(true);
-
-        const selections = {
-            topic: document.getElementById('topic-menu').value,
-            filter: document.getElementById('filter-menu').value,
-            activity: document.getElementById('activity-menu').value,
-        };
-
-        try {
-            // Store selections first
-            await chrome.storage.local.set(selections);
-
-            // Send message through background script
-            console.log('Sending enhance request from sidepanel.js with selections:', selections);
-            const response = await chrome.runtime.sendMessage({
-                action: 'enhance',
-                selections: selections
-            });
-
-            if (!response.success) {
-                throw new Error(response.error);
-            }
-
-            // Enhancement completed successfully - reset to completed state
-            this.setCompletedState();
-
-        } catch (error) {
-            console.error('Error enhancing page:', error);
-            alert(`Cannot enhance this page. Refresh the page and try again.\n\nError: ${error.message}`);
-            this.setProcessingState(false);
-            this.isProcessing = false;
-        }
-    }
-
-    setProcessingState(processing) {
-        document.getElementById('enhance-button').style.display = processing ? 'none' : 'block';
-        document.getElementById('abort-button').style.display = processing ? 'block' : 'none';
-        document.getElementById('restore-button').style.display = 'none';
-        document.getElementById('loading').style.display = processing ? 'block' : 'none';
-    }
-
-    setCompletedState() {
-        this.isProcessing = false;
-        document.getElementById('enhance-button').style.display = 'none';
-        document.getElementById('abort-button').style.display = 'none';
-        document.getElementById('restore-button').style.display = 'block';
-        document.getElementById('loading').style.display = 'none';
-    }
-
-    async abortProcessing() {
-        this.isProcessing = false;
-        this.setInitialState();
-
-        try {
-            await chrome.runtime.sendMessage({ action: 'abort' });
-        } catch (error) {
-            console.error('Error aborting:', error);
-        }
-    }
-
-    async restoreOriginal() {
-        try {
-            await chrome.runtime.sendMessage({ action: 'restore' });
-        } catch (error) {
-            console.error('Error restoring:', error);
-        }
-
-        this.setInitialState();
-    }
-
-    setInitialState() {
-        this.isProcessing = false;
-        document.getElementById('enhance-button').style.display = 'block';
-        document.getElementById('abort-button').style.display = 'none';
-        document.getElementById('restore-button').style.display = 'none';
-        document.getElementById('loading').style.display = 'none';
     }
 
     initializeActivitySelectors() {

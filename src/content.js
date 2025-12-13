@@ -339,7 +339,7 @@
                     chrome.runtime.sendMessage({
                         action: 'morph_analysis',
                         text: bodyText
-                    }).then(response => {
+                    }).then(async response => {
                         if (response.success) {
                             const { selections } = request;
 
@@ -360,6 +360,9 @@
                             try {
                                 // Create the appropriate activity using the factory
                                 const activity = window.ActivityFactory.createActivity(selections);
+
+                                // Initialize any resources needed by the activity
+                                await activity.prepare();
 
                                 // Use the unified highlighting function
                                 highlightTextNodesWithActivity(document.body, response.data, activity);
@@ -391,7 +394,10 @@
                 // Remove all highlighting by removing spans with ʁ class
                 document.querySelectorAll('.ʁ').forEach(span => {
                     const parent = span.parentNode;
-                    parent.replaceChild(document.createTextNode(span.textContent), span);
+                    // Use stored original text if available, otherwise fall back to textContent
+                    // (though textContent might be corrupted by distractors in MC activities)
+                    const originalText = span.dataset.originalText || span.textContent;
+                    parent.replaceChild(document.createTextNode(originalText), span);
                     parent.normalize();
                 });
                 sendResponse({ success: true });
@@ -408,13 +414,19 @@
     /**
      * Helper function to send generation requests to offscreen
      */
-    async function generateForms(input, useStress = false) {
+    async function generateForms(input, modeOrUseStress = 'default') {
         try {
+            // Handle legacy boolean argument
+            let mode = modeOrUseStress;
+            if (typeof modeOrUseStress === 'boolean') {
+                mode = modeOrUseStress ? 'stress' : 'default';
+            }
+
             const response = await chrome.runtime.sendMessage({
                 target: 'offscreen',
                 action: 'generate',
                 input: input,
-                useStress: useStress
+                mode: mode
             });
 
             if (response.success) {

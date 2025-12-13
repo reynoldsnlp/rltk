@@ -56,10 +56,13 @@ header h2 {
 }
 
 .panel-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
     margin: 16px 0;
+}
+
+.button-container {
+    display: flex;
+    gap: 8px;
+    width: 100%;
 }
 
 .panel-actions button {
@@ -70,6 +73,7 @@ header h2 {
     font-weight: 500;
     cursor: pointer;
     transition: background-color 0.2s;
+    flex: 1; /* Equal width */
 }
 
 #enhance-button {
@@ -84,20 +88,22 @@ header h2 {
 #enhance-button:disabled {
     background-color: #6c757d;
     cursor: not-allowed;
-}
-
-#abort-button {
-    background-color: #dc3545;
-    color: white;
-}
-
-#abort-button:hover {
-    background-color: #c82333;
+    opacity: 0.65;
 }
 
 #restore-button {
     background-color: #17a2b8;
     color: white;
+}
+
+#restore-button:hover:not(:disabled) {
+    background-color: #138496;
+}
+
+#restore-button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.65;
 }
 
 #restore-button:hover {
