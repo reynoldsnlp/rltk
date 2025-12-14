@@ -32,16 +32,30 @@ async function createOffscreenDocument() {
 
 // Set up side panel on installation
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  // We handle the click manually to ensure script injection happens while activeTab is fresh
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false })
+    .catch((error) => console.error(error));
 });
 
-// Handle action click to open side panel
-chrome.action.onClicked.addListener((tab) => {
-  chrome.sidePanel.open({ tabId: tab.id });
+// Handle action click to open side panel and inject scripts
+chrome.action.onClicked.addListener(async (tab) => {
+  // 1. Open the side panel immediately to provide feedback
+  try {
+    // Open in the current window
+    await chrome.sidePanel.open({ tabId: tab.id, windowId: tab.windowId });
+  } catch (error) {
+    console.error('Background: Failed to open side panel:', error);
+  }
+
+  // 2. Attempt to inject scripts using the activeTab permission from the click
+  try {
+    await ensureContentScriptLoaded(tab.id);
+  } catch (error) {
+    console.warn('Background: Script injection on click failed (non-fatal):', error);
+  }
 });
 
-// Helper function to inject content script if needed
-// TODO is this actually needed? Doesn't manifest v3 handle this automatically?
+// Helper function to inject content scripts
 async function ensureContentScriptLoaded(tabId) {
   try {
     // Try to ping the content script first
@@ -73,13 +87,28 @@ async function ensureContentScriptLoaded(tabId) {
         ]
       });
     } catch (injectionError) {
-      console.error('Script injection failed:', injectionError);
+      console.error('Background: Script injection failed:', injectionError);
+
+      // Provide more specific error for permission issues
+      if (injectionError.message.includes("Extension manifest must request permission")) {
+        try {
+          const tab = await chrome.tabs.get(tabId);
+          if (tab.url && (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://") || tab.url.startsWith("about:") || tab.url.startsWith("chrome-extension://"))) {
+             throw new Error("Cannot run on this system page.");
+          }
+        } catch (e) {
+          // Ignore error checking tab
+        }
+      }
+
       throw new Error(`Cannot access this page. Script injection failed: ${injectionError.message}`);
     }
   }
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('Background: Message received:', request.action, 'from', sender);
+
     if (request.action === 'morph_analysis') {
         (async () => {
             try {
@@ -142,7 +171,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Keep the message channel open for async response
     }
 
-    if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore') {
+    if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore' || request.action === 'get_status') {
         // Handle side panel requests to communicate with content script
         (async () => {
             try {
@@ -165,5 +194,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
         })();
         return true; // Keep the message channel open for async response
+    }
+
+    if (request.action === 'inject_content_script') {
+        (async () => {
+            try {
+                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tabs.length > 0) {
+                    await ensureContentScriptLoaded(tabs[0].id);
+                    sendResponse({ success: true });
+                } else {
+                    sendResponse({ success: false, error: "No active tab" });
+                }
+            } catch (error) {
+                // Don't log as error if it's just a permission issue on a system page
+                if (error.message.includes("Cannot run on this system page") || error.message.includes("Extension manifest must request permission")) {
+                    console.warn('Auto-injection skipped:', error.message);
+                } else {
+                    console.error('Auto-injection failed:', error);
+                }
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true;
     }
 });

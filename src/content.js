@@ -332,6 +332,12 @@
                 sendResponse({ loaded: true });
                 break;
 
+            case 'get_status':
+                // Check if the page is currently enhanced
+                const isEnhanced = document.querySelectorAll('.ʁ').length > 0;
+                sendResponse({ success: true, isEnhanced: isEnhanced });
+                break;
+
             case 'enhance':
                 try {
                     const bodyText = extractPlainText(document.body);

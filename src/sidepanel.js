@@ -6,11 +6,40 @@ class RussianToolsSidePanel {
         this.init();
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
-        this.loadStoredSettings();
         this.initializeActivitySelectors();
-        this.restoreSelections();
+
+        // Load state for the current tab
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs.length > 0) {
+            await this.loadTabState(tabs[0].id);
+        }
+
+        // Listen for tab activation to switch state
+        chrome.tabs.onActivated.addListener(async (activeInfo) => {
+            await this.loadTabState(activeInfo.tabId);
+            this.checkPageStatus();
+        });
+
+        // Proactively try to inject scripts when the panel opens
+        // This acts as a backup or for when the panel is already open and user navigates
+        chrome.runtime.sendMessage({ action: 'inject_content_script' })
+            .then(() => this.checkPageStatus())
+            .catch(err => console.log("Initial injection check failed:", err));
+    }
+
+    async checkPageStatus() {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'get_status' });
+            if (response && response.success && response.data && response.data.isEnhanced) {
+                this.setCompletedState();
+            } else {
+                this.setInitialState();
+            }
+        } catch (error) {
+            // Ignore errors, likely just not enhanced or script not ready
+        }
     }
 
     setupEventListeners() {
@@ -32,16 +61,19 @@ class RussianToolsSidePanel {
         // Topic selection
         document.getElementById('topic-menu').addEventListener('change', (e) => {
             this.onTopicChange(e.target.value);
+            this.saveTabState();
         });
 
         // Filter selection
         document.getElementById('filter-menu').addEventListener('change', () => {
             this.toggleEnhanceButton();
+            this.saveTabState();
         });
 
         // Activity selection
         document.getElementById('activity-menu').addEventListener('change', () => {
             this.toggleEnhanceButton();
+            this.saveTabState();
         });
 
         // Action buttons
@@ -71,10 +103,9 @@ class RussianToolsSidePanel {
             await chrome.runtime.sendMessage({ action: 'restore' });
 
             // Store selections
-            await chrome.storage.local.set(selections);
+            await this.saveTabState();
 
             // Send message through background script
-            console.log('Sending enhance request from sidepanel.js with selections:', selections);
             const response = await chrome.runtime.sendMessage({
                 action: 'enhance',
                 selections: selections
@@ -89,9 +120,37 @@ class RussianToolsSidePanel {
 
         } catch (error) {
             console.error('Error enhancing page:', error);
-            alert(`Cannot enhance this page. Refresh the page and try again.
 
-Error: ${error.message}`);
+            let errorMessage = error.message;
+            if (errorMessage.includes("Extension manifest must request permission")) {
+                // Try to request permission dynamically
+                try {
+                    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                    if (tabs.length > 0 && tabs[0].url) {
+                        const url = new URL(tabs[0].url);
+                        const origin = `${url.protocol}//${url.hostname}/*`;
+
+                        const granted = await chrome.permissions.request({
+                            origins: [origin]
+                        });
+
+                        if (granted) {
+                            // Retry enhancement
+                            this.isProcessing = false; // Reset flag for retry
+                            await this.enhancePage();
+                            return; // Exit this execution as the retry will handle it
+                        }
+                    }
+                } catch (permError) {
+                    console.error("Permission request failed:", permError);
+                }
+
+                errorMessage = "Please click the extension icon in the toolbar to re-activate the extension for this page.";
+            }
+
+            alert(`Cannot enhance this page.
+
+${errorMessage}`);
             this.setInitialState();
         } finally {
             this.isProcessing = false;
@@ -351,6 +410,74 @@ Error: ${error.message}`);
         });
     }
 
+    async saveTabState() {
+        try {
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tabs.length === 0) return;
+
+            const tabId = tabs[0].id;
+            const state = {
+                topic: document.getElementById('topic-menu').value,
+                filter: document.getElementById('filter-menu').value,
+                activity: document.getElementById('activity-menu').value
+            };
+
+            // Use session storage if available (preferred for tab-specific data), fallback to local
+            const storage = chrome.storage.session || chrome.storage.local;
+            await storage.set({ [`tabState_${tabId}`]: state });
+
+            // Also save to local for default/fallback
+            await chrome.storage.local.set(state);
+        } catch (error) {
+            console.error('Error saving tab state:', error);
+        }
+    }
+
+    async loadTabState(tabId) {
+        try {
+            const storage = chrome.storage.session || chrome.storage.local;
+            const key = `tabState_${tabId}`;
+            const result = await storage.get(key);
+
+            if (result[key]) {
+                const { topic, filter, activity } = result[key];
+                this.applySelections(topic, filter, activity);
+            } else {
+                // Fallback to last used global settings or defaults
+                this.loadStoredSettings();
+            }
+        } catch (error) {
+            console.error('Error loading tab state:', error);
+        }
+    }
+
+    applySelections(topic, filter, activity) {
+        if (topic) {
+            document.getElementById('topic-menu').value = topic;
+            this.onTopicChange(topic);
+        }
+
+        if (filter) {
+            // Ensure options are populated first (handled by onTopicChange)
+            // But we need to wait for DOM update or just set it?
+            // onTopicChange is synchronous in DOM manipulation, so it should be fine.
+            const filterMenu = document.getElementById('filter-menu');
+            // Check if the value exists in the options
+            if ([...filterMenu.options].some(o => o.value === filter)) {
+                filterMenu.value = filter;
+            }
+        }
+
+        if (activity) {
+            const activityMenu = document.getElementById('activity-menu');
+            if ([...activityMenu.options].some(o => o.value === activity)) {
+                activityMenu.value = activity;
+            }
+        }
+
+        this.toggleEnhanceButton();
+    }
+
     loadStoredSettings() {
         try {
             chrome.storage.local.get(['enabled', 'language', 'topic', 'filter', 'activity'], (items) => {
@@ -363,8 +490,9 @@ Error: ${error.message}`);
                 if (items.enabled && autoEnhanceCheckbox) {
                     autoEnhanceCheckbox.checked = items.enabled;
                 }
-                // Store other settings for restoration
-                this.storedSettings = items;
+
+                // Apply global settings as default
+                this.applySelections(items.topic, items.filter, items.activity);
             });
         } catch (error) {
             console.error('Error accessing storage:', error);
@@ -372,24 +500,7 @@ Error: ${error.message}`);
     }
 
     restoreSelections() {
-        if (this.storedSettings) {
-            const { topic, filter, activity } = this.storedSettings;
-
-            if (topic) {
-                document.getElementById('topic-menu').value = topic;
-                this.onTopicChange(topic);
-            }
-
-            if (filter) {
-                document.getElementById('filter-menu').value = filter;
-            }
-
-            if (activity) {
-                document.getElementById('activity-menu').value = activity;
-            }
-
-            this.toggleEnhanceButton();
-        }
+        // Deprecated in favor of loadTabState and applySelections
     }
 }
 
