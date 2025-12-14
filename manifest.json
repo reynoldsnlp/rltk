@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Russian Language ToolKit ( RLTK / ЯLTK )",
-  "version": "1.0",
-  "description": "Adds a toolbar for Russian language learning.",
+  "name": "Russian Language ToolKit (RLTK)",
+  "version": "0.0.0.1",
+  "description": "Toolbar for Russian language learning, including automatic exercise generation and text analysis.",
+  "icons": {
+    "16":  "src/resources/img/RLTK-16x16.png",
+    "32":  "src/resources/img/RLTK-32x32.png",
+    "48":  "src/resources/img/RLTK-48x48.png",
+    "128": "src/resources/img/RLTK-128x128.png"
+  },
   "permissions": [
     "activeTab",
     "offscreen",
@@ -65,9 +71,10 @@
   "action": {
     "default_title": "RLTK",
     "default_icon": {
-      "16":  "src/resources/img/icon.png",
-      "48":  "src/resources/img/icon.png",
-      "128": "src/resources/img/icon.png"
+      "16":  "src/resources/img/RLTK-16x16.png",
+      "32":  "src/resources/img/RLTK-32x32.png",
+      "48":  "src/resources/img/RLTK-48x48.png",
+      "128": "src/resources/img/RLTK-128x128.png"
     }
   },
   "content_security_policy": {
