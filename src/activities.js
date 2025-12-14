@@ -1,4 +1,15 @@
 /**
+ * Activity Logic for RLTK Extension
+ *
+ * This file defines the classes that handle the logic for different types of language learning activities.
+ * It includes:
+ * 1. BaseActivity: Common logic for all activities (filtering, enhancement).
+ * 2. ClickActivity: Logic for "click-to-identify" activities.
+ * 3. TargetedActivity: Logic for activities that target specific tokens (e.g., Multiple Choice, Cloze).
+ * 4. Activity Factory: Creates activity instances based on user selection.
+ */
+
+/**
  * Base Activity Class
  * Handles the core logic for language learning activities
  */
@@ -10,6 +21,10 @@ class BaseActivity {
         this.enhanceFunc = this.getEnhanceFunc();
     }
 
+    /**
+     * Retrieves the specific enhancement function for the selected topic and activity.
+     * These functions are defined in the topic-specific files.
+     */
     getEnhanceFunc() {
         const enhanceFuncName = `${this.topic}-${this.activity}`;
         const enhanceFunc = window.EnhanceFuncs[enhanceFuncName];
@@ -31,8 +46,12 @@ class BaseActivity {
         }
     }
 
-    // Default behavior: only highlight tokens that pass both filters
-    // Accept optional cohortIndex for tokenSelector usage
+    /**
+     * Determines if a token should be highlighted/processed based on filters.
+     * Default behavior: only highlight tokens that pass both topic and sub-filters.
+     * @param {Object} cohort - The morphological analysis cohort for the token.
+     * @param {number} cohortIndex - The index of the cohort in the text.
+     */
     shouldHighlightToken(cohort, cohortIndex) {
         const topicFilterFunc = window.FilterFuncs[this.topic];
         const subfilterFunc = window.SubFilterFuncs[this.filter];
@@ -42,13 +61,20 @@ class BaseActivity {
                subfilterFunc && subfilterFunc(cohort);
     }
 
-    // Default behavior: correctness is same as highlighting
-    // Accept optional cohortIndex and forward it
+    /**
+     * Determines if a token is "correct" according to the activity rules.
+     * Default behavior: correctness is same as highlighting criteria.
+     */
     isTokenCorrect(cohort, cohortIndex) {
         return this.shouldHighlightToken(cohort, cohortIndex);
     }
 
-    // Create the enhanced span
+    /**
+     * Creates the enhanced DOM element (span) for a token.
+     * @param {string} originalText - The original text of the token.
+     * @param {Object} cohort - The morphological analysis cohort.
+     * @param {number} cohortIndex - The index of the cohort.
+     */
     createSpan(originalText, cohort, cohortIndex) {
         const isCorrect = this.isTokenCorrect(cohort, cohortIndex);
         const element = this.enhanceFunc(originalText, cohort, cohortIndex, isCorrect);
@@ -64,15 +90,16 @@ class BaseActivity {
 
 /**
  * Click Activity Class
- * Highlights all word tokens but only marks correct ones based on filters
+ * Highlights all word tokens but only marks correct ones based on filters.
+ * Used for "Click on all [Grammar Feature]" activities.
  */
 class ClickActivity extends BaseActivity {
-    // Click activities highlight ALL word tokens
+    // Click activities highlight ALL word tokens to allow user selection
     shouldHighlightToken(cohort) {
         return cohort.w !== undefined && cohort.rs; // Only word cohorts with readings
     }
 
-    // But correctness is based on the selected filters
+    // But correctness is based on the selected filters (the target grammar feature)
     isTokenCorrect(cohort) {
         const topicFilterFunc = window.FilterFuncs[this.topic];
         const subfilterFunc = window.SubFilterFuncs[this.filter];
@@ -94,6 +121,10 @@ class TargetedActivity extends BaseActivity {
         this.selectedCohorts = new Set();
     }
 
+    /**
+     * Determines if a token should be a target for the activity.
+     * Uses TokenSelector to space out targets appropriately.
+     */
     shouldHighlightToken(cohort, cohortIndex) {
         const topicFilterFunc = window.FilterFuncs[this.topic];
         const subfilterFunc = window.SubFilterFuncs[this.filter];

@@ -1,3 +1,13 @@
+/**
+ * Stress Topic Logic for RLTK Extension
+ *
+ * This file defines the filtering and enhancement logic for Word Stress activities.
+ * It includes:
+ * 1. Filter functions to identify words suitable for stress exercises (excluding punctuation).
+ * 2. Helper functions to retrieve stressed forms from the generator.
+ * 3. Enhancement functions for activities like "Show Stress" and "Find the Stress".
+ */
+
 (function() {
     'use strict';
 

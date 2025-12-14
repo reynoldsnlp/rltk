@@ -1,5 +1,20 @@
+/**
+ * Background Service Worker for RLTK Extension
+ *
+ * This file acts as the central hub for the extension, handling:
+ * 1. Extension lifecycle events (installation).
+ * 2. Side panel interactions (opening the panel).
+ * 3. Content script injection (managing activeTab permissions).
+ * 4. Message routing between the side panel, content scripts, and offscreen document.
+ * 5. Offscreen document management for WASM processing.
+ */
+
 let offscreenCreated = false;
 
+/**
+ * Creates the offscreen document if it doesn't exist.
+ * The offscreen document is used for heavy WASM processing (HFST/CG3).
+ */
 async function createOffscreenDocument() {
   if (offscreenCreated) return;
 
@@ -58,7 +73,11 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
-// Helper function to inject content scripts
+/**
+ * Helper function to inject content scripts into a tab.
+ * This is necessary because we don't use automatic content script injection
+ * to avoid requesting broad host permissions.
+ */
 async function ensureContentScriptLoaded(tabId) {
   try {
     // Try to ping the content script first
@@ -107,7 +126,9 @@ async function ensureContentScriptLoaded(tabId) {
   }
 }
 
+// Message listener for communication between components
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // Handle morphological analysis request (forward to offscreen)
     if (request.action === 'morph_analysis') {
         (async () => {
             try {
@@ -128,6 +149,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Keep the message channel open for async response
     }
 
+    // Handle generation request (forward to offscreen)
     if (request.action === 'generate') {
         (async () => {
             try {
@@ -149,6 +171,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Keep the message channel open for async response
     }
 
+    // Handle model data request (forward to offscreen)
     if (request.action === 'get_model_data') {
         (async () => {
             try {
@@ -170,8 +193,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Keep the message channel open for async response
     }
 
+    // Handle side panel requests to communicate with content script
     if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore' || request.action === 'get_status') {
-        // Handle side panel requests to communicate with content script
         (async () => {
             try {
                 const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -195,6 +218,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Keep the message channel open for async response
     }
 
+    // Handle request to inject content script (e.g. from side panel)
     if (request.action === 'inject_content_script') {
         (async () => {
             try {

@@ -1,3 +1,13 @@
+/**
+ * Prepositions Topic Logic for RLTK Extension
+ *
+ * This file defines the filtering and enhancement logic for Preposition activities.
+ * It includes:
+ * 1. A list of common prepositions for distractor generation.
+ * 2. Filter functions to identify prepositions (Pr tag).
+ * 3. Enhancement functions for activities like highlighting, clicking, and multiple choice.
+ */
+
 (function() {
     'use strict';
 

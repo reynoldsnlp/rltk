@@ -1,3 +1,15 @@
+/**
+ * Offscreen Document Script for RLTK Extension
+ *
+ * This script runs in an offscreen document to handle heavy computational tasks
+ * that are not allowed or are inefficient in the service worker.
+ * It handles:
+ * 1. Loading and initializing WASM modules for HFST (Helsinki Finite-State Technology) and CG3 (Constraint Grammar).
+ * 2. Loading linguistic models (transducers, grammars, JSON maps).
+ * 3. Performing morphological analysis and disambiguation of text.
+ * 4. Generating word forms (inflection) and stress patterns.
+ */
+
 let hfst = null;
 let cg3 = null;
 let cg3GrammarString = null;
@@ -18,6 +30,10 @@ const models = {
     adjectivesToExcludeFromParticiples: null
 };
 
+/**
+ * Loads a JSON model file from the extension resources.
+ * Caches the result in the `models` object.
+ */
 async function loadJson(modelName) {
     if (models[modelName]) return models[modelName];
 
@@ -35,6 +51,9 @@ async function loadJson(modelName) {
     }
 }
 
+/**
+ * Initializes the HFST WASM module and loads necessary transducers.
+ */
 async function initHfst() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
@@ -63,6 +82,9 @@ async function initHfst() {
     tokenizer = await loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
 }
 
+/**
+ * Initializes the CG3 WASM module and loads the grammar.
+ */
 async function initCg3() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {

@@ -1,3 +1,14 @@
+/**
+ * Content Script for RLTK Extension
+ *
+ * This script is injected into web pages to perform text analysis and enhancement.
+ * It handles:
+ * 1. Extracting text from the DOM while preserving structure.
+ * 2. Communicating with the background script to request morphological analysis.
+ * 3. Applying highlighting and interactive elements to the text based on analysis results.
+ * 4. Managing user interactions with enhanced text (clicks, tooltips).
+ */
+
 (function () {
     // Inject CSS directly into the page
     const style = document.createElement('style');

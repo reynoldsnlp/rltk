@@ -1,4 +1,14 @@
-console.log("Loaded tokenSelector.js");
+/**
+ * Token Selector Utility for RLTK Extension
+ *
+ * This utility manages the selection of tokens for targeted activities (like Cloze tests).
+ * It ensures that selected tokens are spaced out appropriately to avoid overwhelming the user
+ * and to provide a balanced exercise.
+ * It supports:
+ * 1. Configurable density/distance between selected tokens.
+ * 2. Randomization with constraints.
+ * 3. Persistence of settings.
+ */
 
 (function() {
 	'use strict';
@@ -33,11 +43,20 @@ console.log("Loaded tokenSelector.js");
 		localStorage.setItem(STORAGE_KEY, String(v));
 	}
 
-	// TokenSelector implementation
+	/**
+	 * TokenSelector implementation
+	 * Manages the state of token selection (last selected index, minimum distance).
+	 */
 	const TokenSelector = {
 		lastSelectedIndex: -1,
 		minDistance: loadMinDistance(),
 
+		/**
+		 * Determines if a token at the given index should be selected.
+		 * Uses a probabilistic model based on distance from the last selection.
+		 * @param {number} cohortIndex - The index of the current token.
+		 * @returns {boolean} True if the token should be selected.
+		 */
 		shouldSelectToken(cohortIndex) {
 			const distance = cohortIndex - this.lastSelectedIndex;
 
@@ -60,6 +79,9 @@ console.log("Loaded tokenSelector.js");
 			return selected;
 		},
 
+		/**
+		 * Resets the selection state (e.g., for a new paragraph or document).
+		 */
 		reset() {
 			this.lastSelectedIndex = -1;
 		},

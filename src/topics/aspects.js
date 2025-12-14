@@ -1,3 +1,13 @@
+/**
+ * Verb Aspect Topic Logic for RLTK Extension
+ *
+ * This file defines the logic for Verb Aspect activities (Imperfective vs Perfective).
+ * It includes:
+ * 1. Initialization logic to load aspect pair maps (Impf <-> Perf).
+ * 2. Filter functions to identify verbs with aspect pairs.
+ * 3. Enhancement functions for activities like identifying aspect or swapping aspect pairs.
+ */
+
 (function() {
     'use strict';
 
@@ -6,6 +16,9 @@
     let impfToPerfMap = null;
     let perfToImpfMap = null;
 
+    /**
+     * Initializes the aspect topic by loading the aspect pair maps from the background script.
+     */
     window.TopicInitFuncs["verb-aspect-pairs"] = async function() {
         if (impfToPerfMap && perfToImpfMap) return;
 
@@ -24,6 +37,9 @@
         }
     };
 
+    /**
+     * Helper to extract the verb reading from a cohort.
+     */
     function getVerbReading(cohort) {
         if (!cohort.rs) return null;
         return cohort.rs.find(r =>
@@ -33,6 +49,9 @@
         );
     }
 
+    /**
+     * Checks if a lemma has a known aspect pair.
+     */
     function hasPair(lemma) {
         if (!lemma) return false;
         // Remove stress marks if any (simple check)

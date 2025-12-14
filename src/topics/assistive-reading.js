@@ -1,3 +1,13 @@
+/**
+ * Assistive Reading Topic Logic for RLTK Extension
+ *
+ * This file defines the logic for the "Assistive Reading" mode.
+ * It includes:
+ * 1. A broad filter that accepts most words.
+ * 2. Enhancement logic that makes words clickable to show morphological analysis and translations.
+ * 3. Helper functions to fetch translations from the background script.
+ */
+
 (function() {
     'use strict';
 
@@ -23,6 +33,9 @@
         return span;
     };
 
+    /**
+     * Fetches translations for a given lemma from the background script.
+     */
     async function getTranslations(lemma) {
         const response = await chrome.runtime.sendMessage({
             action: 'get_model_data',

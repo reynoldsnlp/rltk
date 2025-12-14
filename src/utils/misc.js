@@ -1,4 +1,13 @@
-console.log("Loaded misc.js");
+/**
+ * Miscellaneous Utilities for RLTK Extension
+ *
+ * This file provides a collection of helper functions used across different parts of the extension.
+ * It includes:
+ * 1. DOM manipulation helpers (event propagation, style generation).
+ * 2. UI component creators (lemma prompts, success spans).
+ * 3. Text processing utilities (capitalization detection and application).
+ * 4. Shared feedback mechanisms (visual cues for correct/incorrect answers).
+ */
 
 (function() {
     'use strict';
@@ -6,7 +15,6 @@ console.log("Loaded misc.js");
     // Initialize RLTKUtils namespace
     if (!window.RLTKUtils) {
         window.RLTKUtils = {};
-        console.log("Initialized RLTKUtils namespace");
     }
 
     /**

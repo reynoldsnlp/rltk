@@ -1,3 +1,13 @@
+/**
+ * Gerund Topic Logic for RLTK Extension
+ *
+ * This file defines the filtering and enhancement logic for Gerund (Verbal Adverb) activities.
+ * It includes:
+ * 1. Filter functions to identify gerunds (Adv + PrsAct/PstAct).
+ * 2. Sub-filter functions for Present and Past Active gerunds.
+ * 3. Enhancement functions for activities like highlighting and identification.
+ */
+
 (function() {
     'use strict';
 

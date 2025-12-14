@@ -1,3 +1,13 @@
+/**
+ * Phonetics Topic Logic for RLTK Extension
+ *
+ * This file defines the filtering and enhancement logic for Phonetics activities.
+ * It includes:
+ * 1. Filter functions to identify words suitable for phonetic exercises (based on POS tags).
+ * 2. Helper functions to generate phonetic transcriptions and distractors (incorrect stress placements).
+ * 3. Enhancement functions for activities like "Find the Stress" and "Phonetic Transcription".
+ */
+
 (function() {
     'use strict';
 

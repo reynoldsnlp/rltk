@@ -1,3 +1,14 @@
+/**
+ * Participle Topic Logic for RLTK Extension
+ *
+ * This file defines the filtering and enhancement logic for Participle activities.
+ * It includes:
+ * 1. Loading a list of adjectives to exclude from participle identification.
+ * 2. Filter functions to identify participles (V + PrsAct/PrsPss/PstAct/PstPss).
+ * 3. Sub-filter functions for different participle types.
+ * 4. Enhancement functions for activities like highlighting and identification.
+ */
+
 (function() {
     'use strict';
 

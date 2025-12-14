@@ -1,3 +1,13 @@
+/**
+ * Options Page Logic for RLTK Extension
+ *
+ * This script manages the options page for the extension.
+ * It handles:
+ * 1. Loading and saving user preferences (e.g., token selector density).
+ * 2. Updating the UI to reflect current settings.
+ * 3. Communicating changes to other parts of the extension via postMessage or direct access.
+ */
+
 (function() {
 	'use strict';
 

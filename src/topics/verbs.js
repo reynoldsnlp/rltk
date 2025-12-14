@@ -1,7 +1,25 @@
+/**
+ * Verb Topic Logic for RLTK Extension
+ *
+ * This file defines the filtering and enhancement logic for Verb activities.
+ * It includes:
+ * 1. Filter functions to identify verbs in the text.
+ * 2. Sub-filter functions for specific verb properties (Imperfective, Perfective).
+ * 3. Enhancement functions for different activity types:
+ *    - Color: Highlights verbs.
+ *    - Click: Interactive click-to-identify.
+ *    - Multiple Choice (MC): Replaces verbs with a dropdown of options.
+ *    - Cloze: Replaces verbs with a text input field.
+ */
+
 (function() {
     'use strict';
 
-    // Verb filter function
+    /**
+     * Filter function to identify Verbs.
+     * Checks if the cohort has a Verb reading and NO readings for other major parts of speech
+     * that might conflict (like Nouns or Participles).
+     */
     window.FilterFuncs.verbs = function(cohort) {
         if (!cohort.rs || cohort.rs.length === 0) {
             return false;

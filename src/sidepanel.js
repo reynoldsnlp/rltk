@@ -1,3 +1,15 @@
+/**
+ * Side Panel UI Logic for RLTK Extension
+ *
+ * This script manages the user interface in the side panel.
+ * It handles:
+ * 1. User interactions (selecting topics, filters, activities).
+ * 2. Communicating with the background script to trigger page enhancement.
+ * 3. Managing the state of the UI (buttons, loading indicators).
+ * 4. Persisting user selections per tab.
+ * 5. Handling permission requests and access checks.
+ */
+
 class RussianToolsSidePanel {
     constructor() {
         this.activitySelectors = {};
@@ -6,6 +18,9 @@ class RussianToolsSidePanel {
         this.init();
     }
 
+    /**
+     * Initializes the side panel: sets up listeners, loads state, and checks access.
+     */
     async init() {
         this.setupEventListeners();
         this.initializeActivitySelectors();
@@ -39,6 +54,10 @@ class RussianToolsSidePanel {
         });
     }
 
+    /**
+     * Checks if the extension has access to the given tab.
+     * If not, shows a modal prompting the user to grant access.
+     */
     async checkAccess(tabId) {
         try {
             // Try to ping the content script
@@ -76,6 +95,9 @@ class RussianToolsSidePanel {
         if (modal) modal.style.display = 'none';
     }
 
+    /**
+     * Checks if the current page is already enhanced and updates UI accordingly.
+     */
     async checkPageStatus() {
         try {
             const response = await chrome.runtime.sendMessage({ action: 'get_status' });
@@ -133,6 +155,10 @@ class RussianToolsSidePanel {
         });
     }
 
+    /**
+     * Triggers the page enhancement process.
+     * Handles permission requests if necessary.
+     */
     async enhancePage() {
         if (this.isProcessing) return;
 

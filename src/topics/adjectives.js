@@ -1,7 +1,23 @@
+/**
+ * Adjective Topic Logic for RLTK Extension
+ *
+ * This file defines the filtering and enhancement logic for Adjective activities.
+ * It includes:
+ * 1. Filter functions to identify adjectives in the text.
+ * 2. Enhancement functions for different activity types:
+ *    - Color: Highlights adjectives.
+ *    - Click: Interactive click-to-identify.
+ *    - Multiple Choice (MC): Replaces adjectives with a dropdown of options.
+ *    - Cloze: Replaces adjectives with a text input field.
+ */
+
 (function() {
     'use strict';
 
-    // Adjective filter function
+    /**
+     * Filter function to identify Adjectives.
+     * Checks if the cohort has an Adjective reading and NO readings for Predicatives.
+     */
     window.FilterFuncs.adjectives = function(cohort) {
         if (!cohort.rs || cohort.rs.length === 0) {
             return false;

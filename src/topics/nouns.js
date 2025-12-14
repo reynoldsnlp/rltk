@@ -1,7 +1,24 @@
+/**
+ * Noun Topic Logic for RLTK Extension
+ *
+ * This file defines the filtering and enhancement logic for Noun activities.
+ * It includes:
+ * 1. Filter functions to identify nouns in the text.
+ * 2. Sub-filter functions for specific noun properties (Singular, Plural).
+ * 3. Enhancement functions for different activity types:
+ *    - Color: Highlights nouns.
+ *    - Click: Interactive click-to-identify.
+ *    - Multiple Choice (MC): Replaces nouns with a dropdown of options.
+ *    - Cloze: Replaces nouns with a text input field.
+ */
+
 (function() {
     'use strict';
 
-    // Noun filter function
+    /**
+     * Filter function to identify Nouns.
+     * Checks if the cohort has a Noun reading and NO readings for other major parts of speech.
+     */
     window.FilterFuncs.nouns = function(cohort) {
         if (!cohort.rs || cohort.rs.length === 0) {
             return false;
