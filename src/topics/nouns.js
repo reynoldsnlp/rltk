@@ -74,7 +74,6 @@
 
         generateDistractors(baseForm, reading.ts, originalText).then(options => {
             if (options.length <= 1) {
-                console.warn(`No distractors generated for noun token "${originalText}" with readings:`, cohort.rs);
                 container.textContent = originalText;
                 return;
             }

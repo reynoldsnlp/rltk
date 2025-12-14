@@ -68,7 +68,6 @@
         generateDistractors(baseForm, reading.ts, originalText).then(options => {
             // Check if any distractors were actually generated (more than just the correct form)
             if (options.length <= 1) {
-                console.warn(`No distractors generated for adjective token "${originalText}" with readings:`, cohort.rs);
                 // Replace container with plain text
                 container.textContent = originalText;
                 return;

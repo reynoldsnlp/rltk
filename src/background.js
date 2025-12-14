@@ -50,6 +50,9 @@ chrome.action.onClicked.addListener(async (tab) => {
   // 2. Attempt to inject scripts using the activeTab permission from the click
   try {
     await ensureContentScriptLoaded(tab.id);
+    // Notify side panel that access has been granted
+    chrome.runtime.sendMessage({ action: 'access_granted', tabId: tab.id })
+        .catch(() => {}); // Ignore error if side panel is not open/listening
   } catch (error) {
     console.warn('Background: Script injection on click failed (non-fatal):', error);
   }
@@ -87,8 +90,6 @@ async function ensureContentScriptLoaded(tabId) {
         ]
       });
     } catch (injectionError) {
-      console.error('Background: Script injection failed:', injectionError);
-
       // Provide more specific error for permission issues
       if (injectionError.message.includes("Extension manifest must request permission")) {
         try {
@@ -107,8 +108,6 @@ async function ensureContentScriptLoaded(tabId) {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('Background: Message received:', request.action, 'from', sender);
-
     if (request.action === 'morph_analysis') {
         (async () => {
             try {
@@ -208,8 +207,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
             } catch (error) {
                 // Don't log as error if it's just a permission issue on a system page
-                if (error.message.includes("Cannot run on this system page") || error.message.includes("Extension manifest must request permission")) {
-                    console.warn('Auto-injection skipped:', error.message);
+                if (error.message.includes("Cannot run on this system page") ||
+                    error.message.includes("Extension manifest must request permission") ||
+                    error.message.includes("Cannot access this page")) {
+                    // Silently fail for expected permission issues
                 } else {
                     console.error('Auto-injection failed:', error);
                 }

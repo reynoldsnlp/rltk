@@ -14,19 +14,66 @@ class RussianToolsSidePanel {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tabs.length > 0) {
             await this.loadTabState(tabs[0].id);
+            this.checkAccess(tabs[0].id);
         }
 
         // Listen for tab activation to switch state
         chrome.tabs.onActivated.addListener(async (activeInfo) => {
             await this.loadTabState(activeInfo.tabId);
-            this.checkPageStatus();
+            this.checkAccess(activeInfo.tabId);
         });
 
-        // Proactively try to inject scripts when the panel opens
-        // This acts as a backup or for when the panel is already open and user navigates
-        chrome.runtime.sendMessage({ action: 'inject_content_script' })
-            .then(() => this.checkPageStatus())
-            .catch(err => console.log("Initial injection check failed:", err));
+        // Listen for tab updates (navigation)
+        chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+            if (changeInfo.status === 'complete' && tab.active) {
+                this.checkAccess(tabId);
+            }
+        });
+
+        // Listen for access granted message
+        chrome.runtime.onMessage.addListener((message) => {
+            if (message.action === 'access_granted') {
+                this.hideAccessModal();
+                this.checkPageStatus();
+            }
+        });
+    }
+
+    async checkAccess(tabId) {
+        try {
+            // Try to ping the content script
+            await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+            this.hideAccessModal();
+            this.checkPageStatus();
+        } catch (error) {
+            // If ping failed, try to inject via background
+            try {
+                const response = await chrome.runtime.sendMessage({ action: 'inject_content_script' });
+                if (response && response.success) {
+                    this.hideAccessModal();
+                    this.checkPageStatus();
+                } else {
+                    // Check if it's a restricted page (chrome:// etc)
+                    // If so, maybe we shouldn't show the modal or show a different one?
+                    // For now, just show the modal as "Access Required" implies we can't access it.
+                    // But if it's chrome://, clicking the icon won't help.
+                    // However, the user asked to "gray out the sidebar with a modal".
+                    this.showAccessModal();
+                }
+            } catch (injectError) {
+                this.showAccessModal();
+            }
+        }
+    }
+
+    showAccessModal() {
+        const modal = document.getElementById('access-modal');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    hideAccessModal() {
+        const modal = document.getElementById('access-modal');
+        if (modal) modal.style.display = 'none';
     }
 
     async checkPageStatus() {
