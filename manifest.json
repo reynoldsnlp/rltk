@@ -16,10 +16,6 @@
     "sidePanel",
     "storage"
   ],
-  "optional_host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ],
   "options_ui": {
     "page": "src/options/options.html",
     "open_in_tab": false
@@ -27,23 +23,6 @@
   "background": {
     "service_worker": "src/background.js"
   },
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "src/resources/js/*.js",
-        "src/resources/js/*.wasm",
-        "src/resources/css/*.css",
-        "src/resources/img/*.png",
-        "src/resources/img/*.jpg",
-        "src/resources/models/*.hfstol",
-        "src/resources/models/*.pmhfst",
-        "src/resources/models/*.json"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
-    }
-  ],
   "side_panel": {
     "default_path": "src/sidepanel.html"
   },

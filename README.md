@@ -6,8 +6,8 @@ language-learning experiences and exercises.
 
 # Package for publication
 
-In order to publish, run in following command in the parent directory:
+In order to publish, run the following command in the parent directory:
 
 ```console
-$ zip -r rltk.zip rltk -x "rltk/old/*" -x "rltk/scripts/*" -x "rltk/src/resources/models/morphberta-k/*" -x "rltk/src/resources/models/old/*" -x "rltk/.*"
+$ zip -r rltk.zip rltk -x "rltk/old/*" -x "rltk/scripts/*" -x "rltk/src/resources/models/morphberta-k/*" -x "rltk/src/resources/models/old/*" -x "rltk/.*" -x "*/.DS_Store"
 ```
