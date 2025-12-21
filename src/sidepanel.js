@@ -141,6 +141,21 @@ class RussianToolsSidePanel {
             });
         });
 
+        // Sub-tab navigation
+        document.querySelectorAll('.sub-tab-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                this.switchSubTab(e.target.dataset.subtab);
+            });
+        });
+
+        // Morphology settings
+        const ignoreAmbiguityCheckbox = document.getElementById('ignore-ambiguity');
+        if (ignoreAmbiguityCheckbox) {
+            ignoreAmbiguityCheckbox.addEventListener('change', () => {
+                this.updateMorphologyHighlighting();
+            });
+        }
+
         // Auto-enhance checkbox (only if it exists)
         const autoEnhanceCheckbox = document.getElementById('auto-enhance');
         if (autoEnhanceCheckbox) {
@@ -336,6 +351,8 @@ ${errorMessage}`);
         // Handle Grammar Explorer activation
         if (tabName === 'grammar-explorer') {
             await this.activateGrammarExplorer();
+            // Default to word-details subtab
+            this.switchSubTab('word-details');
         } else {
             // If leaving Grammar Explorer or switching to Interact, restore page
             // But if we are in Interact, we might want to keep the current activity?
@@ -343,10 +360,191 @@ ${errorMessage}`);
             // So if we switch TO Interact, we might need to restore if we came from Grammar Explorer?
             // Or just let the user click Enhance again.
             // Let's assume switching tabs should reset the view unless it's Interact -> Interact (which doesn't happen).
+            // Actually, activateGrammarExplorer calls enhancePage with specific settings.
+            // If we switch away, we should probably restore.
+            if (this.currentTab === 'grammar-explorer') {
+                await this.restorePage();
+            }
+        }
+        this.currentTab = tabName;
+    }
 
-            // Actually, if we switch TO Interact, we should probably restore to clear Grammar Explorer spans.
-            // If we switch TO Writing, we should restore.
-            await this.restorePage();
+    switchSubTab(subTabName) {
+        document.querySelectorAll('.sub-tab-button').forEach(button => {
+            button.classList.remove('active');
+        });
+        document.querySelectorAll('.sub-tab-content').forEach(content => {
+            content.classList.remove('active');
+            content.style.display = 'none';
+        });
+
+        const button = document.querySelector(`.sub-tab-button[data-subtab="${subTabName}"]`);
+        if (button) button.classList.add('active');
+
+        const content = document.getElementById(`${subTabName}-subtab`);
+        if (content) {
+            content.classList.add('active');
+            content.style.display = 'block';
+        }
+
+        if (subTabName === 'morphology') {
+            this.initializeMorphologyUI();
+        }
+    }
+
+    initializeMorphologyUI() {
+        const container = document.getElementById('morphology-filters');
+        if (!container || container.children.length > 0) return; // Already initialized
+
+        const categories = {
+            'Part of Speech': [
+                { tag: 'N', label: 'Noun' },
+                { tag: 'V', label: 'Verb' },
+                { tag: 'A', label: 'Adjective' },
+                { tag: 'Adv', label: 'Adverb' },
+                { tag: 'Pron', label: 'Pronoun' },
+                { tag: 'Num', label: 'Numeral' },
+                { tag: 'Det', label: 'Determiner' },
+                { tag: 'Pr', label: 'Preposition' },
+                { tag: 'CC', label: 'Coord. Conj.' },
+                { tag: 'CS', label: 'Subord. Conj.' },
+                { tag: 'Interj', label: 'Interjection' },
+                { tag: 'Pcle', label: 'Particle' }
+            ],
+            'Case': [
+                { tag: 'Nom', label: 'Nominative' },
+                { tag: 'Gen', label: 'Genitive' },
+                { tag: 'Dat', label: 'Dative' },
+                { tag: 'Acc', label: 'Accusative' },
+                { tag: 'Ins', label: 'Instrumental' },
+                { tag: 'Loc', label: 'Locative' },
+                { tag: 'Voc', label: 'Vocative' },
+                { tag: 'Loc2', label: 'Locative 2' },
+                { tag: 'Gen2', label: 'Genitive 2' }
+            ],
+            'Number': [
+                { tag: 'Sg', label: 'Singular' },
+                { tag: 'Pl', label: 'Plural' }
+            ],
+            'Gender': [
+                { tag: 'Msc', label: 'Masculine' },
+                { tag: 'Fem', label: 'Feminine' },
+                { tag: 'Neu', label: 'Neuter' }
+            ],
+            'Tense': [
+                { tag: 'Prs', label: 'Present' },
+                { tag: 'Pst', label: 'Past' },
+                { tag: 'Fut', label: 'Future' }
+            ],
+            'Aspect': [
+                { tag: 'Perf', label: 'Perfective' },
+                { tag: 'Impf', label: 'Imperfective' }
+            ],
+            'Person': [
+                { tag: 'Sg1', label: '1st Sg' },
+                { tag: 'Sg2', label: '2nd Sg' },
+                { tag: 'Sg3', label: '3rd Sg' },
+                { tag: 'Pl1', label: '1st Pl' },
+                { tag: 'Pl2', label: '2nd Pl' },
+                { tag: 'Pl3', label: '3rd Pl' }
+            ],
+            'Verb Form': [
+                { tag: 'Inf', label: 'Infinitive' },
+                { tag: 'Imp', label: 'Imperative' },
+                { tag: 'Pass', label: 'Passive Voice' },
+                { tag: 'PrsAct', label: 'Pres. Act. Part.' },
+                { tag: 'PrsPss', label: 'Pres. Pass. Part.' },
+                { tag: 'PstAct', label: 'Past Act. Part.' },
+                { tag: 'PstPss', label: 'Past Pass. Part.' }
+            ],
+            'Representation': [
+                { tag: 'Pers', label: 'Personal' },
+                { tag: 'Refl', label: 'Reflexive' },
+                { tag: 'Dem', label: 'Demonstrative' },
+                { tag: 'Pos', label: 'Possessive' },
+                { tag: 'Interr', label: 'Interrogative' },
+                { tag: 'Rel', label: 'Relative' },
+                { tag: 'Neg', label: 'Negative' },
+                { tag: 'Indef', label: 'Indefinite' }
+            ],
+            'Other': [
+                { tag: 'Anim', label: 'Animate' },
+                { tag: 'Inan', label: 'Inanimate' },
+                { tag: 'Cmpar', label: 'Comparative' },
+                { tag: 'Pred', label: 'Short Form' },
+                { tag: 'Paren', label: 'Parenthetical' }
+            ]
+        };
+
+        for (const [category, tags] of Object.entries(categories)) {
+            const section = document.createElement('div');
+            section.className = 'morphology-section';
+            section.style.marginBottom = '10px';
+
+            const title = document.createElement('h4');
+            title.textContent = category;
+            title.style.margin = '5px 0';
+            section.appendChild(title);
+
+            const tagsContainer = document.createElement('div');
+            tagsContainer.style.display = 'flex';
+            tagsContainer.style.flexWrap = 'wrap';
+            tagsContainer.style.gap = '5px';
+
+            tags.forEach(tagObj => {
+                const button = document.createElement('button');
+                button.textContent = tagObj.label;
+                button.className = 'tag-toggle';
+                button.dataset.category = category;
+                button.dataset.tag = tagObj.tag;
+                button.style.padding = '2px 6px';
+                button.style.border = '1px solid #ccc';
+                button.style.borderRadius = '4px';
+                button.style.background = '#fff';
+                button.style.cursor = 'pointer';
+
+                button.onclick = () => {
+                    button.classList.toggle('active');
+                    button.style.background = button.classList.contains('active') ? '#e0e0ff' : '#fff';
+                    button.style.borderColor = button.classList.contains('active') ? '#2c5aa0' : '#ccc';
+                    this.updateMorphologyHighlighting();
+                };
+
+                tagsContainer.appendChild(button);
+            });
+
+            section.appendChild(tagsContainer);
+            container.appendChild(section);
+        }
+    }
+
+    async updateMorphologyHighlighting() {
+        const activeButtons = document.querySelectorAll('.tag-toggle.active');
+        const ignoreAmbiguity = document.getElementById('ignore-ambiguity').checked;
+
+        // Build CSS selector with AND logic for all selected tags
+        const tagSelectors = [];
+        activeButtons.forEach(btn => {
+            const tag = btn.dataset.tag;
+            const selectors = [`.rltk-tag-${tag}`];
+            if (!ignoreAmbiguity) {
+                selectors.push(`.rltk-tag-${tag}-tentative`);
+            }
+            tagSelectors.push(`:is(${selectors.join(', ')})`);
+        });
+
+        let css = '';
+        if (tagSelectors.length > 0) {
+            const fullSelector = tagSelectors.join('');
+            css = `${fullSelector} { background-color: rgba(255, 255, 0, 0.3); border-bottom: 2px solid #ffc107; }`;
+        }
+
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs.length > 0) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+                action: 'update_morphology_styles',
+                css: css
+            });
         }
     }
 

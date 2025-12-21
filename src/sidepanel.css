@@ -330,3 +330,51 @@ header h2 {
 .paradigm-table tr:nth-child(even) {
     background-color: #f9f9f9;
 }
+
+/* Sub-tab navigation */
+.sub-tab-navigation {
+    display: flex;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #ddd;
+}
+
+.sub-tab-button {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    color: #666;
+}
+
+.sub-tab-button.active {
+    color: #2c5aa0;
+    border-bottom-color: #2c5aa0;
+}
+
+.sub-tab-content {
+    display: none;
+}
+
+.sub-tab-content.active {
+    display: block;
+}
+
+/* Morphology UI */
+.morphology-section h4 {
+    font-size: 14px;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+}
+
+.tag-toggle {
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.tag-toggle:hover {
+    background-color: #f0f0f0;
+}

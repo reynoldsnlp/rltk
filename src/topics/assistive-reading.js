@@ -55,6 +55,28 @@
         span.style.cursor = 'pointer';
         // span.style.borderBottom = '1px dotted #2c5aa0'; // Optional styling
 
+        // Add tag classes for Morphology view
+        const readings = cohort.rs || [];
+        if (readings.length > 0) {
+            const allTagsCount = {};
+            readings.forEach(r => {
+                (r.ts || []).forEach(tag => {
+                    // Filter out weight tags if any
+                    if (!tag.startsWith('<W:')) {
+                        allTagsCount[tag] = (allTagsCount[tag] || 0) + 1;
+                    }
+                });
+            });
+
+            for (const [tag, count] of Object.entries(allTagsCount)) {
+                if (count === readings.length) {
+                    span.classList.add(`rltk-tag-${tag}`);
+                } else {
+                    span.classList.add(`rltk-tag-${tag}-tentative`);
+                }
+            }
+        }
+
         // Store readings in data attribute
         span.setAttribute('data-readings', JSON.stringify(cohort.rs || []));
 

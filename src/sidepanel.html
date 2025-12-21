@@ -66,12 +66,28 @@
         </div>
 
         <div id="grammar-explorer-tab" class="tab-content">
-            <div class="panel-section" id="grammar-explorer-instructions" style="position: relative;">
-                <button id="dismiss-instructions" style="position: absolute; top: 5px; right: 5px; border: none; background: none; cursor: pointer; font-size: 16px; color: #666;">&times;</button>
-                <p style="margin-right: 20px;">Select a word in the text to see its grammatical analysis.</p>
+            <div class="sub-tab-navigation">
+                <button class="sub-tab-button active" data-subtab="word-details">Word details</button>
+                <button class="sub-tab-button" data-subtab="morphology">Morphology</button>
             </div>
-            <div id="grammar-explorer-results" class="results-container">
-                <!-- Results will be displayed here -->
+
+            <div id="word-details-subtab" class="sub-tab-content active">
+                <div class="panel-section" id="grammar-explorer-instructions" style="position: relative;">
+                    <button id="dismiss-instructions" style="position: absolute; top: 5px; right: 5px; border: none; background: none; cursor: pointer; font-size: 16px; color: #666;">&times;</button>
+                    <p style="margin-right: 20px;">Select a word in the text to see its grammatical analysis.</p>
+                </div>
+                <div id="grammar-explorer-results" class="results-container">
+                    <!-- Results will be displayed here -->
+                </div>
+            </div>
+
+            <div id="morphology-subtab" class="sub-tab-content" style="display: none;">
+                <div class="panel-section">
+                    <label><input type="checkbox" id="ignore-ambiguity"> Ignore unresolved ambiguity</label>
+                </div>
+                <div id="morphology-filters">
+                    <!-- Categories and tags will be generated here -->
+                </div>
             </div>
         </div>
 

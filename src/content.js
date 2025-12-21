@@ -453,6 +453,17 @@
                 sendResponse({ success: true });
                 break;
 
+            case 'update_morphology_styles':
+                let style = document.getElementById('rltk-morphology-styles');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'rltk-morphology-styles';
+                    document.head.appendChild(style);
+                }
+                style.textContent = request.css;
+                sendResponse({ success: true });
+                break;
+
             // case 'set_grammar_explorer_active':
             //     isGrammarExplorerActive = request.active;
             //     sendResponse({ success: true });
