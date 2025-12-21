@@ -330,6 +330,7 @@ class ActivityFactory {
 
         switch (selections.activity) {
             case 'click':
+            case 'explore':
                 return new ClickActivity(selections);
             case 'cloze':
                 // Special case: 'word-stress' 'cloze' is actually a 'Hover' activity

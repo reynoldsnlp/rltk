@@ -19,6 +19,17 @@ class RussianToolsSidePanel {
     }
 
     /**
+     * Connects to the background script to track side panel lifecycle.
+     */
+    connectToBackground(tabId) {
+        // Establish a long-lived connection to the background script
+        // This allows the background script to detect when the side panel is closed (port disconnects)
+        // We include the tabId in the name so the background script knows which tab to clean up
+        const name = tabId ? `sidepanel-${tabId}` : 'sidepanel';
+        this.port = chrome.runtime.connect({ name: name });
+    }
+
+    /**
      * Initializes the side panel: sets up listeners, loads state, and checks access.
      */
     async init() {
@@ -28,12 +39,23 @@ class RussianToolsSidePanel {
         // Load state for the current tab
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tabs.length > 0) {
-            await this.loadTabState(tabs[0].id);
-            this.checkAccess(tabs[0].id);
+            const tabId = tabs[0].id;
+            this.connectToBackground(tabId);
+            await this.loadTabState(tabId);
+            this.checkAccess(tabId);
         }
 
         // Listen for tab activation to switch state
         chrome.tabs.onActivated.addListener(async (activeInfo) => {
+            // Re-connect for the new tab if needed, or just update state
+            // Since side panel is tab-specific, this instance might be for a specific tab?
+            // Actually, if the side panel is open for multiple tabs, is it the same instance?
+            // "A single instance of the side panel is shared across all tabs." -> This is for global side panel.
+            // But we use `open({ tabId })`.
+            // "If you specify a tabId, the side panel is specific to that tab."
+            // This implies there might be separate instances or the same instance reloaded?
+            // Usually it's the same document if the URL is the same.
+
             await this.loadTabState(activeInfo.tabId);
             this.checkAccess(activeInfo.tabId);
         });
@@ -150,9 +172,26 @@ class RussianToolsSidePanel {
             this.enhancePage();
         });
 
+        // Listen for grammar explorer selection
+        chrome.runtime.onMessage.addListener((message) => {
+            if (message.action === 'grammar_explorer_selection') {
+                // Handle both direct cohort data and text selection
+                this.handleGrammarExplorerSelection(message);
+            }
+        });
+
         document.getElementById('restore-button').addEventListener('click', () => {
             this.restorePage();
         });
+
+        // Dismiss instructions
+        const dismissButton = document.getElementById('dismiss-instructions');
+        if (dismissButton) {
+            dismissButton.addEventListener('click', () => {
+                const instructions = document.getElementById('grammar-explorer-instructions');
+                if (instructions) instructions.style.display = 'none';
+            });
+        }
     }
 
     /**
@@ -279,11 +318,9 @@ ${errorMessage}`);
         this.toggleEnhanceButton();
     }
 
-    initializeActivitySelectors() {
-// ...existing code...
-    }
 
-    switchTab(tabName) {
+
+    async switchTab(tabName) {
         // Remove active class from all tabs and buttons
         document.querySelectorAll('.tab-button').forEach(button => {
             button.classList.remove('active');
@@ -295,6 +332,63 @@ ${errorMessage}`);
         // Add active class to selected tab and button
         document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
         document.getElementById(`${tabName}-tab`).classList.add('active');
+
+        // Handle Grammar Explorer activation
+        if (tabName === 'grammar-explorer') {
+            await this.activateGrammarExplorer();
+        } else {
+            // If leaving Grammar Explorer or switching to Interact, restore page
+            // But if we are in Interact, we might want to keep the current activity?
+            // The requirement says: "When any tab other than "Interact" is selected, the page should be restored"
+            // So if we switch TO Interact, we might need to restore if we came from Grammar Explorer?
+            // Or just let the user click Enhance again.
+            // Let's assume switching tabs should reset the view unless it's Interact -> Interact (which doesn't happen).
+
+            // Actually, if we switch TO Interact, we should probably restore to clear Grammar Explorer spans.
+            // If we switch TO Writing, we should restore.
+            await this.restorePage();
+        }
+    }
+
+    async activateGrammarExplorer() {
+        // Show instructions
+        const instructions = document.getElementById('grammar-explorer-instructions');
+        if (instructions) instructions.style.display = 'block';
+
+        // 1. Restore page to clear any existing activity
+        await this.restorePage();
+
+        // 2. Trigger enhancement for Grammar Explorer
+        // We simulate an enhancement request with specific parameters
+        const selections = {
+            topic: 'grammar-explorer',
+            filter: 'all',
+            activity: 'explore'
+        };
+
+        this.isProcessing = true;
+        // Show loading in the results area
+        const container = document.getElementById('grammar-explorer-results');
+        if (container) container.innerHTML = '<div class="loading">Preparing text...</div>';
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'enhance',
+                selections: selections
+            });
+
+            if (!response.success) {
+                throw new Error(response.error);
+            }
+
+            if (container) container.innerHTML = '<div class="info"></div>';
+
+        } catch (error) {
+            console.error('Error activating Grammar Explorer:', error);
+            if (container) container.innerHTML = `<div class="error">Failed to activate: ${error.message}</div>`;
+        } finally {
+            this.isProcessing = false;
+        }
     }
 
     setAutoEnhance(enabled) {
@@ -404,9 +498,6 @@ ${errorMessage}`);
                 { val: 'click', text: 'Click to identify' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
-            ],
-            'assistive-reading': [
-                { val: 'click', text: 'Click to identify' }
             ],
             'gerunds': [
                 { val: 'color', text: 'Highlight / Color' },
@@ -572,8 +663,536 @@ ${errorMessage}`);
         }
     }
 
-    restoreSelections() {
-        // Deprecated in favor of loadTabState and applySelections
+    async handleGrammarExplorerSelection(data) {
+        const container = document.getElementById('grammar-explorer-results');
+        container.innerHTML = '<div class="loading">Analyzing...</div>';
+
+        try {
+            let cohorts;
+
+            // Check if we received direct cohort data or just text
+            if (typeof data === 'object' && data.cohort) {
+                // We have the cohort directly from the click event
+                cohorts = [data.cohort];
+            } else {
+                // Fallback to analyzing text (e.g. from selection)
+                const text = typeof data === 'string' ? data : data.text;
+                const analysisResponse = await chrome.runtime.sendMessage({
+                    action: 'morph_analysis',
+                    text: text
+                });
+
+                if (!analysisResponse.success) {
+                    container.innerHTML = `<div class="error">Analysis failed: ${analysisResponse.error}</div>`;
+                    return;
+                }
+                cohorts = analysisResponse.data;
+            }
+
+            if (!cohorts || cohorts.length === 0) {
+                container.innerHTML = '<div class="info">No analysis found.</div>';
+                return;
+            }
+
+            // Clear container
+            container.innerHTML = '';
+
+            // Process each cohort (word)
+            for (const cohort of cohorts) {
+                // Skip punctuation if desired, or show it
+                // For now, show everything
+
+                const wordDiv = document.createElement('div');
+                wordDiv.className = 'word-analysis';
+                wordDiv.style.marginBottom = '20px';
+                wordDiv.style.borderBottom = '1px solid #eee';
+                wordDiv.style.paddingBottom = '10px';
+
+                // Generate stressed lemmas for all readings
+                const readingsWithStress = await Promise.all(cohort.rs.map(async (r) => {
+                    const lemma = r.l;
+                    const tags = (r.ts || []).filter(t => !t.startsWith('<W:'));
+                    const pos = tags.length > 0 ? tags[0] : null;
+                    let stressedLemma = lemma;
+
+                    // Construct input for stress generator to get stressed lemma
+                    let input = null;
+                    if (pos === 'N') {
+                        const gender = tags.find(t => ['Msc', 'Fem', 'Neu', 'MFN'].includes(t));
+                        const animacy = tags.find(t => ['Anim', 'Inan'].includes(t));
+                        let tagStr = '+N';
+                        if (gender) tagStr += '+' + gender;
+                        if (animacy) tagStr += '+' + animacy;
+                        tagStr += '+Sg+Nom';
+                        input = lemma + tagStr;
+                    } else if (pos === 'V') {
+                        const aspect = tags.find(t => ['Impf', 'Perf'].includes(t));
+                        const transitivity = tags.find(t => ['TV', 'IV'].includes(t));
+                        let tagStr = '+V';
+                        if (aspect) tagStr += '+' + aspect;
+                        if (transitivity) tagStr += '+' + transitivity;
+                        tagStr += '+Inf';
+                        input = lemma + tagStr;
+                    } else if (pos === 'A' || pos === 'Adj' || pos === 'Det') {
+                         input = lemma + '+' + pos + '+Msc+Sg+Nom';
+                    } else if (pos === 'Pron') {
+                        // Try to reconstruct minimal tags for Pronoun lemma
+                        // Usually Pron + (Pers) + (Gender) + (Number) + Nom
+                        // But Pronouns are irregular.
+                        // Let's try just lemma + Pron + Nom?
+                        // Or use the tags we have, replacing Case with Nom.
+                        const tagsWithoutCase = tags.filter(t => !['Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc'].includes(t));
+                        input = lemma + '+' + tagsWithoutCase.join('+') + '+Nom';
+                    }
+
+                    if (input) {
+                         try {
+                             const response = await chrome.runtime.sendMessage({
+                                action: 'generate',
+                                input: input,
+                                useStress: true
+                            });
+                            if (response.success && response.data && response.data.length > 0) {
+                                stressedLemma = response.data[0];
+                            }
+                         } catch (e) {
+                             console.warn('Failed to generate stress for lemma:', lemma, e);
+                         }
+                    }
+                    return { ...r, stressedLemma, originalLemma: lemma };
+                }));
+
+                // Group readings by stressed lemma
+                const readingsByLemma = {};
+                for (const reading of readingsWithStress) {
+                    if (!readingsByLemma[reading.stressedLemma]) {
+                        readingsByLemma[reading.stressedLemma] = [];
+                    }
+                    readingsByLemma[reading.stressedLemma].push(reading);
+                }
+
+                for (const lemma in readingsByLemma) {
+                    const lemmaDiv = document.createElement('div');
+                    lemmaDiv.className = 'lemma-group';
+                    lemmaDiv.style.marginLeft = '10px';
+
+                    // Determine POS from the first reading's tags (first element)
+                    const firstReading = readingsByLemma[lemma][0];
+                    // Filter out weights from tags for processing
+                    const tags = (firstReading.ts || []).filter(t => !t.startsWith('<W:'));
+                    const pos = tags.length > 0 ? tags[0] : null;
+                    const inflectingPOS = ['N', 'V', 'A', 'Adj', 'Pron', 'Num', 'Det'];
+                    const canInflect = pos && inflectingPOS.includes(pos);
+
+                    const headerContainer = document.createElement('div');
+                    headerContainer.style.display = 'flex';
+                    headerContainer.style.alignItems = 'center';
+                    headerContainer.style.gap = '8px';
+
+                    let toggleButton = null;
+                    let paradigmContainer = null;
+
+                    if (canInflect) {
+                        toggleButton = document.createElement('button');
+                        toggleButton.textContent = '+';
+                        toggleButton.style.width = '24px';
+                        toggleButton.style.height = '24px';
+                        toggleButton.style.padding = '0';
+                        toggleButton.style.cursor = 'pointer';
+                        toggleButton.style.border = '1px solid #ccc';
+                        toggleButton.style.background = '#f0f0f0';
+                        toggleButton.style.borderRadius = '4px';
+                        toggleButton.style.display = 'flex';
+                        toggleButton.style.alignItems = 'center';
+                        toggleButton.style.justifyContent = 'center';
+                        toggleButton.style.fontWeight = 'bold';
+
+                        headerContainer.appendChild(toggleButton);
+                    }
+
+                    const lemmaHeader = document.createElement('h4');
+                    let labelText = `${lemma}`;
+
+                    if (pos === 'V') {
+                        const aspect = tags.find(t => ['Perf', 'Impf'].includes(t));
+                        if (aspect) {
+                            labelText += ` (${aspect})`;
+                        }
+                    } else if (pos === 'N') {
+                        const gender = tags.find(t => ['Msc', 'Fem', 'Neu'].includes(t));
+                        if (gender) {
+                            labelText += ` (${gender})`;
+                        }
+                    }
+
+                    lemmaHeader.textContent = labelText;
+                    lemmaHeader.style.color = '#2c5aa0';
+                    lemmaHeader.style.margin = '0';
+
+                    // Tooltip for readings
+                    const readingsText = readingsByLemma[lemma].map(r => {
+                        const t = (r.ts || []).filter(tag => !tag.startsWith('<W:'));
+                        return t.join(' ');
+                    }).join('\n');
+                    lemmaHeader.title = readingsText;
+
+                    headerContainer.appendChild(lemmaHeader);
+                    lemmaDiv.appendChild(headerContainer);
+
+                    // Fetch translations (using original lemma for lookup)
+                    const originalLemma = readingsByLemma[lemma][0].originalLemma;
+                    const translation = await this.getTranslations(originalLemma);
+                    if (translation) {
+                        const transP = document.createElement('p');
+                        transP.innerHTML = `<strong>Translation:</strong> ${translation}`;
+                        lemmaDiv.appendChild(transP);
+                    }
+
+                    if (canInflect) {
+                        paradigmContainer = document.createElement('div');
+                        paradigmContainer.style.display = 'none';
+                        paradigmContainer.style.marginTop = '10px';
+                        lemmaDiv.appendChild(paradigmContainer);
+
+                        toggleButton.onclick = async () => {
+                            if (paradigmContainer.style.display === 'none') {
+                                toggleButton.textContent = '-';
+                                paradigmContainer.style.display = 'block';
+
+                                if (!paradigmContainer.hasChildNodes()) {
+                                    paradigmContainer.innerHTML = '<div class="loading">Generating...</div>';
+                                    try {
+                                        const forms = await this.generateParadigm(originalLemma, pos, tags, readingsByLemma[lemma]);
+                                        paradigmContainer.innerHTML = forms;
+                                    } catch (e) {
+                                        console.error(e);
+                                        paradigmContainer.innerHTML = '<div class="error">Error generating paradigm</div>';
+                                    }
+                                }
+                            } else {
+                                toggleButton.textContent = '+';
+                                paradigmContainer.style.display = 'none';
+                            }
+                        };
+
+                        // Automatically expand if there is only one lemma
+                        if (Object.keys(readingsByLemma).length === 1) {
+                            toggleButton.click();
+                        }
+                    }
+
+                    wordDiv.appendChild(lemmaDiv);
+                }
+
+                container.appendChild(wordDiv);
+            }
+
+        } catch (error) {
+            container.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        }
+    }
+
+    async getTranslations(lemma) {
+        const response = await chrome.runtime.sendMessage({
+            action: 'get_model_data',
+            modelName: 'lemmaToTranslationsMap',
+            key: lemma
+        });
+
+        if (response.success && response.data) {
+            const word = response.data;
+            let translation = "";
+            if (word.senses) {
+                word.senses.forEach(sense => {
+                    if (sense && sense.glosses) {
+                        translation += sense.glosses.join(', ') + "; ";
+                    }
+                });
+                if (translation.endsWith("; ")) {
+                    translation = translation.substring(0, translation.length - 2);
+                }
+            }
+            return translation;
+        }
+        return null;
+    }
+
+    async generateParadigm(lemma, pos, tags, currentReadings = []) {
+        const checkMatch = (input) => {
+            if (!currentReadings || currentReadings.length === 0) return false;
+            // Filter out tags that might not be in the analysis or are generation-specific
+            const tagsToIgnore = ['Ind', 'AnIn'];
+            const inputTags = input.split('+').slice(1).filter(t => !tagsToIgnore.includes(t));
+
+            return currentReadings.some(reading => {
+                const readingTags = (reading.ts || []);
+                // Check if all relevant input tags are present in reading tags
+                return inputTags.every(tag => readingTags.includes(tag));
+            });
+        };
+
+        const generateForm = async (input) => {
+            let form = input;
+            let failed = false;
+            try {
+                // First attempt
+                let response = await chrome.runtime.sendMessage({
+                    action: 'generate',
+                    input: input,
+                    useStress: true
+                });
+
+                if (response.success && response.data && response.data.length > 0) {
+                    form = response.data[0];
+                } else {
+                    // Second attempt with +Fac
+                    let inputAlt = input + '+Fac';
+                    response = await chrome.runtime.sendMessage({
+                        action: 'generate',
+                        input: inputAlt,
+                        useStress: true
+                    });
+
+                    if (!response.success || !response.data || response.data.length === 0) {
+                        // Third attempt with +Prb
+                        inputAlt = input + '+Prb';
+                        response = await chrome.runtime.sendMessage({
+                            action: 'generate',
+                            input: inputAlt,
+                            useStress: true
+                        });
+                    }
+
+                    if (response.success && response.data && response.data.length > 0) {
+                        form = `<span title="impossible or unlikely"><i>${response.data[0]}*</i></span>`;
+                    } else {
+                        failed = true;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                failed = true;
+            }
+
+            if (failed) {
+                return `<span title="${input}">—</span>`;
+            }
+
+            if (checkMatch(input)) {
+                return `<span style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">${form}</span>`;
+            }
+            return form;
+        };
+
+        let html = '';
+
+        if (pos === 'N') {
+            // Noun Paradigm
+            const gender = tags.find(t => ['Msc', 'Fem', 'Neu', 'MFN'].includes(t)) || 'Msc';
+            const animacy = tags.find(t => ['Anim', 'Inan'].includes(t)) || 'Inan';
+            const cases = ['Nom', 'Acc', 'Gen', 'Loc', 'Dat', 'Ins'];
+
+            html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Singular</th><th>Plural</th></tr></thead><tbody>';
+
+            for (const c of cases) {
+                const sgInput = `${lemma}+N+${gender}+${animacy}+Sg+${c}`;
+                const plInput = `${lemma}+N+${gender}+${animacy}+Pl+${c}`;
+                const label = c === 'Ins' ? 'Inst' : c;
+
+                const [sgForm, plForm] = await Promise.all([generateForm(sgInput), generateForm(plInput)]);
+                html += `<tr><td>${label}</td><td>${sgForm}</td><td>${plForm}</td></tr>`;
+            }
+            html += '</tbody></table>';
+
+        } else if (pos === 'A' || pos === 'Adj' || pos === 'Det') {
+            // Adjective Paradigm (and Determiners)
+            const cases = ['Nom', 'Acc', 'Gen', 'Loc', 'Dat', 'Ins'];
+            // Short forms (Pred) usually only for Nom? Or separate category.
+            // Standard adjective table: Msc, Neu, Fem, Pl
+
+            html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Masc</th><th>Neut</th><th>Fem</th><th>Plural</th></tr></thead><tbody>';
+
+            for (const c of cases) {
+                const label = c === 'Ins' ? 'Inst' : c;
+
+                let forms;
+                if (c === 'Acc') {
+                    // Generate Inan and Anim for Msc and Pl
+                    const inputs = [
+                        `${lemma}+${pos}+Msc+Inan+Sg+Acc`,
+                        `${lemma}+${pos}+Msc+Anim+Sg+Acc`,
+                        `${lemma}+${pos}+Neu+AnIn+Sg+Acc`,
+                        `${lemma}+${pos}+Fem+AnIn+Sg+Acc`,
+                        `${lemma}+${pos}+MFN+Inan+Pl+Acc`,
+                        `${lemma}+${pos}+MFN+Anim+Pl+Acc`
+                    ];
+                    const results = await Promise.all(inputs.map(generateForm));
+
+                    const mscForm = (results[0] === results[1]) ? results[0] : `${results[0]} / ${results[1]}`;
+                    const neuForm = results[2];
+                    const femForm = results[3];
+                    const plForm = (results[4] === results[5]) ? results[4] : `${results[4]} / ${results[5]}`;
+
+                    forms = [mscForm, neuForm, femForm, plForm];
+                } else {
+                    const inputs = [
+                        `${lemma}+${pos}+Msc+AnIn+Sg+${c}`,
+                        `${lemma}+${pos}+Neu+AnIn+Sg+${c}`,
+                        `${lemma}+${pos}+Fem+AnIn+Sg+${c}`,
+                        `${lemma}+${pos}+MFN+AnIn+Pl+${c}`
+                    ];
+                    forms = await Promise.all(inputs.map(generateForm));
+                }
+
+                html += `<tr><td>${label}</td><td>${forms[0]}</td><td>${forms[1]}</td><td>${forms[2]}</td><td>${forms[3]}</td></tr>`;
+            }
+
+            // Short forms (Pred)
+            if (pos !== 'Det') {
+                const shortInputs = [
+                    `${lemma}+${pos}+Msc+Sg+Pred`,
+                    `${lemma}+${pos}+Neu+Sg+Pred`,
+                    `${lemma}+${pos}+Fem+Sg+Pred`,
+                    `${lemma}+${pos}+MFN+Pl+Pred`
+                ];
+                const shortForms = await Promise.all(shortInputs.map(generateForm));
+                if (shortForms.some(f => f !== '-')) {
+                    html += `<tr><td>Short</td><td>${shortForms[0]}</td><td>${shortForms[1]}</td><td>${shortForms[2]}</td><td>${shortForms[3]}</td></tr>`;
+                }
+            }
+
+            html += '</tbody></table>';
+
+        } else if (pos === 'V') {
+            // Verb Paradigm
+            const aspect = tags.find(t => ['Impf', 'Perf'].includes(t)) || 'Impf';
+            const transitivity = tags.find(t => ['TV', 'IV'].includes(t)) || '';
+            const transitivityTag = transitivity ? `+${transitivity}` : '';
+
+            // Present/Future
+            const tense = aspect === 'Perf' ? 'Fut' : 'Prs';
+            const tenseLabel = aspect === 'Perf' ? 'Future' : 'Present';
+
+            html += `<h4>${tenseLabel}</h4>`;
+            html += '<table class="paradigm-table"><thead><tr><th>Person</th><th>Singular</th><th>Plural</th></tr></thead><tbody>';
+
+            const persons = [1, 2, 3];
+            for (const p of persons) {
+                const sgInput = `${lemma}+V+${aspect}${transitivityTag}+${tense}+Sg${p}`;
+                const plInput = `${lemma}+V+${aspect}${transitivityTag}+${tense}+Pl${p}`;
+                const [sgForm, plForm] = await Promise.all([generateForm(sgInput), generateForm(plInput)]);
+                html += `<tr><td>${p}</td><td>${sgForm}</td><td>${plForm}</td></tr>`;
+            }
+            html += '</tbody></table>';
+
+            // Past
+            html += `<h4>Past</h4>`;
+            html += '<table class="paradigm-table"><thead><tr><th>Gender/Number</th><th>Form</th></tr></thead><tbody>';
+
+            const pastInputs = [
+                { label: 'Masc', input: `${lemma}+V+${aspect}${transitivityTag}+Pst+Msc+Sg` },
+                { label: 'Fem', input: `${lemma}+V+${aspect}${transitivityTag}+Pst+Fem+Sg` },
+                { label: 'Neut', input: `${lemma}+V+${aspect}${transitivityTag}+Pst+Neu+Sg` }
+            ];
+
+            for (const item of pastInputs) {
+                const form = await generateForm(item.input);
+                html += `<tr><td>${item.label}</td><td>${form}</td></tr>`;
+            }
+
+            // Plural is the same for all genders in Past
+            const plInput = `${lemma}+V+${aspect}${transitivityTag}+Pst+MFN+Pl`;
+            const plForm = await generateForm(plInput);
+            html += `<tr><td>Plural</td><td>${plForm}</td></tr>`;
+
+            html += '</tbody></table>';
+
+            // Imperative
+            html += `<h4>Imperative</h4>`;
+            html += '<table class="paradigm-table"><thead><tr><th>Number</th><th>Form</th></tr></thead><tbody>';
+            const impSg = await generateForm(`${lemma}+V+${aspect}${transitivityTag}+Imp+Sg2`);
+            const impPl = await generateForm(`${lemma}+V+${aspect}${transitivityTag}+Imp+Pl2`);
+            html += `<tr><td>Sg (2nd)</td><td>${impSg}</td></tr>`;
+            html += `<tr><td>Pl (2nd)</td><td>${impPl}</td></tr>`;
+            html += '</tbody></table>';
+
+            // Infinitive
+            const inf = await generateForm(`${lemma}+V+${aspect}${transitivityTag}+Inf`);
+            html += `<p><strong>Infinitive:</strong> ${inf}</p>`;
+
+            // Participles and Verbal Adverbs
+            html += `<h4>Participles & Gerunds</h4>`;
+            html += '<table class="paradigm-table"><thead><tr><th>Type</th><th>Present</th><th>Past</th></tr></thead><tbody>';
+
+            // Active Participle
+            const prsActPartInput = `${lemma}+V+${aspect}${transitivityTag}+PrsAct+Msc+AnIn+Sg+Nom`;
+            const pstActPartInput = `${lemma}+V+${aspect}${transitivityTag}+PstAct+Msc+AnIn+Sg+Nom`;
+            const [prsActPart, pstActPart] = await Promise.all([generateForm(prsActPartInput), generateForm(pstActPartInput)]);
+            html += `<tr><td>Active Participle</td><td>${prsActPart}</td><td>${pstActPart}</td></tr>`;
+
+            // Passive Participle
+            const prsPssPartInput = `${lemma}+V+${aspect}+TV+PrsPss+Msc+AnIn+Sg+Nom`;
+            const pstPssPartInput = `${lemma}+V+${aspect}+TV+PstPss+Msc+AnIn+Sg+Nom`;
+            const [prsPssPart, pstPssPart] = await Promise.all([generateForm(prsPssPartInput), generateForm(pstPssPartInput)]);
+            html += `<tr><td>Passive Participle</td><td>${prsPssPart}</td><td>${pstPssPart}</td></tr>`;
+
+            // Verbal Adverb
+            const prsAdvInput = `${lemma}+V+${aspect}${transitivityTag}+PrsAct+Adv`;
+            const pstAdvInput = `${lemma}+V+${aspect}${transitivityTag}+PstAct+Adv`;
+            const [prsAdv, pstAdv] = await Promise.all([generateForm(prsAdvInput), generateForm(pstAdvInput)]);
+            html += `<tr><td>Verbal Adverb</td><td>${prsAdv}</td><td>${pstAdv}</td></tr>`;
+
+            html += '</tbody></table>';
+
+        } else if (pos === 'Pron') {
+             // Pronoun Paradigm (similar to Noun but maybe no Plural/Singular distinction for some)
+             // Personal pronouns: Я, Ты, etc. have fixed Number.
+             // But "весь", "тот" behave like Adjectives.
+             // Let's try Noun-like structure first.
+
+             const cases = ['Nom', 'Acc', 'Gen', 'Loc', 'Dat', 'Ins'];
+             html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Form</th></tr></thead><tbody>';
+
+             // We need to know if it has Gender/Number.
+             // If it's "я", "ты", it's just Case.
+             // If it's "он", it has Gender.
+             // If it's "мой", it's Adjectival.
+
+             // Simple fallback: Just generate for the tags we have + Case.
+             // We need to strip existing Case tag and add new one.
+             // And strip Number if we want to generate both?
+             // Pronouns are tricky. Let's just try to generate cases for the *current* number/gender.
+
+             // Construct base tags from current tags, excluding Case.
+             const baseTags = tags.filter(t => !['Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc'].includes(t));
+             const baseTagString = baseTags.join('+');
+
+             for (const c of cases) {
+                 const label = c === 'Ins' ? 'Inst' : c;
+                 // Better: lemma + Pron + ...
+                 // Let's try to reconstruct standard order: Pron + Pers? + Gender? + Number + Case
+                 // Or just use the tags we have.
+
+                 // If we use the tags from analysis, they are in some order.
+                 // We just replace the case tag.
+
+                 // But we want to generate the full paradigm.
+                 // If lemma is "я", we want "меня", "мне"...
+                 // "я" tags: Pron, Pers, Sg1, Nom.
+                 // We want: Pron, Pers, Sg1, Gen...
+
+                 // Let's try to use the tags we have, remove Case, add new Case.
+                 const tagsWithoutCase = tags.filter(t => !['Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc'].includes(t));
+                 const input = `${lemma}+${tagsWithoutCase.join('+')}+${c}`;
+                 const form = await generateForm(input);
+                 html += `<tr><td>${label}</td><td>${form}</td></tr>`;
+             }
+             html += '</tbody></table>';
+        } else {
+            return "Paradigm generation not implemented for " + pos;
+        }
+
+        return html;
     }
 }
 

@@ -10,7 +10,7 @@
 
         <nav class="tab-navigation">
             <button class="tab-button active" data-tab="interact">Interact</button>
-            <button class="tab-button" data-tab="authentic">Authentic texts</button>
+            <button class="tab-button" data-tab="grammar-explorer">Grammar Explorer</button>
             <button class="tab-button" data-tab="writing">Writing tutor</button>
         </nav>
 
@@ -26,7 +26,6 @@
                 <select id="topic-menu" name="topic">
                     <option value="unselected">Select a topic...</option>
                     <option value="adjectives">Adjectives</option>
-                    <option value="assistive-reading">Russian assistive reading</option>
                     <option value="gerunds">Verbal adverbs / Gerunds</option>
                     <option value="nouns">Nouns</option>
                     <option value="participles">Participles</option>
@@ -66,15 +65,13 @@
             </div>
         </div>
 
-        <div id="authentic-tab" class="tab-content">
-            <div class="under-construction">
-                <svg width="120" height="120" viewBox="0 0 120 120">
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#ccc" stroke-width="8"/>
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#2c5aa0" stroke-width="8" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314">
-                        <animate attributeName="stroke-dashoffset" dur="2s" values="314;0" repeatCount="indefinite"/>
-                    </circle>
-                </svg>
-                <p>Under Construction</p>
+        <div id="grammar-explorer-tab" class="tab-content">
+            <div class="panel-section" id="grammar-explorer-instructions" style="position: relative;">
+                <button id="dismiss-instructions" style="position: absolute; top: 5px; right: 5px; border: none; background: none; cursor: pointer; font-size: 16px; color: #666;">&times;</button>
+                <p style="margin-right: 20px;">Select a word in the text to see its grammatical analysis.</p>
+            </div>
+            <div id="grammar-explorer-results" class="results-container">
+                <!-- Results will be displayed here -->
             </div>
         </div>
 

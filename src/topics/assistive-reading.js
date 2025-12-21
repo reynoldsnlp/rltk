@@ -16,6 +16,7 @@
     window.FilterFuncs["assistive-reading"] = function(cohort) {
         return cohort && cohort.w !== undefined && cohort.rs && cohort.rs.length > 0;
     };
+    window.FilterFuncs["grammar-explorer"] = window.FilterFuncs["assistive-reading"];
 
     // Assistive reading enhancement function
     window.EnhanceFuncs["assistive-reading-click"] = function(originalText, cohort, cohortIndex) {
@@ -28,6 +29,54 @@
         span.addEventListener('click', function(e) {
             e.stopPropagation();
             showAnalysis(this, cohort);
+        });
+
+        return span;
+    };
+
+    // Grammar Explorer enhancement function
+    window.EnhanceFuncs["grammar-explorer-explore"] = function(originalText, cohort, cohortIndex) {
+        // Inject styles if not already present
+        if (!document.getElementById('rltk-grammar-explorer-styles')) {
+            const style = document.createElement('style');
+            style.id = 'rltk-grammar-explorer-styles';
+            style.textContent = `
+                .ʁ-grammar-explorer.ʁ-highlighted {
+                    background-color: #fff3cd;
+                    border-bottom: 2px solid #ffc107;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        const span = document.createElement('span');
+        span.className = `ʁ ʁ${cohortIndex} ʁ-grammar-explorer`;
+        span.textContent = originalText;
+        span.style.cursor = 'pointer';
+        // span.style.borderBottom = '1px dotted #2c5aa0'; // Optional styling
+
+        // Store readings in data attribute
+        span.setAttribute('data-readings', JSON.stringify(cohort.rs || []));
+
+        span.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            // Highlight logic
+            document.querySelectorAll('.ʁ-grammar-explorer').forEach(el => el.classList.remove('ʁ-highlighted'));
+            this.classList.add('ʁ-highlighted');
+
+            const readings = JSON.parse(this.getAttribute('data-readings') || '[]');
+
+            // Send message to side panel with full cohort data
+            chrome.runtime.sendMessage({
+                action: 'grammar_explorer_selection',
+                text: originalText,
+                cohort: {
+                    w: originalText,
+                    rs: readings
+                }
+            });
         });
 
         return span;

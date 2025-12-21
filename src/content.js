@@ -12,6 +12,7 @@
 (function () {
     // Inject CSS directly into the page
     const style = document.createElement('style');
+    style.id = 'rltk-main-styles';
     style.textContent = `
         .ʁ {
             border-radius: 2px;
@@ -31,6 +32,10 @@
         }
     `;
     document.head.appendChild(style);
+
+    // Grammar Explorer State
+    let isGrammarExplorerActive = false;
+    let selectionDebounceTimer = null;
 
     /**
      * Shared function to determine if a node should be skipped during text processing
@@ -336,6 +341,42 @@
         }
     }
 
+    /**
+     * Cleans up all extension-injected elements and styles.
+     */
+    function cleanup() {
+        // Remove injected styles
+        const mainStyles = document.getElementById('rltk-main-styles');
+        if (mainStyles) mainStyles.remove();
+
+        const explorerStyles = document.getElementById('rltk-grammar-explorer-styles');
+        if (explorerStyles) explorerStyles.remove();
+
+        // Remove all highlighting by removing spans with ʁ class
+        document.querySelectorAll('.ʁ').forEach(span => {
+            const parent = span.parentNode;
+            if (parent) {
+                // Use stored original text if available, otherwise fall back to textContent
+                const originalText = span.dataset.originalText || span.textContent;
+                parent.replaceChild(document.createTextNode(originalText), span);
+                parent.normalize();
+            }
+        });
+    }
+
+    // Check for extension context invalidation (orphan state)
+    const orphanCheckInterval = setInterval(() => {
+        try {
+            // Accessing runtime.id throws if the extension context is invalidated
+            if (!chrome.runtime?.id) {
+                throw new Error("Extension context invalidated");
+            }
+        } catch (e) {
+            clearInterval(orphanCheckInterval);
+            cleanup();
+        }
+    }, 1000);
+
     // Listen for messages from side panel or other extension components
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         switch (request.action) {
@@ -408,17 +449,14 @@
                 break;
 
             case 'restore':
-                // Remove all highlighting by removing spans with ʁ class
-                document.querySelectorAll('.ʁ').forEach(span => {
-                    const parent = span.parentNode;
-                    // Use stored original text if available, otherwise fall back to textContent
-                    // (though textContent might be corrupted by distractors in MC activities)
-                    const originalText = span.dataset.originalText || span.textContent;
-                    parent.replaceChild(document.createTextNode(originalText), span);
-                    parent.normalize();
-                });
+                cleanup();
                 sendResponse({ success: true });
                 break;
+
+            // case 'set_grammar_explorer_active':
+            //     isGrammarExplorerActive = request.active;
+            //     sendResponse({ success: true });
+            //     break;
 
             default:
                 // Handle unknown actions
@@ -459,5 +497,8 @@
 
     // Make the function globally available
     window.generateForms = generateForms;
+
+    // Removed selectionchange listener as Grammar Explorer now uses click-based interaction
+    // on enhanced spans.
 
 })();

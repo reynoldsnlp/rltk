@@ -10,6 +10,8 @@
  */
 
 let offscreenCreated = false;
+const annotatedTabs = new Set();
+const activeSidePanelPorts = new Set();
 
 /**
  * Creates the offscreen document if it doesn't exist.
@@ -204,6 +206,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 const tabId = tabs[0].id;
 
+                // Track annotated tabs
+                if (request.action === 'enhance') {
+                    annotatedTabs.add(tabId);
+                } else if (request.action === 'restore') {
+                    annotatedTabs.delete(tabId);
+                }
+
                 // Ensure content script is loaded
                 await ensureContentScriptLoaded(tabId);
 
@@ -243,4 +252,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         })();
         return true;
     }
+});
+
+// Listen for connections from the side panel to track its lifecycle
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name.startsWith('sidepanel')) {
+        activeSidePanelPorts.add(port);
+
+        port.onDisconnect.addListener(() => {
+            activeSidePanelPorts.delete(port);
+
+            // If no more side panels are open, clean up all annotated tabs
+            if (activeSidePanelPorts.size === 0) {
+                for (const tabId of annotatedTabs) {
+                    chrome.tabs.sendMessage(tabId, { action: 'restore' })
+                        .catch(() => {
+                            // Tab might be closed or not accessible
+                            annotatedTabs.delete(tabId);
+                        });
+                }
+                annotatedTabs.clear();
+            }
+        });
+    }
+});
+
+// Clean up tracked tabs when they are closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+    annotatedTabs.delete(tabId);
 });

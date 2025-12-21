@@ -251,3 +251,82 @@ header h2 {
     color: #333;
     line-height: 1.5;
 }
+
+/* Grammar Explorer Styles */
+#grammar-explorer-results {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.word-analysis {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 16px;
+}
+
+.word-analysis h3 {
+    margin-top: 0;
+    color: #2c5aa0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+.lemma-group {
+    margin-top: 12px;
+    padding-left: 8px;
+    border-left: 3px solid #eee;
+}
+
+.lemma-group h4 {
+    margin: 0 0 4px 0;
+    color: #444;
+}
+
+.lemma-group ul {
+    padding-left: 20px;
+    margin: 4px 0;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.paradigm-table {
+    width: auto;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 0.9em;
+}
+
+.paradigm-table td {
+    padding: 4px;
+    border-bottom: 1px solid #eee;
+}
+
+.paradigm-table td:first-child {
+    color: #888;
+    font-size: 0.85em;
+}
+
+/* Paradigm Tables */
+.paradigm-table {
+    width: auto;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+.paradigm-table th,
+.paradigm-table td {
+    border: 1px solid #ddd;
+    padding: 6px;
+    text-align: left;
+}
+
+.paradigm-table th {
+    background-color: #f0f0f0;
+    font-weight: 600;
+}
+
+.paradigm-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
