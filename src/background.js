@@ -195,6 +195,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Keep the message channel open for async response
     }
 
+    // Handle L2 analysis request (forward to offscreen)
+    if (request.action === 'analyze_l2') {
+        (async () => {
+            try {
+                await createOffscreenDocument();
+                // Forward the request to the offscreen document
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    action: 'analyze_l2',
+                    text: request.text
+                });
+
+                sendResponse(response);
+            } catch (error) {
+                console.error('BACKGROUND: Error:', error.message);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true; // Keep the message channel open for async response
+    }
+
     // Handle side panel requests to communicate with content script
     if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore' || request.action === 'get_status') {
         (async () => {

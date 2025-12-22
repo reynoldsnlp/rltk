@@ -18,6 +18,7 @@ let tokenizer = null;  // Tokenizer for HFST (also provides morphological analys
 let generator = null;
 let stressGenerator = null;
 let g2p = null;
+let l2Analyser = null;
 let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
 
@@ -27,7 +28,8 @@ const models = {
     lemmaToExemplarMap: null,
     lemmaToTranslationsMap: null,
     lemmaToTranslationsMapWiktExtract: null,
-    adjectivesToExcludeFromParticiples: null
+    adjectivesToExcludeFromParticiples: null,
+    Sharoff_lem_freq_dict: null
 };
 
 /**
@@ -79,6 +81,7 @@ async function initHfst() {
     generator = await loadTransducer("src/resources/models/generator-gt-norm.hfstol", `generator`);
     stressGenerator = await loadTransducer("src/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`);
     g2p = await loadTransducer("src/resources/models/g2p.hfstol", `g2p`);
+    l2Analyser = await loadTransducer("src/resources/models/analyser-gt-desc-L2.hfstol", `l2Analyser`);
     tokenizer = await loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
 }
 
@@ -413,6 +416,165 @@ async function jsonlToJsonArray(jsonlString) {
     return jsonArray;
 }
 
+// TODO: Compile a separate L2 tokenizer instead of using the standard one + L2 analyser.
+function formatForCg3(token, analyses) {
+    let output = `"<${token}>"\n`;
+    const seen = new Set();
+
+    for (const analysis of analyses) {
+        const analysisString = analysis[0].join('');
+        // analysisString is like "lemma+Tag+Tag"
+
+        // Simple heuristic: split by '+'
+        const parts = analysisString.split('+');
+        const lemma = parts[0];
+        const tags = parts.slice(1).map(t => t.replace(/^Err\/L2_/, 'Err/L2_')); // Ensure Err tags are preserved
+
+        // Construct line: 	"lemma" Tag Tag
+        const line = `\t"${lemma}" ${tags.join(' ')}`;
+
+        if (!seen.has(line)) {
+            output += line + '\n';
+            seen.add(line);
+        }
+    }
+
+    // If no analyses, add unknown tag?
+    if (analyses.length === 0) {
+        output += `\t"${token}"\n`;
+    }
+
+    return output;
+}
+
+async function analyzeL2(text) {
+    if (!tokenizer || !l2Analyser || !generator || !cg3) {
+        throw new Error('Tools not initialized');
+    }
+
+    // 1. Tokenize
+    const tokenizedOutput = tokenizer.tokenize(text, tokenizeSettings);
+
+    // Parse tokens from GiellaCG output
+    const tokens = [];
+    const lines = tokenizedOutput.split('\n');
+
+    for (const line of lines) {
+        const match = line.match(/^"<(.+)>"$/);
+        if (match) {
+            tokens.push(match[1]);
+        }
+    }
+
+    // 2. Analyze each token with L2 analyzer and prepare CG3 input
+    let cg3Input = '';
+
+    for (const tokenText of tokens) {
+        if (!tokenText) continue;
+
+        const analyses = l2Analyser.lookup(tokenText);
+        cg3Input += formatForCg3(tokenText, analyses);
+    }
+
+    // 3. Disambiguate with CG3
+    let cg3Output = '';
+    try {
+        cg3Output = await vislcg3(cg3Input);
+    } catch (e) {
+        console.error("CG3 failed, falling back to raw analyses", e);
+        cg3Output = cg3Input;
+    }
+
+    // 4. Parse CG3 output and generate corrections
+    const results = [];
+    const cg3Lines = cg3Output.split('\n');
+
+    let currentToken = null;
+    let currentReadings = [];
+
+    for (const line of cg3Lines) {
+        const tokenMatch = line.match(/^"<(.+)>"$/);
+        if (tokenMatch) {
+            if (currentToken) {
+                results.push(await processTokenReadings(currentToken, currentReadings));
+            }
+            currentToken = tokenMatch[1];
+            currentReadings = [];
+        } else if (line.trim().startsWith('"')) {
+            const readingMatch = line.match(/^\s*"([^"]+)"\s+(.*)$/);
+            if (readingMatch) {
+                const lemma = readingMatch[1];
+                let tagsStr = readingMatch[2];
+                tagsStr = tagsStr.replace(/<W:[^>]+>/g, '').trim();
+                const tags = tagsStr.split(/\s+/);
+                currentReadings.push({ lemma, tags });
+            }
+        }
+    }
+    if (currentToken) {
+        results.push(await processTokenReadings(currentToken, currentReadings));
+    }
+
+    return results;
+}
+
+async function processTokenReadings(tokenText, readings) {
+    let isError = false;
+    const errorData = [];
+    const seenSignatures = new Set();
+
+    // Load frequency dict
+    const freqDict = await loadJson('Sharoff_lem_freq_dict');
+
+    // Sort readings by frequency
+    readings.sort((a, b) => {
+        const freqA = freqDict[a.lemma] || 0;
+        const freqB = freqDict[b.lemma] || 0;
+        return freqB - freqA;
+    });
+
+    for (const reading of readings) {
+        const l2ErrorTags = reading.tags.filter(t => t.startsWith('Err/'));
+
+        if (l2ErrorTags.length > 0) {
+            isError = true;
+
+            const cleanTags = reading.tags.filter(t => !t.startsWith('Err/'));
+            const cleanAnalysisString = `${reading.lemma}+${cleanTags.join('+')}`;
+
+            let corrected = '???';
+            try {
+                const correctionResults = generator.lookup(cleanAnalysisString);
+                if (correctionResults.length > 0) {
+                    corrected = correctionResults[0][0].join('');
+                }
+            } catch (e) {
+                console.error("Generation failed for", cleanAnalysisString);
+            }
+
+            // Deduplication signature: lemma + errorTags + corrected
+            const sortedErrorTags = l2ErrorTags.slice().sort();
+            const signature = `${reading.lemma}:${sortedErrorTags.join('+')}:${corrected}`;
+
+            if (!seenSignatures.has(signature)) {
+                seenSignatures.add(signature);
+                errorData.push({
+                    lemma: reading.lemma,
+                    tags: cleanTags,
+                    L2_error_tags: l2ErrorTags.map(t => t.replace('Err/L2_', '')),
+                    corrected: corrected
+                });
+            }
+        }
+    }
+
+    return {
+        text: tokenText,
+        isError: isError,
+        errorData: isError ? errorData : null
+    };
+}
+
 async function handleGenerateRequest(input, mode = 'default') {
     console.log(`Handling generation request with...\n\tinput=${input}\n\tmode=${mode}`);
 
@@ -464,6 +626,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
         })();
         return true; // Keep the message channel open for async response
+    } else if (request.target === 'offscreen' && request.action === 'analyze_l2') {
+        (async () => {
+            try {
+                await initWasmTools();
+                const result = await analyzeL2(request.text);
+                sendResponse({ success: true, data: result });
+            } catch (error) {
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true;
     } else if (request.target === 'offscreen' && request.action === 'generate') {
         (async () => {
             try {

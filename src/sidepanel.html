@@ -92,14 +92,16 @@
         </div>
 
         <div id="writing-tab" class="tab-content">
-            <div class="under-construction">
-                <svg width="120" height="120" viewBox="0 0 120 120">
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#ccc" stroke-width="8"/>
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="#2c5aa0" stroke-width="8" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314">
-                        <animate attributeName="stroke-dashoffset" dur="2s" values="314;0" repeatCount="indefinite"/>
-                    </circle>
-                </svg>
-                <p>Under Construction</p>
+            <div class="panel-section">
+                <textarea id="writing-input" class="writing-textarea" placeholder="Type or paste text here..."></textarea>
+                <div class="button-container right-align">
+                    <button id="writing-analyze-button" class="primary-button">Analyze</button>
+                </div>
+            </div>
+
+            <div id="writing-container" class="writing-container" style="display: none;">
+                <div id="writing-results" class="writing-results"></div>
+                <div id="writing-details" class="writing-details"></div>
             </div>
         </div>
     </div>

@@ -14,8 +14,21 @@ class RussianToolsSidePanel {
     constructor() {
         this.activitySelectors = {};
         this.isProcessing = false;
+        this.freqDict = null;
 
         this.init();
+    }
+
+    async loadFreqDict() {
+        if (this.freqDict) return;
+        try {
+            const url = chrome.runtime.getURL('src/resources/models/Sharoff_lem_freq_dict.json');
+            const response = await fetch(url);
+            this.freqDict = await response.json();
+        } catch (e) {
+            console.error('Failed to load frequency dictionary:', e);
+            this.freqDict = {};
+        }
     }
 
     /**
@@ -147,6 +160,8 @@ class RussianToolsSidePanel {
                 this.switchSubTab(e.target.dataset.subtab);
             });
         });
+
+        this.initializeWritingTab();
 
         // Morphology settings
         const ignoreAmbiguityCheckbox = document.getElementById('ignore-ambiguity');
@@ -969,7 +984,20 @@ ${errorMessage}`);
                     readingsByLemma[reading.stressedLemma].push(reading);
                 }
 
-                for (const lemma in readingsByLemma) {
+                // Ensure frequency dictionary is loaded
+                await this.loadFreqDict();
+
+                // Sort lemmas by frequency
+                const sortedLemmas = Object.keys(readingsByLemma).sort((a, b) => {
+                    // Use original lemma for frequency lookup
+                    const lemmaA = readingsByLemma[a][0].originalLemma;
+                    const lemmaB = readingsByLemma[b][0].originalLemma;
+                    const freqA = this.freqDict[lemmaA] || 0;
+                    const freqB = this.freqDict[lemmaB] || 0;
+                    return freqB - freqA;
+                });
+
+                for (const lemma of sortedLemmas) {
                     const lemmaDiv = document.createElement('div');
                     lemmaDiv.className = 'lemma-group';
                     lemmaDiv.style.marginLeft = '10px';
@@ -1516,6 +1544,195 @@ ${errorMessage}`);
         }
 
         return { html, hasPassive, matchFound };
+    }
+
+    initializeWritingTab() {
+        const analyzeButton = document.getElementById('writing-analyze-button');
+        if (analyzeButton) {
+            analyzeButton.addEventListener('click', () => this.analyzeWriting());
+        }
+    }
+
+    async analyzeWriting() {
+        const textarea = document.getElementById('writing-input');
+        const text = textarea.value.trim();
+        if (!text) return;
+
+        const analyzeButton = document.getElementById('writing-analyze-button');
+        analyzeButton.disabled = true;
+        analyzeButton.textContent = 'Analyzing...';
+
+        const resultsContainer = document.getElementById('writing-results');
+        const detailsContainer = document.getElementById('writing-details');
+        const writingContainer = document.getElementById('writing-container');
+
+        resultsContainer.innerHTML = '';
+        detailsContainer.innerHTML = '';
+        writingContainer.style.display = 'none';
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'analyze_l2',
+                text: text
+            });
+
+            if (response && response.success) {
+                this.displayWritingResults(response.data);
+                writingContainer.style.display = 'flex';
+            } else {
+                resultsContainer.innerHTML = '<p class="error">Analysis failed. Please try again.</p>';
+                writingContainer.style.display = 'flex';
+            }
+        } catch (error) {
+            console.error('Analysis error:', error);
+            resultsContainer.innerHTML = '<p class="error">An error occurred.</p>';
+            writingContainer.style.display = 'flex';
+        } finally {
+            analyzeButton.disabled = false;
+            analyzeButton.textContent = 'Analyze';
+        }
+    }
+
+    displayWritingResults(tokens) {
+        const resultsContainer = document.getElementById('writing-results');
+        let html = '';
+
+        tokens.forEach((token, index) => {
+            let tokenHtml = '';
+            if (token.isError) {
+                // Store error data in a data attribute (JSON stringified)
+                const errData = JSON.stringify(token.errorData).replace(/"/g, '&quot;');
+                tokenHtml = `<a class="err" data-err="${errData}">${token.text}</a>`;
+            } else {
+                tokenHtml = token.text;
+            }
+
+            // Add space if not the first token and not a punctuation mark that attaches to left
+            // Simple heuristic for Russian punctuation
+            const isPunctuation = /^[.,!?;:)]/.test(token.text);
+            if (index > 0 && !isPunctuation) {
+                html += ' ';
+            }
+            html += tokenHtml;
+        });
+
+        resultsContainer.innerHTML = html;
+
+        // Add event listeners to error spans
+        resultsContainer.querySelectorAll('.err').forEach(el => {
+            el.addEventListener('click', (e) => {
+                // Remove selected class from others
+                resultsContainer.querySelectorAll('.err').forEach(err => err.classList.remove('selected'));
+                e.target.classList.add('selected');
+
+                const errData = JSON.parse(e.target.dataset.err);
+                this.showErrorDetails(errData, e.target.innerText);
+            });
+        });
+    }
+
+    showErrorDetails(errorData, word) {
+        const detailsContainer = document.getElementById('writing-details');
+
+        const l10n = {
+            "errors": {
+                "a2o": "o→a", "e2je": "e→э", "FV": "no fill vowel", "H2S": "ъ→ь", "i2j": "й→и", "i2y": "ы→и",
+                "ii": "ие→ии", "Ikn": "и→е/я/а", "j2i": "и→й", "je2e": "э→е", "NoFV": "add fill vowel",
+                "NoGem": "add double letter", "NoSS": "add ь", "o2a": "a→o", "Pal": "keep consonant soft",
+                "sh2shch": "щ→ш", "shch2sh": "ш→щ", "ski": "ский→ски", "SRo": "о→е", "SRy": "ы→и",
+                "y2i": "и→ы", "prijti": "прийти", "revIkn": "е/я/а→и", "Gem": "no double letter",
+            },
+            "does_not_exist": "does not exist in Russian. Did you mean one of these?",
+            "tbl_headers": ["Dictionary<br>form", "Error(s)", "Corrected to...<br>(hover/tap to see)"]
+        };
+
+        let html = `<div class="error-header">
+            <span class="tag is-medium is-primary">${word}</span>
+            <span class="does-not-exist">${l10n.does_not_exist}</span>
+        </div>`;
+
+        html += `<table class="table error-table">
+            <thead>
+                <tr>
+                    <th>${l10n.tbl_headers[0]}</th>
+                    <th>${l10n.tbl_headers[1]}</th>
+                    <th>${l10n.tbl_headers[2]}</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        if (errorData && errorData.length > 0) {
+            errorData.forEach(item => {
+                html += `<tr>
+                    <td><span class="lemma">${item.lemma}</span></td>
+                    <td>`;
+
+                item.L2_error_tags.forEach(tag => {
+                    const label = l10n.errors[tag] || tag;
+                    html += `<span class="tag is-clickable is-link is-medium is-rounded L2_err_tag" data-err-id="${tag}">${label}</span> `;
+                });
+
+                html += `</td>
+                    <td>
+                        <button class="button is-info is-light spoiler-button">
+                            <span class="icon"><i class="fas fa-eye-slash"></i></span>
+                            <span class="spoiler-content">${item.corrected}</span>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        html += `</tbody></table>`;
+        html += `<div id="explanation-content" class="explanation-box"></div>`;
+
+        detailsContainer.innerHTML = html;
+        detailsContainer.style.display = 'block';
+
+        // Add event listeners for error tags
+        detailsContainer.querySelectorAll('.L2_err_tag').forEach(tagEl => {
+            tagEl.addEventListener('click', (e) => {
+                // Toggle active state
+                detailsContainer.querySelectorAll('.L2_err_tag').forEach(t => {
+                    t.classList.remove('is-primary');
+                    t.classList.add('is-link');
+                });
+                e.target.classList.remove('is-link');
+                e.target.classList.add('is-primary');
+
+                const errId = e.target.dataset.errId;
+                this.fetchAndLoadExplanation(errId);
+            });
+        });
+
+        // Auto-select first error if only one reading and one error
+        if (errorData.length === 1 && errorData[0].L2_error_tags.length === 1) {
+            const firstTag = detailsContainer.querySelector('.L2_err_tag');
+            if (firstTag) firstTag.click();
+        }
+    }
+
+    async fetchAndLoadExplanation(errId) {
+        const explanationContainer = document.getElementById('explanation-content');
+        explanationContainer.innerHTML = '<p>Loading explanation...</p>';
+
+        try {
+            const response = await fetch(`https://reynoldsnlp.github.io/rus_grammar_explanations/html/eng/${errId}.html`);
+            if (response.ok) {
+                const text = await response.text();
+                // Parse HTML to extract body content
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+                const bodyContent = doc.body.innerHTML;
+                explanationContainer.innerHTML = bodyContent;
+                explanationContainer.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                explanationContainer.innerHTML = '<p>Explanation not available.</p>';
+            }
+        } catch (error) {
+            console.error('Error fetching explanation:', error);
+            explanationContainer.innerHTML = '<p>Error loading explanation.</p>';
+        }
     }
 }
 

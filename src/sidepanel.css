@@ -378,3 +378,228 @@ header h2 {
 .tag-toggle:hover {
     background-color: #f0f0f0;
 }
+
+/* Writing Tutor Tab Styles */
+.writing-textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+}
+
+.right-align {
+    text-align: right;
+}
+
+.primary-button {
+    background-color: #2c5aa0;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.primary-button:hover {
+    background-color: #1e4072;
+}
+
+.primary-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.writing-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.writing-results {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    line-height: 1.6;
+    font-size: 15px;
+}
+
+.writing-details {
+    background: #f8f9fa;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    font-size: 14px;
+}
+
+.err {
+    color: #d32f2f;
+    border-bottom: 1px dashed #d32f2f;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.err:hover {
+    background-color: rgba(211, 47, 47, 0.1);
+}
+
+.err.selected {
+    background-color: rgba(211, 47, 47, 0.2);
+    font-weight: 500;
+}
+
+.correction-item {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.correction-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.correction-word {
+    font-weight: bold;
+    color: #2e7d32;
+}
+
+.correction-tags {
+    color: #666;
+    font-size: 0.9em;
+    margin-left: 8px;
+}
+
+/* Writing Tutor Error Details */
+.error-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.does-not-exist {
+    color: #666;
+    font-size: 0.9em;
+    font-style: italic;
+}
+
+.error-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 13px;
+}
+
+.error-table th, .error-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.error-table th {
+    background-color: #f5f5f5;
+    font-weight: 600;
+}
+
+.tag {
+    display: inline-block;
+    padding: 0.25em 0.75em;
+    border-radius: 290486px;
+    font-size: 0.75rem;
+    height: 2em;
+    line-height: 1.5;
+    white-space: nowrap;
+    background-color: #f5f5f5;
+    color: #4a4a4a;
+    margin-right: 4px;
+    margin-bottom: 4px;
+}
+
+.tag.is-medium {
+    font-size: 1rem;
+}
+
+.tag.is-primary {
+    background-color: #00d1b2;
+    color: #fff;
+}
+
+.tag.is-link {
+    background-color: #3273dc;
+    color: #fff;
+    cursor: pointer;
+}
+
+.tag.is-link:hover {
+    background-color: #276cda;
+}
+
+.tag.is-light {
+    background-color: #f5f5f5;
+    color: #363636;
+}
+
+.spoiler-button {
+    position: relative;
+    border: 1px solid #dbdbdb;
+    background-color: #fff;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 4px;
+    color: #3273dc;
+    transition: all 0.2s;
+}
+
+.spoiler-button:hover .spoiler-content {
+    opacity: 1;
+    visibility: visible;
+}
+
+.spoiler-button:hover .icon {
+    opacity: 0;
+}
+
+.spoiler-content {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s;
+    font-weight: bold;
+}
+
+.spoiler-button .icon {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.2s;
+}
+
+.explanation-box {
+    background: white;
+    padding: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 16px;
+}
+
+.explanation-box h1, .explanation-box h2, .explanation-box h3 {
+    font-size: 1.2em;
+    margin-top: 0;
+    color: #333;
+}
+
+.explanation-box p {
+    margin-bottom: 1em;
+    line-height: 1.5;
+}
