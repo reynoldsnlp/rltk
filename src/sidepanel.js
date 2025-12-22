@@ -1060,8 +1060,52 @@ ${errorMessage}`);
                                 if (!paradigmContainer.hasChildNodes()) {
                                     paradigmContainer.innerHTML = '<div class="loading">Generating...</div>';
                                     try {
-                                        const forms = await this.generateParadigm(originalLemma, pos, tags, readingsByLemma[lemma]);
-                                        paradigmContainer.innerHTML = forms;
+                                        const result = await this.generateParadigm(originalLemma, pos, tags, readingsByLemma[lemma], cohort.form || cohort.w);
+                                        const html = typeof result === 'string' ? result : result.html;
+                                        const hasPassive = typeof result === 'object' ? result.hasPassive : false;
+                                        const matchFound = typeof result === 'object' ? result.matchFound : false;
+
+                                        paradigmContainer.innerHTML = html;
+
+                                        if (!matchFound) {
+                                            const warning = document.createElement('div');
+                                            warning.className = 'warning';
+                                            warning.style.backgroundColor = '#fff3cd';
+                                            warning.style.color = '#856404';
+                                            warning.style.padding = '10px';
+                                            warning.style.marginBottom = '10px';
+                                            warning.style.border = '1px solid #ffeeba';
+                                            warning.style.borderRadius = '4px';
+                                            warning.textContent = 'Oops! The clicked form was not found in the paradigm.';
+                                            paradigmContainer.insertBefore(warning, paradigmContainer.firstChild);
+                                        }
+
+                                        if (hasPassive) {
+                                            const showPassiveByDefault = readingsByLemma[lemma].some(r => (r.ts || []).includes('Pass'));
+
+                                            const btn = document.createElement('button');
+                                            btn.textContent = showPassiveByDefault ? 'Hide Passive Forms' : 'Show Passive Forms';
+                                            btn.className = 'passive-toggle-btn';
+                                            btn.style.marginBottom = '10px';
+                                            btn.style.fontSize = '0.9em';
+                                            btn.style.padding = '2px 8px';
+                                            btn.style.cursor = 'pointer';
+
+                                            btn.onclick = () => {
+                                                const spans = paradigmContainer.querySelectorAll('.passive-variant');
+                                                if (spans.length > 0) {
+                                                    const isHidden = spans[0].style.display === 'none';
+                                                    spans.forEach(s => s.style.display = isHidden ? 'inline' : 'none');
+                                                    btn.textContent = isHidden ? 'Hide Passive Forms' : 'Show Passive Forms';
+                                                }
+                                            };
+                                            paradigmContainer.insertBefore(btn, paradigmContainer.firstChild);
+
+                                            if (showPassiveByDefault) {
+                                                const spans = paradigmContainer.querySelectorAll('.passive-variant');
+                                                spans.forEach(s => s.style.display = 'inline');
+                                            }
+                                        }
                                     } catch (e) {
                                         console.error(e);
                                         paradigmContainer.innerHTML = '<div class="error">Error generating paradigm</div>';
@@ -1115,20 +1159,65 @@ ${errorMessage}`);
         return null;
     }
 
-    async generateParadigm(lemma, pos, tags, currentReadings = []) {
-        const checkMatch = (input) => {
-            if (!currentReadings || currentReadings.length === 0) return false;
-            // Filter out tags that might not be in the analysis or are generation-specific
+    async generateParadigm(lemma, pos, tags, currentReadings = [], surfaceForm = null) {
+        let hasPassive = false;
+        let matchFound = false;
+
+        const checkMatch = (input, generatedForm) => {
+            if (!currentReadings || currentReadings.length === 0) return { isMatch: false };
+
             const tagsToIgnore = ['Ind', 'AnIn'];
             const inputTags = input.split('+').slice(1).filter(t => !tagsToIgnore.includes(t));
 
-            return currentReadings.some(reading => {
-                const readingTags = (reading.ts || []);
-                // Check if all relevant input tags are present in reading tags
-                return inputTags.every(tag => readingTags.includes(tag));
-            });
-        };
+            // Identify if this is a participle form
+            const participleTags = ['PrsAct', 'PstAct', 'PrsPss', 'PstPss'];
+            const isParticiple = inputTags.some(t => participleTags.includes(t));
 
+            // Tags that vary for participles but shouldn't break the match for the "slot"
+            const inflectionTags = ['Msc', 'Fem', 'Neu', 'MFN', 'Sg', 'Pl', 'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc', 'Anim', 'Inan'];
+
+            const isPassiveParticiple = inputTags.includes('PrsPss') || inputTags.includes('PstPss');
+
+            const match = currentReadings.find(reading => {
+                const readingTags = (reading.ts || []);
+
+                // Strict Pass check (except for inherently passive participles)
+                if (!isPassiveParticiple) {
+                    const inputHasPass = inputTags.includes('Pass');
+                    const readingHasPass = readingTags.includes('Pass');
+                    if (inputHasPass !== readingHasPass) return false;
+                }
+
+                // 1. Check Participle Type Match
+                if (isParticiple) {
+                    const partTag = inputTags.find(t => participleTags.includes(t));
+                    if (!readingTags.includes(partTag)) return false;
+
+                    // Ensure we don't match Gerunds (Adv) to Participles (Adjectival)
+                    if (!inputTags.includes('Adv') && readingTags.includes('Adv')) return false;
+
+                    const relevantInputTags = inputTags.filter(t => !inflectionTags.includes(t) && t !== partTag && t !== 'Pass');
+                    return relevantInputTags.every(t => readingTags.includes(t));
+                }
+
+                // 2. Standard Match
+                return inputTags.every(t => readingTags.includes(t));
+            });
+
+            if (match) {
+                // Normalize for comparison
+                const normalize = (s) => s ? s.replace(/[\u0300\u0301]/g, '').replace(/ё/g, 'е').toLowerCase() : '';
+                const normSurface = normalize(surfaceForm);
+                const normGenerated = normalize(generatedForm);
+
+                return {
+                    isMatch: true,
+                    showSurface: normSurface !== normGenerated && surfaceForm
+                };
+            }
+
+            return { isMatch: false };
+        };
         const generateForm = async (input) => {
             let form = input;
             let failed = false;
@@ -1162,7 +1251,7 @@ ${errorMessage}`);
                     }
 
                     if (response.success && response.data && response.data.length > 0) {
-                        form = `<span title="impossible or unlikely"><i>${response.data[0]}*</i></span>`;
+                        form = `<span title="impossible or unlikely" style="text-decoration: line-through;">${response.data[0]}</span>`;
                     } else {
                         failed = true;
                     }
@@ -1176,10 +1265,46 @@ ${errorMessage}`);
                 return `<span title="${input}">—</span>`;
             }
 
-            if (checkMatch(input)) {
+            // Strip HTML tags from form for comparison if it was wrapped
+            const cleanForm = form.replace(/<[^>]*>/g, '');
+            const matchResult = checkMatch(input, cleanForm);
+
+            if (matchResult.isMatch) {
+                matchFound = true;
+                if (matchResult.showSurface) {
+                    return `${form}<br><span class="surface-variant" style="font-size: 0.8em; color: #666; background-color: #fff3cd; border-bottom: 2px solid #ffc107;">(${surfaceForm})</span>`;
+                }
                 return `<span style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">${form}</span>`;
             }
             return form;
+        };
+
+        const generateVerbForm = async (input) => {
+            const activeHtml = await generateForm(input);
+
+            let passiveInput;
+            if (input.includes('+PrsAct')) {
+                passiveInput = input.replace('+PrsAct', '+PrsAct+Pass');
+            } else if (input.includes('+PstAct')) {
+                passiveInput = input.replace('+PstAct', '+PstAct+Pass');
+            } else if (input.includes('+PrsPss') || input.includes('+PstPss')) {
+                return activeHtml;
+            } else {
+                passiveInput = input + '+Pass';
+            }
+
+            let passiveHtml = await generateForm(passiveInput);
+
+            if (!passiveHtml.includes('—')) {
+                 hasPassive = true;
+                 let tooltip = "passive";
+                 if (passiveHtml.includes('impossible or unlikely')) {
+                     tooltip = "passive unlikely";
+                     passiveHtml = passiveHtml.replace('impossible or unlikely', 'passive unlikely');
+                 }
+                 return `${activeHtml} <span class="passive-variant" style="display:none"><span class="passive" title="${tooltip}">(${passiveHtml})</span></span>`;
+            }
+            return activeHtml;
         };
 
         let html = '';
@@ -1278,7 +1403,7 @@ ${errorMessage}`);
             for (const p of persons) {
                 const sgInput = `${lemma}+V+${aspect}${transitivityTag}+${tense}+Sg${p}`;
                 const plInput = `${lemma}+V+${aspect}${transitivityTag}+${tense}+Pl${p}`;
-                const [sgForm, plForm] = await Promise.all([generateForm(sgInput), generateForm(plInput)]);
+                const [sgForm, plForm] = await Promise.all([generateVerbForm(sgInput), generateVerbForm(plInput)]);
                 html += `<tr><td>${p}</td><td>${sgForm}</td><td>${plForm}</td></tr>`;
             }
             html += '</tbody></table>';
@@ -1294,13 +1419,13 @@ ${errorMessage}`);
             ];
 
             for (const item of pastInputs) {
-                const form = await generateForm(item.input);
+                const form = await generateVerbForm(item.input);
                 html += `<tr><td>${item.label}</td><td>${form}</td></tr>`;
             }
 
             // Plural is the same for all genders in Past
             const plInput = `${lemma}+V+${aspect}${transitivityTag}+Pst+MFN+Pl`;
-            const plForm = await generateForm(plInput);
+            const plForm = await generateVerbForm(plInput);
             html += `<tr><td>Plural</td><td>${plForm}</td></tr>`;
 
             html += '</tbody></table>';
@@ -1308,14 +1433,14 @@ ${errorMessage}`);
             // Imperative
             html += `<h4>Imperative</h4>`;
             html += '<table class="paradigm-table"><thead><tr><th>Number</th><th>Form</th></tr></thead><tbody>';
-            const impSg = await generateForm(`${lemma}+V+${aspect}${transitivityTag}+Imp+Sg2`);
-            const impPl = await generateForm(`${lemma}+V+${aspect}${transitivityTag}+Imp+Pl2`);
+            const impSg = await generateVerbForm(`${lemma}+V+${aspect}${transitivityTag}+Imp+Sg2`);
+            const impPl = await generateVerbForm(`${lemma}+V+${aspect}${transitivityTag}+Imp+Pl2`);
             html += `<tr><td>Sg (2nd)</td><td>${impSg}</td></tr>`;
             html += `<tr><td>Pl (2nd)</td><td>${impPl}</td></tr>`;
             html += '</tbody></table>';
 
             // Infinitive
-            const inf = await generateForm(`${lemma}+V+${aspect}${transitivityTag}+Inf`);
+            const inf = await generateVerbForm(`${lemma}+V+${aspect}${transitivityTag}+Inf`);
             html += `<p><strong>Infinitive:</strong> ${inf}</p>`;
 
             // Participles and Verbal Adverbs
@@ -1325,19 +1450,19 @@ ${errorMessage}`);
             // Active Participle
             const prsActPartInput = `${lemma}+V+${aspect}${transitivityTag}+PrsAct+Msc+AnIn+Sg+Nom`;
             const pstActPartInput = `${lemma}+V+${aspect}${transitivityTag}+PstAct+Msc+AnIn+Sg+Nom`;
-            const [prsActPart, pstActPart] = await Promise.all([generateForm(prsActPartInput), generateForm(pstActPartInput)]);
+            const [prsActPart, pstActPart] = await Promise.all([generateVerbForm(prsActPartInput), generateVerbForm(pstActPartInput)]);
             html += `<tr><td>Active Participle</td><td>${prsActPart}</td><td>${pstActPart}</td></tr>`;
 
             // Passive Participle
             const prsPssPartInput = `${lemma}+V+${aspect}+TV+PrsPss+Msc+AnIn+Sg+Nom`;
             const pstPssPartInput = `${lemma}+V+${aspect}+TV+PstPss+Msc+AnIn+Sg+Nom`;
-            const [prsPssPart, pstPssPart] = await Promise.all([generateForm(prsPssPartInput), generateForm(pstPssPartInput)]);
+            const [prsPssPart, pstPssPart] = await Promise.all([generateVerbForm(prsPssPartInput), generateVerbForm(pstPssPartInput)]);
             html += `<tr><td>Passive Participle</td><td>${prsPssPart}</td><td>${pstPssPart}</td></tr>`;
 
             // Verbal Adverb
             const prsAdvInput = `${lemma}+V+${aspect}${transitivityTag}+PrsAct+Adv`;
             const pstAdvInput = `${lemma}+V+${aspect}${transitivityTag}+PstAct+Adv`;
-            const [prsAdv, pstAdv] = await Promise.all([generateForm(prsAdvInput), generateForm(pstAdvInput)]);
+            const [prsAdv, pstAdv] = await Promise.all([generateVerbForm(prsAdvInput), generateVerbForm(pstAdvInput)]);
             html += `<tr><td>Verbal Adverb</td><td>${prsAdv}</td><td>${pstAdv}</td></tr>`;
 
             html += '</tbody></table>';
@@ -1387,10 +1512,10 @@ ${errorMessage}`);
              }
              html += '</tbody></table>';
         } else {
-            return "Paradigm generation not implemented for " + pos;
+            return { html: "Paradigm generation not implemented for " + pos, hasPassive: false, matchFound: false };
         }
 
-        return html;
+        return { html, hasPassive, matchFound };
     }
 }
 
