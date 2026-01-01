@@ -11,9 +11,11 @@
         <div class="sidepanel-main">
 
         <nav class="tab-navigation">
-            <button class="tab-button active" data-tab="interact">Interact</button>
-            <button class="tab-button" data-tab="grammar-explorer">Grammar Explorer</button>
-            <button class="tab-button" data-tab="writing">Writing tutor</button>
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="interact">Interact</button>
+                <button class="tab-button" data-tab="grammar-explorer">Grammar Explorer</button>
+                <button class="tab-button" data-tab="writing">Writing tutor</button>
+            </div>
         </nav>
 
         <div id="interact-tab" class="tab-content active">
@@ -53,6 +55,17 @@
                 <select id="activity-menu" name="activity">
                     <option value="unselected">Pick an Activity</option>
                 </select>
+
+                <div id="density-section" class="density-group" style="display: none;">
+                    <br>
+                    <label for="density-slider">Minimum number of words between exercises:</label>
+                    <input id="density-slider" type="range" min="0" max="10" step="1" list="density-ticks" />
+                    <datalist id="density-ticks">
+                        <option value="0" label="0"></option>
+                        <option value="5" label="5 (recommended)"></option>
+                        <option value="10" label="10"></option>
+                    </datalist>
+                </div>
             </div>
 
             <div class="panel-actions">

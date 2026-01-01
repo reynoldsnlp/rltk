@@ -6,8 +6,7 @@
  * and to provide a balanced exercise.
  * It supports:
  * 1. Configurable density/distance between selected tokens.
- * 2. Randomization with constraints.
- * 3. Persistence of settings.
+ * 2. Persistence of settings.
  */
 
 (function() {
@@ -19,6 +18,7 @@
 	// Storage key and max distance used for mapping density slider to minDistance
 	const STORAGE_KEY = 'rltk_token_selector_minDistance';
 	const MAX_MIN_DISTANCE = 10;
+	const DEFAULT_MIN_DISTANCE = 5;
 
 	// Utility mapping between density (0..100) and minDistance (0..MAX_MIN_DISTANCE)
 	function densityToMinDistance(density) {
@@ -34,13 +34,16 @@
 	function loadMinDistance() {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		const parsed = raw !== null ? Number(raw) : NaN;
-		if (!Number.isFinite(parsed) || parsed < 0) return 3; // default
+		if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_MIN_DISTANCE;
 		return Math.round(Math.min(parsed, MAX_MIN_DISTANCE));
 	}
 
 	function saveMinDistance(value) {
 		const v = Math.max(0, Math.round(value));
 		localStorage.setItem(STORAGE_KEY, String(v));
+		if (chrome && chrome.storage && chrome.storage.local) {
+			chrome.storage.local.set({ [STORAGE_KEY]: v });
+		}
 	}
 
 	/**
@@ -53,30 +56,30 @@
 
 		/**
 		 * Determines if a token at the given index should be selected.
-		 * Uses a probabilistic model based on distance from the last selection.
+		 * Enforces a deterministic minimum distance between selections.
 		 * @param {number} cohortIndex - The index of the current token.
 		 * @returns {boolean} True if the token should be selected.
 		 */
 		shouldSelectToken(cohortIndex) {
-			const distance = cohortIndex - this.lastSelectedIndex;
-
-			// Base probability increases with distance, scaled by configured minDistance
-			const denom = Math.max(1, this.minDistance * 2);
-			let probability = Math.min(distance / denom, 0.8);
-
-			// Add jitter to avoid predictable patterns
-			probability += (Math.random() - 0.5) * 0.2;
-
-			// Ensure we don't go too long without selection
-			if (distance > this.minDistance * 3) {
-				probability = Math.max(probability, 0.9);
-			}
-
-			const selected = Math.random() < probability;
-			if (selected) {
+			// Always select the first eligible token
+			if (this.lastSelectedIndex === -1) {
 				this.lastSelectedIndex = cohortIndex;
+				return true;
 			}
-			return selected;
+
+			// If spacing is zero, select everything
+			if (this.minDistance <= 0) {
+				this.lastSelectedIndex = cohortIndex;
+				return true;
+			}
+
+			const distance = cohortIndex - this.lastSelectedIndex;
+			if (distance >= this.minDistance) {
+				this.lastSelectedIndex = cohortIndex;
+				return true;
+			}
+
+			return false;
 		},
 
 		/**
@@ -111,6 +114,23 @@
 	// Expose
 	window.RLTKUtils.TokenSelector = TokenSelector;
 
+	// Pull latest stored value from extension storage (async) to respect Options page settings.
+	if (chrome && chrome.storage && chrome.storage.local) {
+		chrome.storage.local.get([STORAGE_KEY], (res) => {
+			const val = res && res[STORAGE_KEY];
+			if (val !== undefined && val !== null) {
+				TokenSelector.setMinDistance(Number(val));
+			}
+		});
+
+		chrome.storage.onChanged.addListener((changes, areaName) => {
+			if (areaName !== 'local') return;
+			if (changes[STORAGE_KEY] && changes[STORAGE_KEY].newValue !== undefined) {
+				TokenSelector.minDistance = Math.max(0, Math.round(Number(changes[STORAGE_KEY].newValue)));
+			}
+		});
+	}
+
 	// Listen for external updates (from options panel)
 	window.addEventListener('message', (ev) => {
 		try {
@@ -123,8 +143,7 @@
 				TokenSelector.setDensity(Number(msg.density));
 			}
 			if (msg.type === 'rltk-token-selector-reset') {
-				const def = 3;
-				TokenSelector.setMinDistance(def);
+				TokenSelector.setMinDistance(DEFAULT_MIN_DISTANCE);
 				TokenSelector.reset();
 			}
 		} catch (e) {

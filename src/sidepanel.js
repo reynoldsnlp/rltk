@@ -15,6 +15,11 @@ class RussianToolsSidePanel {
         this.activitySelectors = {};
         this.isProcessing = false;
         this.freqDict = null;
+        this.pageEnhanced = false;
+        this.minDistanceKey = 'rltk_token_selector_minDistance';
+        this.defaultMinDistance = 5;
+        this.lastSavedMinDistance = null;
+        this.debugTabId = null;
 
         this.init();
     }
@@ -42,6 +47,106 @@ class RussianToolsSidePanel {
         this.port = chrome.runtime.connect({ name: name });
     }
 
+    async loadDensitySetting() {
+        const slider = document.getElementById('density-slider');
+        if (!slider) return;
+
+        let minDistance = this.defaultMinDistance;
+
+        try {
+            const stored = await new Promise((resolve) => {
+                chrome.storage.local.get([this.minDistanceKey], (res) => {
+                    resolve(res && res[this.minDistanceKey]);
+                });
+            });
+
+            if (stored !== undefined && stored !== null && !Number.isNaN(Number(stored))) {
+                minDistance = Number(stored);
+            } else {
+                const localVal = Number(localStorage.getItem(this.minDistanceKey));
+                if (!Number.isNaN(localVal)) {
+                    minDistance = localVal;
+                }
+            }
+        } catch (e) {
+            const fallback = Number(localStorage.getItem(this.minDistanceKey));
+            if (!Number.isNaN(fallback)) {
+                minDistance = fallback;
+            }
+        }
+
+        const bounded = Math.max(0, Math.min(10, Math.round(minDistance)));
+        slider.value = String(bounded);
+        this.lastSavedMinDistance = bounded;
+        this.updateDensityDisplay(bounded);
+        await this.persistMinDistance(bounded);
+    }
+
+    updateDensityDisplay(minDistance) {
+        const display = document.getElementById('density-display');
+        if (!display) return;
+
+        const label = minDistance <= 0 ? 'Every token' : `Every ~${minDistance} tokens`;
+        display.textContent = label;
+    }
+
+    async persistMinDistance(minDistance) {
+        try {
+            localStorage.setItem(this.minDistanceKey, String(minDistance));
+        } catch (e) {
+            // ignore storage issues
+        }
+
+        if (chrome && chrome.storage && chrome.storage.local) {
+            await new Promise((resolve) => {
+                chrome.storage.local.set({ [this.minDistanceKey]: minDistance }, resolve);
+            });
+        }
+    }
+
+    toggleDensitySection(activityValue) {
+        const section = document.getElementById('density-section');
+        if (!section) return;
+
+        const activity = activityValue || document.getElementById('activity-menu')?.value;
+        const shouldShow = activity === 'mc' || activity === 'cloze';
+        section.style.display = shouldShow ? 'block' : 'none';
+    }
+
+    async pushMinDistanceToContent(minDistance) {
+        try {
+            const tabId = await this.getActiveTabId();
+            if (tabId) {
+                await chrome.tabs.sendMessage(tabId, {
+                    action: 'set_token_selector_min_distance',
+                    value: minDistance
+                });
+            }
+        } catch (e) {
+            // If the content script is not ready, ignore.
+        }
+    }
+
+    async onDensityChange(value) {
+        const minDistance = Math.max(0, Math.min(10, Math.round(Number(value) || 0)));
+        this.updateDensityDisplay(minDistance);
+        this.lastSavedMinDistance = minDistance;
+
+        await this.persistMinDistance(minDistance);
+        await this.pushMinDistanceToContent(minDistance);
+
+        if (this.pageEnhanced && !this.isProcessing) {
+            await this.enhancePage();
+        }
+    }
+
+    async getActiveTabId() {
+        if (this.debugTabId) return this.debugTabId;
+
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        return tabs.length > 0 ? tabs[0].id : null;
+    }
+
     /**
      * Initializes the side panel: sets up listeners, loads state, and checks access.
      */
@@ -49,13 +154,16 @@ class RussianToolsSidePanel {
         this.setupEventListeners();
         this.initializeActivitySelectors();
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const debugTabIdParam = urlParams.get('debugTabId');
+        this.debugTabId = debugTabIdParam ? parseInt(debugTabIdParam) : null;
+
+        await this.loadDensitySetting();
+
         // Load state for the current tab
         let tabs;
-        const urlParams = new URLSearchParams(window.location.search);
-        const debugTabId = urlParams.get('debugTabId');
-
-        if (debugTabId) {
-            tabs = [{ id: parseInt(debugTabId) }];
+        if (this.debugTabId) {
+            tabs = [{ id: this.debugTabId }];
         } else {
             tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         }
@@ -145,7 +253,8 @@ class RussianToolsSidePanel {
     async checkPageStatus() {
         try {
             const response = await chrome.runtime.sendMessage({ action: 'get_status' });
-            if (response && response.success && response.data && response.data.isEnhanced) {
+            const isEnhanced = response && response.success && (response.isEnhanced || (response.data && response.data.isEnhanced));
+            if (isEnhanced) {
                 this.setCompletedState();
             } else {
                 this.setInitialState();
@@ -203,8 +312,16 @@ class RussianToolsSidePanel {
         // Activity selection
         document.getElementById('activity-menu').addEventListener('change', () => {
             this.toggleEnhanceButton();
+            this.toggleDensitySection();
             this.saveTabState();
         });
+
+        const densitySlider = document.getElementById('density-slider');
+        if (densitySlider) {
+            densitySlider.addEventListener('input', (e) => {
+                this.onDensityChange(e.target.value);
+            });
+        }
 
         // Action buttons
         document.getElementById('enhance-button').addEventListener('click', () => {
@@ -347,6 +464,8 @@ ${errorMessage}`);
         restoreButton.disabled = false;
 
         document.getElementById('loading').style.display = 'none';
+
+        this.pageEnhanced = true;
     }
 
     setInitialState() {
@@ -362,6 +481,8 @@ ${errorMessage}`);
 
         // Re-check button state based on selections
         this.toggleEnhanceButton();
+
+        this.pageEnhanced = false;
     }
 
 
@@ -635,6 +756,7 @@ ${errorMessage}`);
         this.checkForFilters(topic);
         this.updateActivities(topic);
         this.toggleEnhanceButton();
+        this.toggleDensitySection();
 
         // Show/hide word stress note
         const stressNote = document.getElementById('word-stress-note');
@@ -724,6 +846,8 @@ ${errorMessage}`);
         } else {
             activitySection.style.display = 'none';
         }
+
+        this.toggleDensitySection();
     }
 
     getRussianActivities(topic) {
@@ -811,10 +935,8 @@ ${errorMessage}`);
 
     async saveTabState() {
         try {
-            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tabs.length === 0) return;
-
-            const tabId = tabs[0].id;
+            const tabId = await this.getActiveTabId();
+            if (!tabId) return;
             const state = {
                 topic: document.getElementById('topic-menu').value,
                 filter: document.getElementById('filter-menu').value,
@@ -874,6 +996,7 @@ ${errorMessage}`);
             }
         }
 
+        this.toggleDensitySection(activity);
         this.toggleEnhanceButton();
     }
 

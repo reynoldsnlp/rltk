@@ -31,8 +31,20 @@
 	}
 
 	function loadSettings() {
-		const raw = localStorage.getItem(STORAGE_KEY);
-		const md = raw !== null ? Number(raw) : 3;
+		// Prefer extension storage; fall back to localStorage for compatibility
+		if (chrome && chrome.storage && chrome.storage.local) {
+			chrome.storage.local.get([STORAGE_KEY], (res) => {
+				const md = res[STORAGE_KEY] !== undefined ? Number(res[STORAGE_KEY]) : Number(localStorage.getItem(STORAGE_KEY)) || 3;
+				applySettings(md);
+			});
+		} else {
+			const raw = localStorage.getItem(STORAGE_KEY);
+			const md = raw !== null ? Number(raw) : 3;
+			applySettings(md);
+		}
+	}
+
+	function applySettings(md) {
 		const density = minDistanceToDensity(md);
 		densityRange.value = density;
 		densityValue.textContent = `${density}%`;
@@ -42,6 +54,9 @@
 	function saveSettings(minDistance, density) {
 		// Persist minDistance (primary)
 		localStorage.setItem(STORAGE_KEY, String(minDistance));
+		if (chrome && chrome.storage && chrome.storage.local) {
+			chrome.storage.local.set({ [STORAGE_KEY]: Number(minDistance) });
+		}
 
 		// Notify parent/frame via postMessage
 		const msg = { type: 'rltk-token-selector-update', minDistance: Number(minDistance) };

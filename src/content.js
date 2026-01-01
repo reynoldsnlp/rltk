@@ -109,7 +109,7 @@
         const { plainText, positionMap, textNodes } = analysisResult;
 
         // Phase 2: Build token position mappings using activity logic
-        const tokenPositions = buildTokenPositionsWithActivity(cohortArrays, plainText, activity);
+        const tokenPositions = buildTokenPositionsWithActivity(cohortArrays, plainText, positionMap, activity);
 
         // Phase 3: Apply highlighting using position mappings
         applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity);
@@ -224,9 +224,36 @@
     /**
      * Phase 2: Build token positions from cohorts and plain text
      */
-    function buildTokenPositionsWithActivity(cohortArrays, plainText, activity) {
+    function buildTokenPositionsWithActivity(cohortArrays, plainText, positionMap, activity) {
         const tokenPositions = [];
         let currentOffset = 0;
+
+        // Precompute allowed roots for targeting heuristics
+        const allowedRoots = Array.from(document.querySelectorAll('main, article'));
+        const hasAllowedRoots = allowedRoots.length > 0;
+        const blacklistRe = /(header|footer|nav|menu|sidebar|toolbar|masthead|breadcrumb)/i;
+
+        function isNodeAllowed(textNode) {
+            const el = textNode && textNode.parentElement;
+            if (!el) return true;
+
+            if (hasAllowedRoots) {
+                return allowedRoots.some(root => root.contains(el));
+            }
+
+            let cur = el;
+            while (cur && cur !== document.body) {
+                if (cur.tagName === 'HEADER' || cur.tagName === 'FOOTER' || cur.tagName === 'NAV') {
+                    return false;
+                }
+                const idClass = `${cur.id || ''} ${cur.className || ''}`;
+                if (blacklistRe.test(idClass)) {
+                    return false;
+                }
+                cur = cur.parentElement;
+            }
+            return true;
+        }
 
         // Reset TokenSelector so selection starts fresh for this run
         window.RLTKUtils.TokenSelector.reset();
@@ -249,6 +276,13 @@
 
             currentOffset = cohortStart;
             const cohortEnd = currentOffset + cohortToken.length;
+
+            // Find the text-node mapping that covers this token start to apply DOM heuristics
+            const coveringMap = positionMap.find(m => cohortStart >= m.plainTextStart && cohortStart < m.plainTextEnd);
+            if (coveringMap && !isNodeAllowed(coveringMap.node)) {
+                currentOffset = cohortEnd;
+                continue;
+            }
 
             // Use the activity's logic to determine if this token should be highlighted
             // Pass cohort index so activities can use TokenSelector
@@ -462,6 +496,15 @@
                 }
                 style.textContent = request.css;
                 sendResponse({ success: true });
+                break;
+
+            case 'set_token_selector_min_distance':
+                if (window.RLTKUtils && window.RLTKUtils.TokenSelector && request.value !== undefined) {
+                    window.RLTKUtils.TokenSelector.setMinDistance(Number(request.value));
+                    sendResponse({ success: true });
+                } else {
+                    sendResponse({ success: false, error: 'TokenSelector unavailable' });
+                }
                 break;
 
             // case 'set_grammar_explorer_active':

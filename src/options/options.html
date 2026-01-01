@@ -1,46 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width,initial-scale=1" />
-	<title>RLTK Options</title>
-	<style>
-		body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; padding: 16px; color: #111; }
-		.row { margin-bottom: 12px; }
-		label { display:block; font-weight:600; margin-bottom:6px; }
-		.input-inline { display:flex; gap:8px; align-items:center; }
-		.range { width: 100%; }
-		button { padding:6px 10px; margin-right:8px; }
-		.small { font-size: 0.9em; color:#555; }
-	</style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>RLTK Options</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; padding: 16px; color: #111; line-height: 1.5; }
+        .box { border: 1px solid #ddd; border-radius: 6px; padding: 16px; background: #fafafa; }
+    </style>
 </head>
 <body>
-	<h2>RLTK Options</h2>
-
-	<div class="row">
-		<label for="densityRange">Density (target frequency)</label>
-		<div class="input-inline">
-			<input id="densityRange" class="range" type="range" min="0" max="100" value="70" />
-			<span id="densityValue">70%</span>
-		</div>
-		<div class="small">Higher = more tokens targeted (100% = target all). Lower = fewer targets (0% => more tokens between targets).</div>
-	</div>
-
-	<div class="row">
-		<label for="minDistanceInput">Average tokens between targets (minDistance)</label>
-		<div class="input-inline">
-			<input id="minDistanceInput" type="number" min="0" max="10" value="3" />
-			<span class="small">Set an exact average tokens-between (overrides slider when saved).</span>
-		</div>
-	</div>
-
-	<div class="row">
-		<button id="saveBtn">Save</button>
-		<button id="resetBtn">Reset to defaults</button>
-		<span id="status" class="small"></span>
-	</div>
-
-	<script src="../utils/tokenSelector.js"></script>
-	<script src="options.js"></script>
+    <div class="box">
+        <strong>Density controls now live in the side panel.</strong>
+        <div>Open RLTK from the toolbar, pick an activity, and adjust spacing there.</div>
+    </div>
 </body>
 </html>
