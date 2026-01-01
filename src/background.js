@@ -111,18 +111,7 @@ async function ensureContentScriptLoaded(tabId) {
         ]
       });
     } catch (injectionError) {
-      // Provide more specific error for permission issues
-      if (injectionError.message.includes("Extension manifest must request permission")) {
-        try {
-          const tab = await chrome.tabs.get(tabId);
-          if (tab.url && (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://") || tab.url.startsWith("about:") || tab.url.startsWith("chrome-extension://"))) {
-             throw new Error("Cannot run on this system page.");
-          }
-        } catch (e) {
-          // Ignore error checking tab
-        }
-      }
-
+      // If we can't inspect the tab (e.g., no tabs permission), still surface the injection error.
       throw new Error(`Cannot access this page. Script injection failed: ${injectionError.message}`);
     }
   }

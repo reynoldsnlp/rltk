@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>RLTK Stress Test Fixture</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+        .case { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; }
+        .label { font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Word Stress Activity Test Page</h1>
+    <p>Use this page to manually verify the "Word Stress" topic activities.</p>
+
+    <div class="case">
+        <div class="label">Unambiguous Stress (Should be marked/interactive)</div>
+        <p>Это мой <strong>дом</strong>.</p>
+        <p>Я вижу <strong>книгу</strong>.</p>
+    </div>
+
+    <div class="case">
+        <div class="label">Ambiguous Stress (Should have '?' cursor and tooltip)</div>
+        <p>У нас нет <strong>тела</strong>. (Genitive Sg vs Nominative Pl)</p>
+        <p>Я плачу за <strong>муку</strong>. (Accusative Sg vs Accusative Sg)</p>
+    </div>
+
+    <div class="case">
+        <div class="label">Unknown/Missing (Should have '?' cursor)</div>
+        <p>Это <strong>скрамблер</strong>.</p>
+    </div>
+
+    <div class="case">
+        <div class="label">Punctuation (Should be ignored)</div>
+        <p>Привет, мир!</p>
+    </div>
+
+</body>
+</html>

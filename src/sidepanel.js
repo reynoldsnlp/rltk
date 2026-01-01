@@ -281,20 +281,22 @@ class RussianToolsSidePanel {
             if (errorMessage.includes("Extension manifest must request permission")) {
                 // Try to request permission dynamically
                 try {
-                    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-                    if (tabs.length > 0 && tabs[0].url) {
-                        const url = new URL(tabs[0].url);
-                        const origin = `${url.protocol}//${url.hostname}/*`;
+                    // Prefer the debug tab we were asked to enhance; fall back to the active tab.
+                    const targetTabId = debugTabId || (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id;
+                    if (targetTabId) {
+                        const targetTab = await chrome.tabs.get(targetTabId);
+                        if (targetTab?.url) {
+                            const url = new URL(targetTab.url);
+                            const origin = `${url.origin}/*`;
 
-                        const granted = await chrome.permissions.request({
-                            origins: [origin]
-                        });
+                            const granted = await chrome.permissions.request({ origins: [origin] });
 
-                        if (granted) {
-                            // Retry enhancement
-                            this.isProcessing = false; // Reset flag for retry
-                            await this.enhancePage();
-                            return; // Exit this execution as the retry will handle it
+                            if (granted) {
+                                // Retry enhancement with the new permission.
+                                this.isProcessing = false;
+                                await this.enhancePage();
+                                return;
+                            }
                         }
                     }
                 } catch (permError) {

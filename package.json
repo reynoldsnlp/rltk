@@ -1,0 +1,11 @@
+{
+  "name": "rltk-extension-dev",
+  "version": "0.0.1",
+  "description": "Dev tools for Russian Language ToolKit Extension",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}
