@@ -23,23 +23,77 @@
         return !hasPunct;
     };
 
-    // Helper to get the stressed form
-    async function getStressedForm(originalText, cohort) {
-        // Try to find a reading with stress
+    // Helper to analyze stress ambiguity
+    async function analyzeStress(originalText, cohort) {
+        if (!cohort.rs || cohort.rs.length === 0) {
+            return { status: 'unknown', forms: [] };
+        }
+
+        const stressMap = new Map(); // stressedForm -> list of readings {lemma, tags}
+        const allReadings = [];
+
         for (const r of cohort.rs) {
             if (!r.ts) continue;
             const tags = Array.isArray(r.ts) ? r.ts.join('+') : r.ts;
             const input = `${r.l}+${tags}`;
             try {
-                const forms = await window.generateForms(input, true); // true for useStress
+                const forms = await window.generateForms(input, true);
                 if (forms && forms.length > 0) {
-                    return forms[0];
+                    const stressedForm = forms[0];
+                    if (!stressMap.has(stressedForm)) {
+                        stressMap.set(stressedForm, []);
+                    }
+                    const readingInfo = { lemma: r.l, tags: Array.isArray(r.ts) ? r.ts : [r.ts] };
+                    stressMap.get(stressedForm).push(readingInfo);
+                    allReadings.push(readingInfo);
                 }
             } catch (e) {
                 console.error(e);
             }
         }
-        return null;
+
+        const uniqueForms = Array.from(stressMap.keys());
+
+        if (uniqueForms.length === 0) {
+            return { status: 'unknown', forms: [] };
+        } else if (uniqueForms.length === 1) {
+            return { status: 'unambiguous', form: uniqueForms[0] };
+        } else {
+            // Ambiguous
+            return {
+                status: 'ambiguous',
+                forms: uniqueForms,
+                details: stressMap,
+                allReadings: allReadings
+            };
+        }
+    }
+
+    function getCommonTags(readings) {
+        if (!readings || readings.length === 0) return [];
+        let common = new Set(readings[0].tags);
+        for (let i = 1; i < readings.length; i++) {
+            const currentTags = new Set(readings[i].tags);
+            for (const tag of common) {
+                if (!currentTags.has(tag)) {
+                    common.delete(tag);
+                }
+            }
+        }
+        return Array.from(common);
+    }
+
+    function createAmbiguousTooltip(analysis) {
+        const commonTags = getCommonTags(analysis.allReadings);
+        let tooltipLines = [];
+        for (const [form, readings] of analysis.details.entries()) {
+            for (const r of readings) {
+                const uniqueTags = r.tags.filter(t => !commonTags.includes(t));
+                const tagStr = uniqueTags.join('+');
+                tooltipLines.push(`${r.lemma}+${tagStr} -> ${form}`);
+            }
+        }
+        return tooltipLines.join('\n');
     }
 
     // 1. Color Activity: Replace text with stressed form
@@ -49,10 +103,19 @@
         span.textContent = originalText; // Placeholder
 
         (async () => {
-            const stressedForm = await getStressedForm(originalText, cohort);
-            if (stressedForm && stressedForm !== originalText) {
-                const capType = window.RLTKUtils.detectCapitalization(originalText);
-                span.textContent = window.RLTKUtils.matchCapitalization(stressedForm, capType);
+            const analysis = await analyzeStress(originalText, cohort);
+            if (analysis.status === 'unambiguous') {
+                const stressedForm = analysis.form;
+                if (stressedForm && stressedForm !== originalText) {
+                    const capType = window.RLTKUtils.detectCapitalization(originalText);
+                    span.textContent = window.RLTKUtils.matchCapitalization(stressedForm, capType);
+                }
+            } else {
+                // Ambiguous or unknown
+                span.style.cursor = 'help';
+                if (analysis.status === 'ambiguous') {
+                    span.title = createAmbiguousTooltip(analysis);
+                }
             }
         })();
 
@@ -73,32 +136,22 @@
             const letterSpan = document.createElement('span');
             letterSpan.textContent = originalText[i];
             letterSpan.className = 'letter';
-            letterSpan.style.cursor = 'pointer';
+            letterSpan.style.cursor = 'default'; // Default until loaded
 
-            // Mouse events for unknown stress
-            letterSpan.addEventListener('mousedown', function(e) {
-                if (stressState.status === 'unknown') {
+            // Mouse events for unknown/ambiguous stress
+            letterSpan.addEventListener('mouseenter', function(e) {
+                if (stressState.status === 'ambiguous' || stressState.status === 'unknown') {
                     this.style.cursor = 'help';
-                }
-            });
-
-            letterSpan.addEventListener('mouseup', function(e) {
-                if (stressState.status === 'unknown') {
+                } else if (stressState.status === 'known') {
                     this.style.cursor = 'pointer';
                 }
-            });
-
-            letterSpan.addEventListener('mouseleave', function(e) {
-                this.style.cursor = 'pointer';
             });
 
             // Click handler
             letterSpan.addEventListener('click', function(e) {
                 e.stopPropagation();
-                if (stressState.status === 'loading') return; // Not ready yet
-                if (stressState.status === 'unknown') return; // Handled by mousedown
-                if (stressState.status === 'solved') return; // Already solved
-
+                if (stressState.status !== 'known') return; // Only allow clicking if known/unambiguous
+                
                 const correctForm = stressState.form;
 
                 // Logic: check if correctForm has stress after this index
@@ -128,8 +181,6 @@
 
                     if (isStressed) {
                         // Correct!
-                        stressState.status = 'solved';
-
                         // Flash the clicked letter green
                         const originalBg = this.style.backgroundColor;
                         this.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
@@ -175,9 +226,18 @@
         }
 
         (async () => {
-            const form = await getStressedForm(originalText, cohort);
-            stressState.status = form ? 'known' : 'unknown';
-            stressState.form = form;
+            const analysis = await analyzeStress(originalText, cohort);
+            if (analysis.status === 'unambiguous') {
+                stressState.status = 'known';
+                stressState.form = analysis.form;
+                letters.forEach(l => l.style.cursor = 'pointer');
+            } else {
+                stressState.status = analysis.status;
+                if (analysis.status === 'ambiguous') {
+                    container.title = createAmbiguousTooltip(analysis);
+                }
+                letters.forEach(l => l.style.cursor = 'help');
+            }
         })();
 
         return container;
@@ -188,15 +248,17 @@
         const span = document.createElement('span');
         span.className = `ʁ ʁ${cohortIndex} ʁ-stress-cloze`;
         span.textContent = originalText;
-        span.style.cursor = 'pointer';
-
-        let correctForm = null;
+        
+        let analysisResult = null;
 
         span.addEventListener('mouseenter', function() {
-            if (correctForm) {
+            if (analysisResult && analysisResult.status === 'unambiguous') {
                 const capType = window.RLTKUtils.detectCapitalization(originalText);
-                span.textContent = window.RLTKUtils.matchCapitalization(correctForm, capType);
+                span.textContent = window.RLTKUtils.matchCapitalization(analysisResult.form, capType);
                 span.classList.add('click-style-correct');
+                span.style.cursor = 'pointer';
+            } else if (analysisResult) {
+                span.style.cursor = 'help';
             }
         });
 
@@ -206,7 +268,10 @@
         });
 
         (async () => {
-            correctForm = await getStressedForm(originalText, cohort);
+            analysisResult = await analyzeStress(originalText, cohort);
+            if (analysisResult.status === 'ambiguous') {
+                span.title = createAmbiguousTooltip(analysisResult);
+            }
         })();
 
         return span;
@@ -232,12 +297,6 @@
                     distractors.add(cleanForm);
                 } else {
                     // Add stress to this vowel
-                    // We need to reconstruct the form with stress at position i
-                    // But baseForm has normalized chars. We should use cleanForm but be careful.
-                    // Actually, if we normalized, we might have lost info.
-                    // But the legacy logic was: "move stress to every vowel".
-
-                    // Let's just iterate the cleanForm.
                     const char = cleanForm[i];
                     if (vowels.includes(char)) {
                          const distractor = cleanForm.substring(0, i + 1) + stressMark + cleanForm.substring(i + 1);
@@ -250,39 +309,37 @@
         return Array.from(distractors);
     }
 
-    window.EnhanceFuncs["word-stress-mc"] = function(originalText, cohort, cohortIndex, isCorrect) {
-        // If isCorrect is false (distractor), we don't need to do anything special for stress MC
-        // because the distractors are generated inside the target element's logic in this new architecture?
-        // Wait, the new architecture calls this function for targets AND distractors?
-        // No, usually only for targets.
-        // But let's check the signature.
-        // If isCorrect is provided and false, it means this function is called to render a distractor?
-        // No, usually EnhanceFuncs are called to render the *replacement* for the original text.
-
-        // In the previous file content:
-        // window.EnhanceFuncs["word-stress-mc"] = function(originalText, cohort, cohortIndex, isCorrect) {
-        //    if (!isCorrect) { ... return span; }
-
-        // This suggests the framework might call this with isCorrect=false?
-        // But usually for MC, we create a <select> element.
-
+    window.EnhanceFuncs["word-stress-mc"] = function(originalText, cohort, cohortIndex) {
         const container = document.createElement('span');
         container.className = `ʁ ʁ${cohortIndex} ʁ-stress-mc`;
-
-        const select = document.createElement('select');
-        const width = window.RLTKUtils.getResponsiveWidth(originalText);
-        select.style.cssText = window.RLTKUtils.getBaseFormStyles(width, 'margin-left: 1.2ch;');
-        window.RLTKUtils.addStopPropagationListeners(select);
-
-        const placeholderOption = document.createElement('option');
-        placeholderOption.value = '';
-        placeholderOption.textContent = '?';
-        placeholderOption.selected = true;
-        select.appendChild(placeholderOption);
-        container.appendChild(select);
+        container.textContent = originalText;
 
         (async () => {
-            const correctForm = await getStressedForm(originalText, cohort);
+            const analysis = await analyzeStress(originalText, cohort);
+            
+            if (analysis.status !== 'unambiguous') {
+                // If ambiguous or unknown, just leave as text
+                if (analysis.status === 'ambiguous') {
+                     container.style.cursor = 'help';
+                     container.title = createAmbiguousTooltip(analysis);
+                } else if (analysis.status === 'unknown') {
+                     container.style.cursor = 'help';
+                }
+                return;
+            }
+
+            const correctForm = analysis.form;
+            
+            const select = document.createElement('select');
+            const width = window.RLTKUtils.getResponsiveWidth(originalText);
+            select.style.cssText = window.RLTKUtils.getBaseFormStyles(width, 'margin-left: 1.2ch;');
+            window.RLTKUtils.addStopPropagationListeners(select);
+
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = '?';
+            placeholderOption.selected = true;
+            select.appendChild(placeholderOption);
 
             const distractors = generateStressDistractors(correctForm);
 
@@ -295,7 +352,7 @@
             });
 
             if (options.length <= 1) {
-                container.textContent = originalText;
+                // Should not happen if there are vowels, but just in case
                 return;
             }
 
@@ -339,6 +396,9 @@
                     });
                 }
             });
+            
+            container.textContent = '';
+            container.appendChild(select);
 
         })();
 

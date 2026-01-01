@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Russian Language ToolKit (RLTK)",
-  "version": "0.0.0.2",
+  "version": "0.0.0.3",
   "description": "Toolbar for Russian language learning, including automatic exercise generation and text analysis.",
   "icons": {
     "16":  "src/resources/img/RLTK-16x16.png",
@@ -15,6 +15,10 @@
     "scripting",
     "sidePanel",
     "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*",
+    "http://127.0.0.1:8080/*"
   ],
   "options_ui": {
     "page": "src/options/options.html",

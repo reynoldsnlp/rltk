@@ -78,11 +78,16 @@ async function initHfst() {
     tokenizeSettings.hack_uncompose = true;
     console.log('Tokenize settings:', tokenizeSettings);
 
-    generator = await loadTransducer("src/resources/models/generator-gt-norm.hfstol", `generator`);
-    stressGenerator = await loadTransducer("src/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`);
-    g2p = await loadTransducer("src/resources/models/g2p.hfstol", `g2p`);
-    l2Analyser = await loadTransducer("src/resources/models/analyser-gt-desc-L2.hfstol", `l2Analyser`);
-    tokenizer = await loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst");
+    // Load transducers in parallel
+    const loadPromises = [
+        loadTransducer("src/resources/models/generator-gt-norm.hfstol", `generator`).then(res => generator = res),
+        loadTransducer("src/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`).then(res => stressGenerator = res),
+        loadTransducer("src/resources/models/g2p.hfstol", `g2p`).then(res => g2p = res),
+        loadTransducer("src/resources/models/analyser-gt-desc-L2.hfstol", `l2Analyser`).then(res => l2Analyser = res),
+        loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst").then(res => tokenizer = res)
+    ];
+
+    await Promise.all(loadPromises);
 }
 
 /**

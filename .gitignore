@@ -1,5 +1,6 @@
 .DS_Store
 old/
+node_modules/
 
 src/resources/models/*.cg3
 src/resources/models/*.hfstol

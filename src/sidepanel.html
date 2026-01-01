@@ -8,6 +8,8 @@
 <body>
     <div id="rltk-sidepanel">
 
+        <div class="sidepanel-main">
+
         <nav class="tab-navigation">
             <button class="tab-button active" data-tab="interact">Interact</button>
             <button class="tab-button" data-tab="grammar-explorer">Grammar Explorer</button>
@@ -60,6 +62,10 @@
                 </div>
             </div>
 
+            <div class="panel-section" id="word-stress-note" style="display: none; background-color: #f0f0f0; padding: 10px; border-radius: 5px; font-size: 0.9em; margin-bottom: 10px;">
+                <p style="margin-top: 5px;"><em>Note: For word stress activites, a question mark cursor (?) indicates ambiguous stress (multiple possibilities). Hover to see details.</em></p>
+            </div>
+
             <div id="loading" class="loading" style="display: none;">
                 <span>Processing...</span>
             </div>
@@ -104,6 +110,15 @@
                 <div id="writing-details" class="writing-details"></div>
             </div>
         </div>
+
+        </div>
+
+        <footer class="sidepanel-footer">
+            <span>Help make RLTK better by sending feedback or suggestions to </span>
+            <a
+                href="mailto:robert_reynolds@byu.edu?subject=RLTK%20feedback%3A%20%5Badd%20your%20subject%20here%5D&body=Hi%20Rob%2C%0D%0A%0D%0AI%27m%20sending%20feedback%20about%20RLTK.%0D%0A%0D%0A1)%20Which%20part%20of%20the%20app%20does%20this%20relate%20to%3F%20(Interact%20%2F%20Grammar%20Explorer%20%2F%20Writing%20tutor%20%2F%20other)%0D%0A2)%20What%20were%20you%20trying%20to%20do%3F%0D%0A3)%20What%20happened%20(and%20what%20did%20you%20expect%20instead)%3F%0D%0A4)%20What%20would%20you%20like%20to%20see%20changed%3F%0D%0A5)%20Why%20is%20it%20a%20problem%20and%2For%20how%20would%20the%20suggested%20change%20be%20better%3F%0D%0A6)%20If%20possible%2C%20include%3A%20the%20URL%20you%20were%20on%2C%20the%20text%20you%20selected%2Fused%2C%20and%20any%20screenshot.%0D%0A%0D%0AThanks%21%0D%0A"
+            >robert_reynolds@byu.edu</a>
+        </footer>
     </div>
 
     <div id="access-modal" class="modal-overlay" style="display: none;">

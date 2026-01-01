@@ -50,7 +50,16 @@ class RussianToolsSidePanel {
         this.initializeActivitySelectors();
 
         // Load state for the current tab
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        let tabs;
+        const urlParams = new URLSearchParams(window.location.search);
+        const debugTabId = urlParams.get('debugTabId');
+
+        if (debugTabId) {
+            tabs = [{ id: parseInt(debugTabId) }];
+        } else {
+            tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        }
+
         if (tabs.length > 0) {
             const tabId = tabs[0].id;
             this.connectToBackground(tabId);
@@ -240,9 +249,13 @@ class RussianToolsSidePanel {
             activity: document.getElementById('activity-menu').value,
         };
 
+        // Get debugTabId if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
+
         try {
             // Always restore first
-            await chrome.runtime.sendMessage({ action: 'restore' });
+            await chrome.runtime.sendMessage({ action: 'restore', tabId: debugTabId });
 
             // Store selections
             await this.saveTabState();
@@ -250,7 +263,8 @@ class RussianToolsSidePanel {
             // Send message through background script
             const response = await chrome.runtime.sendMessage({
                 action: 'enhance',
-                selections: selections
+                selections: selections,
+                tabId: debugTabId
             });
 
             if (!response.success) {
@@ -619,6 +633,12 @@ ${errorMessage}`);
         this.checkForFilters(topic);
         this.updateActivities(topic);
         this.toggleEnhanceButton();
+
+        // Show/hide word stress note
+        const stressNote = document.getElementById('word-stress-note');
+        if (stressNote) {
+            stressNote.style.display = (topic === 'word-stress') ? 'block' : 'none';
+        }
     }
 
     checkForFilters(topic) {

@@ -220,12 +220,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore' || request.action === 'get_status') {
         (async () => {
             try {
-                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-                if (tabs.length === 0) {
-                    throw new Error('No active tab found');
+                let tabId;
+                if (request.tabId) {
+                    tabId = request.tabId;
+                } else {
+                    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                    if (tabs.length === 0) {
+                        throw new Error('No active tab found');
+                    }
+                    tabId = tabs[0].id;
                 }
-
-                const tabId = tabs[0].id;
 
                 // Track annotated tabs
                 if (request.action === 'enhance') {
