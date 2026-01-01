@@ -13,6 +13,27 @@ let offscreenCreated = false;
 const annotatedTabs = new Set();
 const activeSidePanelPorts = new Set();
 
+const CONTENT_SCRIPT_FILES = [
+    'src/utils/misc.js',
+    'src/utils/tokenSelector.js',
+    'src/activities.js',
+    'src/topics/adjectives.js',
+    'src/topics/adverbs.js',
+    'src/topics/aspects.js',
+    'src/topics/assistive-reading.js',
+    'src/topics/cases.js',
+    'src/topics/conjunctions.js',
+    'src/topics/gerunds.js',
+    'src/topics/nouns.js',
+    'src/topics/participles.js',
+    'src/topics/phonetics.js',
+    'src/topics/prepositions.js',
+    'src/topics/pronouns.js',
+    'src/topics/stress.js',
+    'src/topics/verbs.js',
+    'src/content.js'
+];
+
 /**
  * Creates the offscreen document if it doesn't exist.
  * The offscreen document is used for heavy WASM processing (HFST/CG3).
@@ -81,40 +102,18 @@ chrome.action.onClicked.addListener(async (tab) => {
  * to avoid requesting broad host permissions.
  */
 async function ensureContentScriptLoaded(tabId) {
-  try {
-    // Try to ping the content script first
-    await chrome.tabs.sendMessage(tabId, { action: 'ping' });
-  } catch (error) {
-    // Content script not loaded, inject it
     try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        files: [
-          'src/utils/misc.js',
-          'src/utils/tokenSelector.js',
-          'src/activities.js',
-          'src/topics/adjectives.js',
-          'src/topics/adverbs.js',
-          'src/topics/aspects.js',
-          'src/topics/assistive-reading.js',
-          'src/topics/cases.js',
-          'src/topics/conjunctions.js',
-          'src/topics/gerunds.js',
-          'src/topics/nouns.js',
-          'src/topics/participles.js',
-          'src/topics/phonetics.js',
-          'src/topics/prepositions.js',
-          'src/topics/pronouns.js',
-          'src/topics/stress.js',
-          'src/topics/verbs.js',
-          'src/content.js'
-        ]
-      });
-    } catch (injectionError) {
-      // If we can't inspect the tab (e.g., no tabs permission), still surface the injection error.
-      throw new Error(`Cannot access this page. Script injection failed: ${injectionError.message}`);
+        await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+    } catch (error) {
+        try {
+            await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                files: CONTENT_SCRIPT_FILES,
+            });
+        } catch (injectionError) {
+            throw new Error(`Cannot access this page. Script injection failed: ${injectionError.message}`);
+        }
     }
-  }
 }
 
 // Message listener for communication between components
@@ -245,15 +244,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'inject_content_script') {
         (async () => {
             try {
-                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-                if (tabs.length > 0) {
-                    await ensureContentScriptLoaded(tabs[0].id);
-                    sendResponse({ success: true });
+                let targetTabId = request.tabId;
+                if (!targetTabId) {
+                    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                    if (tabs.length > 0) {
+                        targetTabId = tabs[0].id;
+                    }
+                }
+
+                if (targetTabId !== undefined) {
+                    await ensureContentScriptLoaded(targetTabId);
+                    sendResponse({ success: true, tabId: targetTabId });
                 } else {
-                    sendResponse({ success: false, error: "No active tab" });
+                    sendResponse({ success: false, error: "No tab specified or active" });
                 }
             } catch (error) {
-                // Don't log as error if it's just a permission issue on a system page
                 if (error.message.includes("Cannot run on this system page") ||
                     error.message.includes("Extension manifest must request permission") ||
                     error.message.includes("Cannot access this page")) {

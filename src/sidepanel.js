@@ -20,6 +20,8 @@ class RussianToolsSidePanel {
         this.defaultMinDistance = 5;
         this.lastSavedMinDistance = null;
         this.debugTabId = null;
+        this.currentTabId = null;
+        this.hasSelection = false;
 
         this.init();
     }
@@ -113,6 +115,41 @@ class RussianToolsSidePanel {
         section.style.display = shouldShow ? 'block' : 'none';
     }
 
+    shouldHandleSelectionFromTab(senderTabId) {
+        if (!senderTabId) return true;
+        if (this.debugTabId) return senderTabId === this.debugTabId;
+        if (this.currentTabId) return senderTabId === this.currentTabId;
+        return true;
+    }
+
+    updateEnhanceButtonLabel() {
+        const enhanceButton = document.getElementById('enhance-button');
+        if (!enhanceButton) return;
+
+        if (this.isProcessing) {
+            enhanceButton.textContent = 'Processing...';
+            return;
+        }
+
+        enhanceButton.textContent = this.hasSelection ? 'Enhance selected text' : 'Enhance';
+    }
+
+    applySelectionState(hasSelection) {
+        this.hasSelection = !!hasSelection;
+        this.updateEnhanceButtonLabel();
+    }
+
+    async syncSelectionStateFromTab() {
+        try {
+            const tabId = await this.getActiveTabId();
+            if (!tabId) return;
+            const response = await chrome.tabs.sendMessage(tabId, { action: 'get_selection_state' });
+            this.applySelectionState(response && response.hasSelection);
+        } catch (e) {
+            // Ignore if the content script is not available for this tab
+        }
+    }
+
     async pushMinDistanceToContent(minDistance) {
         try {
             const tabId = await this.getActiveTabId();
@@ -170,9 +207,11 @@ class RussianToolsSidePanel {
 
         if (tabs.length > 0) {
             const tabId = tabs[0].id;
+            this.currentTabId = tabId;
             this.connectToBackground(tabId);
             await this.loadTabState(tabId);
             this.checkAccess(tabId);
+            await this.syncSelectionStateFromTab();
         }
 
         // Listen for tab activation to switch state
@@ -186,8 +225,10 @@ class RussianToolsSidePanel {
             // This implies there might be separate instances or the same instance reloaded?
             // Usually it's the same document if the URL is the same.
 
+            this.currentTabId = activeInfo.tabId;
             await this.loadTabState(activeInfo.tabId);
             this.checkAccess(activeInfo.tabId);
+            await this.syncSelectionStateFromTab();
         });
 
         // Listen for tab updates (navigation)
@@ -217,9 +258,9 @@ class RussianToolsSidePanel {
             this.hideAccessModal();
             this.checkPageStatus();
         } catch (error) {
-            // If ping failed, try to inject via background
+            // If ping failed, try to inject via background targeting this tab
             try {
-                const response = await chrome.runtime.sendMessage({ action: 'inject_content_script' });
+                const response = await chrome.runtime.sendMessage({ action: 'inject_content_script', tabId });
                 if (response && response.success) {
                     this.hideAccessModal();
                     this.checkPageStatus();
@@ -336,6 +377,14 @@ class RussianToolsSidePanel {
             }
         });
 
+        // Listen for selection state updates from the page
+        chrome.runtime.onMessage.addListener((message, sender) => {
+            if (message.action === 'selection_state') {
+                if (!this.shouldHandleSelectionFromTab(sender?.tab?.id)) return;
+                this.applySelectionState(message.hasSelection);
+            }
+        });
+
         document.getElementById('restore-button').addEventListener('click', () => {
             this.restorePage();
         });
@@ -356,6 +405,9 @@ class RussianToolsSidePanel {
      */
     async enhancePage() {
         if (this.isProcessing) return;
+
+        await this.syncSelectionStateFromTab();
+        const selectionOnly = this.hasSelection;
 
         this.isProcessing = true;
         this.setProcessingState(true);
@@ -381,6 +433,7 @@ class RussianToolsSidePanel {
             const response = await chrome.runtime.sendMessage({
                 action: 'enhance',
                 selections: selections,
+                selectionOnly: selectionOnly,
                 tabId: debugTabId
             });
 
@@ -436,7 +489,8 @@ ${errorMessage}`);
 
     async restorePage() {
         try {
-            await chrome.runtime.sendMessage({ action: 'restore' });
+            const targetTabId = this.debugTabId || await this.getActiveTabId();
+            await chrome.runtime.sendMessage({ action: 'restore', tabId: targetTabId });
         } catch (error) {
             console.error('Error restoring:', error);
         }
@@ -450,7 +504,8 @@ ${errorMessage}`);
         enhanceButton.disabled = true;
         restoreButton.disabled = true;
 
-        enhanceButton.textContent = processing ? 'Processing...' : 'Enhance';
+        this.isProcessing = processing;
+        this.updateEnhanceButtonLabel();
         document.getElementById('loading').style.display = processing ? 'block' : 'none';
     }
 
@@ -459,7 +514,8 @@ ${errorMessage}`);
         const restoreButton = document.getElementById('restore-button');
 
         enhanceButton.disabled = false;
-        enhanceButton.textContent = 'Enhance';
+        this.isProcessing = false;
+        this.updateEnhanceButtonLabel();
 
         restoreButton.disabled = false;
 
@@ -473,7 +529,8 @@ ${errorMessage}`);
         const restoreButton = document.getElementById('restore-button');
 
         enhanceButton.disabled = false;
-        enhanceButton.textContent = 'Enhance';
+        this.isProcessing = false;
+        this.updateEnhanceButtonLabel();
 
         restoreButton.disabled = true;
 

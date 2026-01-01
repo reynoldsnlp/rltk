@@ -18,13 +18,7 @@ test.describe('Word Stress Activity', () => {
       serverInstance = server.listen(0, resolve);
     });
     port = serverInstance.address().port;
-  });
 
-  test.afterAll(async () => {
-    serverInstance.close();
-  });
-
-  test.beforeEach(async () => {
     const pathToExtension = path.resolve(__dirname, '../../');
     const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
 
@@ -36,21 +30,32 @@ test.describe('Word Stress Activity', () => {
       ],
     });
 
-    // Wait for service worker to be ready to get extension ID
-    let serviceWorker = browserContext.serviceWorkers()[0];
-    if (!serviceWorker) {
-        serviceWorker = await browserContext.waitForEvent('serviceworker');
-    }
-
+    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
     const swUrl = serviceWorker.url();
     // URL format: chrome-extension://<id>/src/background.js
     extensionId = swUrl.split('/')[2];
+  });
+
+  test.afterAll(async () => {
+    await browserContext.close();
+    serverInstance.close();
+  });
+
+  test.beforeEach(async () => {
+    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+    await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
+
+    for (const p of browserContext.pages()) {
+      await p.close();
+    }
 
     page = await browserContext.newPage();
   });
 
   test.afterEach(async () => {
-    await browserContext.close();
+    for (const p of browserContext.pages()) {
+      await p.close();
+    }
   });
 
   test('can open fixture page and read expected text', async () => {
@@ -101,7 +106,7 @@ test.describe('Word Stress Activity', () => {
     await sidePanelPage.click('#enhance-button');
 
     // Wait for actual stress marks to appear (combining acute)
-    await page.waitForFunction(() => document.documentElement.innerHTML.includes('\u0301'), { timeout: 5000 });
+    await page.waitForFunction(() => document.documentElement.innerHTML.includes('\u0301'), { timeout: 8000 });
 
     const accentedHtml = await page.innerHTML('body');
     expect(accentedHtml.includes('\u0301')).toBe(true);

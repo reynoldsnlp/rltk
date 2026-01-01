@@ -37,6 +37,20 @@
     let isGrammarExplorerActive = false;
     let selectionDebounceTimer = null;
 
+    function hasNonEmptySelection() {
+        try {
+            const selection = window.getSelection();
+            return !!selection && !selection.isCollapsed && selection.toString().trim().length > 0;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function notifySelectionState() {
+        const hasSelection = hasNonEmptySelection();
+        chrome.runtime.sendMessage({ action: 'selection_state', hasSelection }).catch(() => {});
+    }
+
     /**
      * Shared function to determine if a node should be skipped during text processing
      */
@@ -103,13 +117,13 @@
      * Phase 1: Extract plain text and build position maps
      * Phase 2: Use morph analysis results with position maps to place spans
      */
-    function highlightTextNodesWithActivity(root, cohortArrays, activity) {
+    function highlightTextNodesWithActivity(root, cohortArrays, activity, selectionRange) {
         // Phase 1: Extract plain text and build position mappings
-        const analysisResult = extractTextWithPositionMapping(root);
+        const analysisResult = extractTextWithPositionMapping(root, selectionRange);
         const { plainText, positionMap, textNodes } = analysisResult;
 
         // Phase 2: Build token position mappings using activity logic
-        const tokenPositions = buildTokenPositionsWithActivity(cohortArrays, plainText, positionMap, activity);
+        const tokenPositions = buildTokenPositionsWithActivity(cohortArrays, plainText, positionMap, activity, selectionRange);
 
         // Phase 3: Apply highlighting using position mappings
         applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity);
@@ -119,7 +133,7 @@
      * Phase 1: Extract plain text while building position mappings
      * Returns: {plainText, positionMap, textNodes}
      */
-    function extractTextWithPositionMapping(root) {
+    function extractTextWithPositionMapping(root, selectionRange) {
         const walker = document.createTreeWalker(
             root,
             NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
@@ -127,6 +141,16 @@
                 acceptNode(node) {
                     if (shouldSkipNode(node)) {
                         return NodeFilter.FILTER_REJECT;
+                    }
+
+                    if (selectionRange) {
+                        try {
+                            if (!selectionRange.intersectsNode(node)) {
+                                return node.nodeType === Node.TEXT_NODE ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+                            }
+                        } catch (e) {
+                            // If intersectsNode fails for some reason, fall back to including the node.
+                        }
                     }
 
                     // Accept text nodes and block elements that should add newlines
@@ -154,18 +178,34 @@
             if (currentNode.nodeType === Node.TEXT_NODE) {
                 const nodeText = currentNode.nodeValue;
 
+                let sliceStart = 0;
+                let sliceEnd = nodeText.length;
+
+                if (selectionRange) {
+                    if (currentNode === selectionRange.startContainer) {
+                        sliceStart = selectionRange.startOffset;
+                    }
+                    if (currentNode === selectionRange.endContainer) {
+                        sliceEnd = Math.min(sliceEnd, selectionRange.endOffset);
+                    }
+                }
+
+                if (sliceEnd <= sliceStart) continue;
+
+                const clippedText = nodeText.substring(sliceStart, sliceEnd);
+
                 textNodes.push(currentNode);
 
                 positionMap.push({
                     plainTextStart: plainTextOffset,
-                    plainTextEnd: plainTextOffset + nodeText.length,
+                    plainTextEnd: plainTextOffset + clippedText.length,
                     node: currentNode,
-                    nodeStart: 0,
-                    nodeEnd: nodeText.length
+                    nodeStart: sliceStart,
+                    nodeEnd: sliceEnd - sliceStart
                 });
 
-                plainText += nodeText;
-                plainTextOffset += nodeText.length;
+                plainText += clippedText;
+                plainTextOffset += clippedText.length;
             } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
                 // Add newline for block elements based on context
                 if (shouldAddNewlineBefore(currentNode, plainText)) {
@@ -182,7 +222,7 @@
     /**
      * Extract text using the same method as position mapping for consistency
      */
-    function extractPlainText(root) {
+    function extractPlainText(root, selectionRange) {
         const walker = document.createTreeWalker(
             root,
             NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
@@ -190,6 +230,14 @@
                 acceptNode(node) {
                     if (shouldSkipNode(node)) {
                         return NodeFilter.FILTER_REJECT;
+                    }
+
+                    if (selectionRange) {
+                        try {
+                            if (!selectionRange.intersectsNode(node)) {
+                                return node.nodeType === Node.TEXT_NODE ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+                            }
+                        } catch (e) {}
                     }
 
                     // Accept text nodes and block elements that should add newlines
@@ -210,7 +258,22 @@
             const currentNode = walker.currentNode;
 
             if (currentNode.nodeType === Node.TEXT_NODE) {
-                plainText += currentNode.nodeValue;
+                const nodeText = currentNode.nodeValue;
+                let sliceStart = 0;
+                let sliceEnd = nodeText.length;
+
+                if (selectionRange) {
+                    if (currentNode === selectionRange.startContainer) {
+                        sliceStart = selectionRange.startOffset;
+                    }
+                    if (currentNode === selectionRange.endContainer) {
+                        sliceEnd = Math.min(sliceEnd, selectionRange.endOffset);
+                    }
+                }
+
+                if (sliceEnd > sliceStart) {
+                    plainText += nodeText.substring(sliceStart, sliceEnd);
+                }
             } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
                 // Add newline for block elements based on context
                 if (shouldAddNewlineBefore(currentNode, plainText)) {
@@ -224,7 +287,7 @@
     /**
      * Phase 2: Build token positions from cohorts and plain text
      */
-    function buildTokenPositionsWithActivity(cohortArrays, plainText, positionMap, activity) {
+    function buildTokenPositionsWithActivity(cohortArrays, plainText, positionMap, activity, selectionRange) {
         const tokenPositions = [];
         let currentOffset = 0;
 
@@ -234,6 +297,7 @@
         const blacklistRe = /(header|footer|nav|menu|sidebar|toolbar|masthead|breadcrumb)/i;
 
         function isNodeAllowed(textNode) {
+            if (selectionRange) return true;
             const el = textNode && textNode.parentElement;
             if (!el) return true;
 
@@ -279,7 +343,7 @@
 
             // Find the text-node mapping that covers this token start to apply DOM heuristics
             const coveringMap = positionMap.find(m => cohortStart >= m.plainTextStart && cohortStart < m.plainTextEnd);
-            if (coveringMap && !isNodeAllowed(coveringMap.node)) {
+                if (coveringMap && !isNodeAllowed(coveringMap.node)) {
                 currentOffset = cohortEnd;
                 continue;
             }
@@ -325,8 +389,8 @@
                     }
 
                     nodeModifications.get(mapping.node).push({
-                        start: tokenStartInNode,
-                        end: tokenEndInNode,
+                        start: tokenStartInNode + (mapping.nodeStart || 0),
+                        end: tokenEndInNode + (mapping.nodeStart || 0),
                         cohortIndex: token.cohortIndex,
                         cohort: token.cohort
                     });
@@ -411,6 +475,18 @@
         }
     }, 1000);
 
+    function getSelectionRangeIfAny() {
+        try {
+            const selection = window.getSelection();
+            if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+            const rangeText = selection.toString();
+            if (!rangeText || !rangeText.trim()) return null;
+            return selection.getRangeAt(0).cloneRange();
+        } catch (e) {
+            return null;
+        }
+    }
+
     // Listen for messages from side panel or other extension components
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         switch (request.action) {
@@ -426,7 +502,11 @@
 
             case 'enhance':
                 try {
-                    const bodyText = extractPlainText(document.body);
+                    const selectionOnly = request.selectionOnly === true;
+                    const selectionRange = selectionOnly ? getSelectionRangeIfAny() : null;
+                    const rangeForUse = selectionOnly ? selectionRange : null;
+
+                    const bodyText = extractPlainText(document.body, rangeForUse);
 
                     chrome.runtime.sendMessage({
                         action: 'morph_analysis',
@@ -457,7 +537,7 @@
                                 await activity.prepare();
 
                                 // Use the unified highlighting function
-                                highlightTextNodesWithActivity(document.body, response.data, activity);
+                                highlightTextNodesWithActivity(document.body, response.data, activity, rangeForUse);
                                 sendResponse({ success: true });
                             } catch (error) {
                                 console.error('Error creating activity:', error);
@@ -485,6 +565,10 @@
             case 'restore':
                 cleanup();
                 sendResponse({ success: true });
+                break;
+
+            case 'get_selection_state':
+                sendResponse({ success: true, hasSelection: hasNonEmptySelection() });
                 break;
 
             case 'update_morphology_styles':
@@ -552,7 +636,9 @@
     // Make the function globally available
     window.generateForms = generateForms;
 
-    // Removed selectionchange listener as Grammar Explorer now uses click-based interaction
-    // on enhanced spans.
+    document.addEventListener('selectionchange', () => {
+        clearTimeout(selectionDebounceTimer);
+        selectionDebounceTimer = setTimeout(notifySelectionState, 150);
+    });
 
 })();

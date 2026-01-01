@@ -2,14 +2,13 @@ const { test, expect, chromium } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
 
-// Run serially so we can share one fixture server/port.
+// Run serially so we can share the fixture server.
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Side panel density for MC/Cloze', () => {
+test.describe('Token selector respects layout heuristics and selection override', () => {
   test.setTimeout(20000);
 
   let browserContext;
-  let page;
   let extensionId;
   let serverInstance;
   let port;
@@ -48,8 +47,6 @@ test.describe('Side panel density for MC/Cloze', () => {
     for (const p of browserContext.pages()) {
       await p.close();
     }
-
-    page = await browserContext.newPage();
   });
 
   test.afterEach(async () => {
@@ -69,13 +66,12 @@ test.describe('Side panel density for MC/Cloze', () => {
     return tabId;
   }
 
-  test('saves density in side panel and applies to nouns MC/Cloze', async () => {
-    // 1) Open nouns fixture
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/nouns.html`;
+  test('skips header/footer/nav unless user selection overrides', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/selection-targeting.html`;
+    const page = await browserContext.newPage();
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
-    // 2) Open side panel targeting the fixture tab
     const tabId = await getFixtureTabId(fixtureUrl);
     expect(tabId).not.toBeNull();
 
@@ -89,41 +85,55 @@ test.describe('Side panel density for MC/Cloze', () => {
     }, { timeout: 5000 });
     await sidePanelPage.selectOption('#activity-menu', 'mc');
 
-    // Adjust minDistance to 1 via the new slider
+    // Dense selection to ensure coverage
     await sidePanelPage.$eval('#density-slider', (el) => {
-      el.value = '1';
+      el.value = '0';
       el.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // Verify storage reflects the saved value
-    const storedMinDistance = await browserContext.serviceWorkers()[0].evaluate(() => new Promise((resolve) => {
-      chrome.storage.local.get(['rltk_token_selector_minDistance'], (res) => {
-        resolve(res['rltk_token_selector_minDistance']);
-      });
-    }));
-    expect(storedMinDistance).toBe(1);
-
     await sidePanelPage.click('#enhance-button');
 
-    // Wait for MC spans to appear to confirm enhancement ran
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length > 0, { timeout: 12000 });
-    const mcSpan = page.locator('.ʁ-noun-mc').first();
-    await expect(mcSpan).toBeVisible({ timeout: 12000 });
+    // Wait for enhancement to finish
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length > 0, { timeout: 8000 });
 
-    // Move the slider to a sparser setting and ensure enhancement reruns automatically
-    await sidePanelPage.$eval('#density-slider', (el) => {
-      el.value = '10';
-      el.dispatchEvent(new Event('input', { bubbles: true }));
+    const headerCount = await page.locator('header .ʁ-noun-mc').count();
+    const navCount = await page.locator('nav .ʁ-noun-mc').count();
+    const footerCount = await page.locator('footer .ʁ-noun-mc').count();
+    const mainCount = await page.locator('main .ʁ-noun-mc').count();
+
+    expect(headerCount).toBe(0);
+    expect(navCount).toBe(0);
+    expect(footerCount).toBe(0);
+    expect(mainCount).toBeGreaterThan(0);
+
+    // Restore to clear previous spans
+    await sidePanelPage.click('#restore-button');
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ').length === 0, { timeout: 8000 });
+
+    // Select only the header content
+    await page.$eval('header', (el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
     });
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length === 0, { timeout: 12000 });
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length > 0, { timeout: 12000 });
-    const rerunCount = await page.locator('.ʁ-noun-mc').count();
-    expect(rerunCount).toBeGreaterThan(0);
 
-    // Switch to cloze and rerun
-    await sidePanelPage.selectOption('#activity-menu', 'cloze');
+    // Wait for side panel to reflect selection state
+    await expect(sidePanelPage.locator('#enhance-button')).toHaveText('Enhance selected text');
+
     await sidePanelPage.click('#enhance-button');
-    const clozeSpan = page.locator('.ʁ-noun-cloze').first();
-    await expect(clozeSpan).toBeVisible({ timeout: 12000 });
+
+    await page.waitForFunction(() => document.querySelectorAll('header .ʁ-noun-mc').length > 0, { timeout: 8000 });
+
+    const headerCountAfter = await page.locator('header .ʁ-noun-mc').count();
+    const navCountAfter = await page.locator('nav .ʁ-noun-mc').count();
+    const footerCountAfter = await page.locator('footer .ʁ-noun-mc').count();
+    const mainCountAfter = await page.locator('main .ʁ-noun-mc').count();
+
+    expect(headerCountAfter).toBeGreaterThan(0);
+    expect(navCountAfter).toBe(0);
+    expect(footerCountAfter).toBe(0);
+    expect(mainCountAfter).toBe(0);
   });
 });

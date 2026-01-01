@@ -6,8 +6,8 @@ const server = require('./server');
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Density controls', () => {
-  // Enhancement work can take a bit; avoid flake from the default 30s timeout.
-  test.setTimeout(60000);
+  // Shorter timeout since local processing finishes quickly.
+  test.setTimeout(20000);
 
   let browserContext;
   let extensionId;
@@ -19,13 +19,7 @@ test.describe('Density controls', () => {
       serverInstance = server.listen(0, resolve);
     });
     port = serverInstance.address().port;
-  });
 
-  test.afterAll(async () => {
-    serverInstance.close();
-  });
-
-  test.beforeEach(async () => {
     const pathToExtension = path.resolve(__dirname, '../../');
     const userDataDir = `/tmp/test-user-data-dir-${Math.random()}`;
 
@@ -37,17 +31,29 @@ test.describe('Density controls', () => {
       ],
     });
 
-    // Wait for service worker to get extension ID
-    let serviceWorker = browserContext.serviceWorkers()[0];
-    if (!serviceWorker) {
-      serviceWorker = await browserContext.waitForEvent('serviceworker');
-    }
+    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
     const swUrl = serviceWorker.url();
     extensionId = swUrl.split('/')[2];
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await browserContext.close();
+    serverInstance.close();
+  });
+
+  test.beforeEach(async () => {
+    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+    await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
+
+    for (const p of browserContext.pages()) {
+      await p.close();
+    }
+  });
+
+  test.afterEach(async () => {
+    for (const p of browserContext.pages()) {
+      await p.close();
+    }
   });
 
   async function getFixtureTabId(fixtureUrl) {
@@ -78,6 +84,7 @@ test.describe('Density controls', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/nouns.html`;
     const page = await browserContext.newPage();
     await page.goto(fixtureUrl);
+    await page.bringToFront();
 
     // 2) Open side panel targeting the fixture tab
     const tabId = await getFixtureTabId(fixtureUrl);
@@ -110,17 +117,17 @@ test.describe('Density controls', () => {
     await sidePanelPage.click('#enhance-button');
 
     // Wait for MC spans to appear to confirm enhancement ran
-    await page.waitForFunction(() => document.querySelector('.ʁ-noun-mc'), { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector('.ʁ-noun-mc'), { timeout: 12000 });
     const mcSpan = page.locator('.ʁ-noun-mc').first();
-    await expect(mcSpan).toBeVisible({ timeout: 15000 });
+    await expect(mcSpan).toBeVisible({ timeout: 12000 });
 
     // Move the slider to a sparser setting and ensure enhancement reruns automatically
     await sidePanelPage.$eval('#density-slider', (el) => {
       el.value = '10';
       el.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length === 0, { timeout: 15000 });
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length > 0, { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length === 0, { timeout: 12000 });
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length > 0, { timeout: 12000 });
     const rerunCount = await page.locator('.ʁ-noun-mc').count();
     expect(rerunCount).toBeGreaterThan(0);
 
@@ -128,6 +135,6 @@ test.describe('Density controls', () => {
     await sidePanelPage.selectOption('#activity-menu', 'cloze');
     await sidePanelPage.click('#enhance-button');
     const clozeSpan = page.locator('.ʁ-noun-cloze').first();
-    await expect(clozeSpan).toBeVisible({ timeout: 15000 });
+    await expect(clozeSpan).toBeVisible({ timeout: 12000 });
   });
 });
