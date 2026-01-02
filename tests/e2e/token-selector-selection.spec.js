@@ -78,6 +78,7 @@ test.describe('Token selector respects layout heuristics and selection override'
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
 
+    await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'nouns');
     await sidePanelPage.waitForFunction(() => {
       const select = document.querySelector('#activity-menu');
