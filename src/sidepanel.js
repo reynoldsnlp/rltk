@@ -356,6 +356,7 @@ class RussianToolsSidePanel {
         document.getElementById('activity-menu').addEventListener('change', () => {
             this.toggleEnhanceButton();
             this.toggleDensitySection();
+            this.updateWordStressNoteVisibility();
             this.saveTabState();
         });
 
@@ -816,12 +817,18 @@ ${errorMessage}`);
         this.updateActivities(topic);
         this.toggleEnhanceButton();
         this.toggleDensitySection();
+        this.updateWordStressNoteVisibility(topic);
+    }
 
-        // Show/hide word stress note
+    updateWordStressNoteVisibility(topic, activity) {
         const stressNote = document.getElementById('word-stress-note');
-        if (stressNote) {
-            stressNote.style.display = (topic === 'word-stress') ? 'block' : 'none';
-        }
+        if (!stressNote) return;
+
+        const currentTopic = topic ?? document.getElementById('topic-menu')?.value;
+        const currentActivity = activity ?? document.getElementById('activity-menu')?.value;
+
+        const shouldShow = currentTopic === 'word-stress' && (currentActivity === 'color' || currentActivity === 'hover' || currentActivity === 'click');
+        stressNote.style.display = shouldShow ? 'block' : 'none';
     }
 
     checkForFilters(topic) {
@@ -1057,6 +1064,7 @@ ${errorMessage}`);
 
         this.toggleDensitySection(activity);
         this.toggleEnhanceButton();
+        this.updateWordStressNoteVisibility(topic, activity);
     }
 
     loadStoredSettings() {

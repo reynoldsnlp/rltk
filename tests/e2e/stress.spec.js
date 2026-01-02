@@ -69,7 +69,8 @@ test.describe('Word Stress Activity', () => {
     return tabId;
   }
 
-  async function openSidePanelForActivity(tabId, activityValue) {
+  async function openSidePanelForActivity(tabId, activityValue, options = {}) {
+    const { clickEnhance = true } = options;
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
 
@@ -79,9 +80,26 @@ test.describe('Word Stress Activity', () => {
       return select && select.options.length > 1;
     }, { timeout: 5000 });
     await sidePanelPage.selectOption('#activity-menu', activityValue);
-    await sidePanelPage.click('#enhance-button');
+    if (clickEnhance) {
+      await sidePanelPage.click('#enhance-button');
+    }
     return sidePanelPage;
   }
+
+  test('word stress legend shows for click activity', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    const sidePanelPage = await openSidePanelForActivity(tabId, 'click', { clickEnhance: false });
+
+    const note = sidePanelPage.locator('#word-stress-note');
+    await expect(note).toBeVisible({ timeout: 5000 });
+    const noteText = await note.textContent();
+    expect(noteText).toContain('cursor legend');
+  });
 
   test('can open fixture page and read expected text', async () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
@@ -119,6 +137,57 @@ test.describe('Word Stress Activity', () => {
     await expect(stressSpan).toBeVisible({ timeout: 5000 });
   });
 
+  test('color activity sets cursors by stress status', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    await openSidePanelForActivity(tabId, 'color');
+
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress').length >= 5, { timeout: 8000 });
+
+    await page.waitForFunction(() => {
+      const spans = Array.from(document.querySelectorAll('.ʁ-stress'));
+      return spans.some(el => getComputedStyle(el).cursor === 'help');
+    }, { timeout: 8000 });
+
+    const cursors = await page.evaluate(() => {
+      const spans = Array.from(document.querySelectorAll('.ʁ-stress'));
+
+      const cursorFor = (needle) => {
+        const match = spans.find(el => {
+          const normalized = el.textContent.normalize('NFD').replace(/\u0301/g, '');
+          return normalized.includes(needle);
+        });
+        return match ? getComputedStyle(match).cursor : null;
+      };
+
+      const allCursors = spans.map(el => getComputedStyle(el).cursor);
+
+      return {
+        byWord: {
+          dom: cursorFor('дом'),
+          knigu: cursorFor('книг'),
+          tela: cursorFor('тела'),
+          muku: cursorFor('муку'),
+          skrambler: cursorFor('скрамблер')
+        },
+        all: allCursors
+      };
+    });
+
+    const normalize = (c) => c === 'auto' ? 'default' : c;
+
+    expect(normalize(cursors.byWord.dom)).toBe('default');
+    expect(normalize(cursors.byWord.knigu)).toBe('default');
+    expect(normalize(cursors.byWord.skrambler)).toBe('not-allowed');
+
+    const helpSeen = cursors.all.some(c => normalize(c) === 'help');
+    expect(helpSeen).toBe(true);
+  });
+
   test('click activity marks stressed vowel on selection', async () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
@@ -128,10 +197,96 @@ test.describe('Word Stress Activity', () => {
 
     await openSidePanelForActivity(tabId, 'click');
 
-    const clickSpan = page.locator('.ʁ-stress-click').first();
-    await expect(clickSpan).toBeVisible({ timeout: 8000 });
-    const letters = clickSpan.locator('.letter');
-    expect(await letters.count()).toBeGreaterThan(0);
+    const firstLetter = page.locator('.ʁ-stress-click .letter').first();
+    await expect(firstLetter).toBeVisible({ timeout: 8000 });
+    const letterCount = await page.locator('.ʁ-stress-click .letter').count();
+    expect(letterCount).toBeGreaterThan(0);
+  });
+
+  test('click activity wraps only vowels', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    await openSidePanelForActivity(tabId, 'click');
+
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-click').length >= 5, { timeout: 8000 });
+
+    const allVowelSpansAreVowels = await page.evaluate(() => {
+      const vowels = ['а','е','ё','и','о','у','ы','э','ю','я','А','Е','Ё','И','О','У','Ы','Э','Ю','Я'];
+      const containers = Array.from(document.querySelectorAll('.ʁ-stress-click'));
+      let anyWithVowels = false;
+      const allPass = containers.every(container => {
+        const text = container.textContent.normalize('NFD').replace(/\u0301/g, '');
+        const vowelCount = Array.from(text).filter(ch => vowels.includes(ch)).length;
+        const spans = Array.from(container.querySelectorAll('.letter'));
+        if (vowelCount > 0) {
+          anyWithVowels = true;
+        }
+        const spansAreVowels = spans.every(s => vowels.includes(s.textContent));
+        const countsOk = spans.length <= vowelCount;
+        return spansAreVowels && countsOk;
+      });
+      return allPass && anyWithVowels;
+    });
+
+    expect(allVowelSpansAreVowels).toBe(true);
+  });
+
+  test('click activity sets cursors by stress status', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    await openSidePanelForActivity(tabId, 'click');
+
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-click').length >= 5, { timeout: 8000 });
+
+    await page.waitForFunction(() => {
+      const letters = Array.from(document.querySelectorAll('.ʁ-stress-click .letter'));
+      return letters.some(el => {
+        const c = getComputedStyle(el).cursor;
+        return c === 'help' || c === 'not-allowed';
+      });
+    }, { timeout: 8000 });
+
+    const cursors = await page.evaluate(() => {
+      const containers = Array.from(document.querySelectorAll('.ʁ-stress-click'));
+
+      const cursorFor = (needle) => {
+        const match = containers.find(el => {
+          const normalized = el.textContent.normalize('NFD').replace(/\u0301/g, '');
+          return normalized.includes(needle);
+        });
+        const letter = match ? match.querySelector('.letter') : null;
+        return letter ? getComputedStyle(letter).cursor : null;
+      };
+
+      const allLetters = Array.from(document.querySelectorAll('.ʁ-stress-click .letter'));
+      const allCursors = allLetters.map(el => getComputedStyle(el).cursor);
+
+      return {
+        byWord: {
+          dom: cursorFor('дом'),
+          knigu: cursorFor('книг'),
+          skrambler: cursorFor('скрамблер')
+        },
+        all: allCursors
+      };
+    });
+
+    const normalize = (c) => c === 'auto' ? 'default' : c;
+
+    expect(normalize(cursors.byWord.dom)).toBe('pointer');
+    expect(normalize(cursors.byWord.knigu)).toBe('pointer');
+    expect(normalize(cursors.byWord.skrambler)).toBe('not-allowed');
+
+    const helpSeen = cursors.all.some(c => normalize(c) === 'help');
+    expect(helpSeen).toBe(true);
   });
 
   test('multiple choice replaces token after correct selection', async () => {
@@ -181,5 +336,56 @@ test.describe('Word Stress Activity', () => {
       }
       return false;
     }, { timeout: 8000 });
+  });
+
+  test('hover activity sets cursors by stress status', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    await openSidePanelForActivity(tabId, 'hover');
+
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-hover').length >= 5, { timeout: 8000 });
+
+    await page.waitForFunction(() => {
+      const spans = Array.from(document.querySelectorAll('.ʁ-stress-hover'));
+      return spans.some(el => getComputedStyle(el).cursor === 'help');
+    }, { timeout: 8000 });
+
+    const cursors = await page.evaluate(() => {
+      const spans = Array.from(document.querySelectorAll('.ʁ-stress-hover'));
+
+      const cursorFor = (needle) => {
+        const match = spans.find(el => {
+          const normalized = el.textContent.normalize('NFD').replace(/\u0301/g, '');
+          return normalized.includes(needle);
+        });
+        return match ? getComputedStyle(match).cursor : null;
+      };
+
+      const allCursors = spans.map(el => getComputedStyle(el).cursor);
+
+      return {
+        byWord: {
+          dom: cursorFor('дом'),
+          knigu: cursorFor('книг'),
+          tela: cursorFor('тела'),
+          muku: cursorFor('муку'),
+          skrambler: cursorFor('скрамблер')
+        },
+        all: allCursors
+      };
+    });
+
+    const normalize = (c) => c === 'auto' ? 'default' : c;
+
+    expect(normalize(cursors.byWord.dom)).toBe('default');
+    expect(normalize(cursors.byWord.knigu)).toBe('default');
+    expect(normalize(cursors.byWord.skrambler)).toBe('not-allowed');
+
+    const helpSeen = cursors.all.some(c => normalize(c) === 'help');
+    expect(helpSeen).toBe(true);
   });
 });

@@ -110,12 +110,12 @@
                     const capType = window.RLTKUtils.detectCapitalization(originalText);
                     span.textContent = window.RLTKUtils.matchCapitalization(stressedForm, capType);
                 }
-            } else {
-                // Ambiguous or unknown
+                span.style.cursor = 'default';
+            } else if (analysis.status === 'ambiguous') {
                 span.style.cursor = 'help';
-                if (analysis.status === 'ambiguous') {
-                    span.title = createAmbiguousTooltip(analysis);
-                }
+                span.title = createAmbiguousTooltip(analysis);
+            } else {
+                span.style.cursor = 'not-allowed';
             }
         })();
 
@@ -127,102 +127,96 @@
         const container = document.createElement('span');
         container.className = `ʁ ʁ${cohortIndex} ʁ-stress-click`;
 
+        const vowels = ['а','е','ё','и','о','у','ы','э','ю','я','А','Е','Ё','И','О','У','Ы','Э','Ю','Я'];
+        const isVowel = (ch) => vowels.includes(ch);
+
         // Store state
         let stressState = { status: 'loading', form: null };
 
-        // Create letters
+        // Create inline content: wrap vowels only, leave consonants/plain text unwrapped
         const letters = [];
         for (let i = 0; i < originalText.length; i++) {
-            const letterSpan = document.createElement('span');
-            letterSpan.textContent = originalText[i];
-            letterSpan.className = 'letter';
-            letterSpan.style.cursor = 'default'; // Default until loaded
+            const ch = originalText[i];
+            if (isVowel(ch)) {
+                const letterSpan = document.createElement('span');
+                letterSpan.textContent = ch;
+                letterSpan.className = 'letter';
+                letterSpan.dataset.index = String(i);
+                letterSpan.style.cursor = 'default';
 
-            // Mouse events for unknown/ambiguous stress
-            letterSpan.addEventListener('mouseenter', function(e) {
-                if (stressState.status === 'ambiguous' || stressState.status === 'unknown') {
-                    this.style.cursor = 'help';
-                } else if (stressState.status === 'known') {
-                    this.style.cursor = 'pointer';
-                }
-            });
-
-            // Click handler
-            letterSpan.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (stressState.status !== 'known') return; // Only allow clicking if known/unambiguous
-
-                const correctForm = stressState.form;
-
-                // Logic: check if correctForm has stress after this index
-                // We map the clicked letter index to the correctForm index.
-
-                let cleanIndex = 0;
-                let stressedIndex = 0;
-                let found = false;
-
-                // We want to find the position in correctForm that corresponds to `index` in originalText.
-                while (stressedIndex < correctForm.length && cleanIndex <= i) {
-                    if (correctForm[stressedIndex] === '\u0301') {
-                        stressedIndex++; // Skip stress mark in correctForm
-                    } else {
-                        if (cleanIndex === i) {
-                            found = true;
-                            break;
-                        }
-                        cleanIndex++;
-                        stressedIndex++;
+                letterSpan.addEventListener('mouseenter', function() {
+                    if (stressState.status === 'known') {
+                        this.style.cursor = 'pointer';
+                        this.style.backgroundColor = 'rgba(0,0,0,0.08)';
+                    } else if (stressState.status === 'ambiguous') {
+                        this.style.cursor = 'help';
+                        this.style.backgroundColor = '';
+                    } else if (stressState.status === 'unknown') {
+                        this.style.cursor = 'not-allowed';
+                        this.style.backgroundColor = '';
                     }
-                }
+                });
 
-                if (found) {
-                    // Check if the NEXT char in correctForm is stress
+                letterSpan.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = '';
+                });
+
+                // Click handler
+                letterSpan.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (stressState.status !== 'known') return; // Only allow clicking if known/unambiguous
+
+                    const correctForm = stressState.form;
+                    const targetIndex = Number(this.dataset.index);
+
+                    let cleanIndex = 0;
+                    let stressedIndex = 0;
+                    let found = false;
+
+                    while (stressedIndex < correctForm.length && cleanIndex <= targetIndex) {
+                        if (correctForm[stressedIndex] === '\u0301') {
+                            stressedIndex++;
+                        } else {
+                            if (cleanIndex === targetIndex) {
+                                found = true;
+                                break;
+                            }
+                            cleanIndex++;
+                            stressedIndex++;
+                        }
+                    }
+
+                    if (!found) return;
+
                     const isStressed = (stressedIndex + 1 < correctForm.length) && (correctForm[stressedIndex + 1] === '\u0301');
 
                     if (isStressed) {
-                        // Correct!
-                        // Flash the clicked letter green
-                        const originalBg = this.style.backgroundColor;
                         this.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
-                        setTimeout(() => {
-                            this.style.backgroundColor = originalBg || '';
-                        }, 500);
+                        letters.forEach(l => l.style.pointerEvents = 'none');
 
-                        // Update ALL letters to show stress
-                        let cIdx = 0;
-                        for (let lIdx = 0; lIdx < letters.length; lIdx++) {
-                            // Skip stress marks in correctForm to align with letters
-                            while (cIdx < correctForm.length && correctForm[cIdx] === '\u0301') {
-                                cIdx++;
-                            }
-
-                            if (cIdx < correctForm.length) {
-                                // Check if this position has stress in correctForm
-                                if (cIdx + 1 < correctForm.length && correctForm[cIdx + 1] === '\u0301') {
-                                    letters[lIdx].textContent += '\u0301';
-                                }
-                                cIdx++;
-                            }
-                        }
-
+                        const capType = window.RLTKUtils.detectCapitalization(originalText);
+                        const finalForm = window.RLTKUtils.matchCapitalization(correctForm, capType);
                         container.classList.add('click-style-correct');
                         container.classList.remove('click-style-incorrect');
-                        container.style.cursor = 'default';
-                        letters.forEach(l => l.style.cursor = 'default');
 
+                        setTimeout(() => {
+                            container.textContent = finalForm;
+                            container.style.cursor = 'default';
+                        }, 400);
                     } else {
-                        // Incorrect - flash red on the specific letter
                         const originalBg = this.style.backgroundColor;
                         this.style.backgroundColor = 'rgba(255, 0, 0, 0.3)';
                         setTimeout(() => {
                             this.style.backgroundColor = originalBg || '';
-                        }, 500);
+                        }, 400);
                     }
-                }
-            });
+                });
 
-            container.appendChild(letterSpan);
-            letters.push(letterSpan);
+                container.appendChild(letterSpan);
+                letters.push(letterSpan);
+            } else {
+                container.appendChild(document.createTextNode(ch));
+            }
         }
 
         (async () => {
@@ -231,12 +225,13 @@
                 stressState.status = 'known';
                 stressState.form = analysis.form;
                 letters.forEach(l => l.style.cursor = 'pointer');
-            } else {
-                stressState.status = analysis.status;
-                if (analysis.status === 'ambiguous') {
-                    container.title = createAmbiguousTooltip(analysis);
-                }
+            } else if (analysis.status === 'ambiguous') {
+                stressState.status = 'ambiguous';
+                container.title = createAmbiguousTooltip(analysis);
                 letters.forEach(l => l.style.cursor = 'help');
+            } else {
+                stressState.status = 'unknown';
+                letters.forEach(l => l.style.cursor = 'not-allowed');
             }
         })();
 
@@ -256,9 +251,11 @@
                 const capType = window.RLTKUtils.detectCapitalization(originalText);
                 span.textContent = window.RLTKUtils.matchCapitalization(analysisResult.form, capType);
                 span.classList.add('click-style-correct');
-                span.style.cursor = 'pointer';
-            } else if (analysisResult) {
+                span.style.cursor = 'default';
+            } else if (analysisResult && analysisResult.status === 'ambiguous') {
                 span.style.cursor = 'help';
+            } else if (analysisResult && analysisResult.status === 'unknown') {
+                span.style.cursor = 'not-allowed';
             }
         });
 
@@ -271,6 +268,11 @@
             analysisResult = await analyzeStress(originalText, cohort);
             if (analysisResult.status === 'ambiguous') {
                 span.title = createAmbiguousTooltip(analysisResult);
+                span.style.cursor = 'help';
+            } else if (analysisResult.status === 'unknown') {
+                span.style.cursor = 'not-allowed';
+            } else {
+                span.style.cursor = 'default';
             }
         })();
 
