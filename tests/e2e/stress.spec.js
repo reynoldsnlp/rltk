@@ -58,6 +58,31 @@ test.describe('Word Stress Activity', () => {
     }
   });
 
+  async function getFixtureTabId(fixtureUrl) {
+    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+    const tabId = await serviceWorker.evaluate(async (targetUrl) => {
+      const exact = await chrome.tabs.query({ url: targetUrl });
+      if (exact.length > 0) return exact[0].id;
+      const all = await chrome.tabs.query({});
+      return all.length > 0 ? all[0].id : null;
+    }, fixtureUrl);
+    return tabId;
+  }
+
+  async function openSidePanelForActivity(tabId, activityValue) {
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+
+    await sidePanelPage.selectOption('#topic-menu', 'word-stress');
+    await sidePanelPage.waitForFunction(() => {
+      const select = document.querySelector('#activity-menu');
+      return select && select.options.length > 1;
+    }, { timeout: 5000 });
+    await sidePanelPage.selectOption('#activity-menu', activityValue);
+    await sidePanelPage.click('#enhance-button');
+    return sidePanelPage;
+  }
+
   test('can open fixture page and read expected text', async () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
@@ -82,37 +107,79 @@ test.describe('Word Stress Activity', () => {
     expect(baselineHtml.includes('\u0301')).toBe(false);
     await expect(page.locator('.ʁ-stress')).toHaveCount(0);
 
-    // Find the tab id for the fixture page via the service worker
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const tabId = await serviceWorker.evaluate(async (targetUrl) => {
-      const exact = await chrome.tabs.query({ url: targetUrl });
-      if (exact.length > 0) return exact[0].id;
-      const all = await chrome.tabs.query({});
-      return all.length > 0 ? all[0].id : null;
-    }, fixtureUrl);
+    const tabId = await getFixtureTabId(fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    // Open side panel targeting the fixture tab
-    const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await openSidePanelForActivity(tabId, 'color');
 
-    await sidePanelPage.selectOption('#topic-menu', 'word-stress');
-    await sidePanelPage.waitForFunction(() => {
-      const select = document.querySelector('#activity-menu');
-      return select && select.options.length > 1;
-    }, { timeout: 5000 });
-    await sidePanelPage.selectOption('#activity-menu', 'color');
-
-    await sidePanelPage.click('#enhance-button');
-
-    // Wait for actual stress marks to appear (combining acute)
     await page.waitForFunction(() => document.documentElement.innerHTML.includes('\u0301'), { timeout: 8000 });
-
-    const accentedHtml = await page.innerHTML('body');
-    expect(accentedHtml.includes('\u0301')).toBe(true);
 
     // Sanity: at least one injected span contains an accent
     const stressSpan = page.locator('.ʁ-stress', { hasText: /\u0301/ }).first();
     await expect(stressSpan).toBeVisible({ timeout: 5000 });
+  });
+
+  test('click activity marks stressed vowel on selection', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    await openSidePanelForActivity(tabId, 'click');
+
+    const clickSpan = page.locator('.ʁ-stress-click').first();
+    await expect(clickSpan).toBeVisible({ timeout: 8000 });
+    const letters = clickSpan.locator('.letter');
+    expect(await letters.count()).toBeGreaterThan(0);
+  });
+
+  test('multiple choice replaces token after correct selection', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    await openSidePanelForActivity(tabId, 'mc');
+
+    const mcSelect = page.locator('.ʁ-stress-mc select').first();
+    await expect(mcSelect).toBeVisible({ timeout: 8000 });
+
+    // Select the correct option (dataset.isCorrect === 'true')
+    const correctValue = await mcSelect.evaluate((sel) => {
+      const option = Array.from(sel.options).find(opt => opt.dataset && opt.dataset.isCorrect === 'true');
+      return option ? option.value : '';
+    });
+    expect(correctValue).not.toBe('');
+    await mcSelect.selectOption(correctValue);
+
+    // Correct selection replaces the container with a success span
+    const correctSpan = page.locator('.ʁ-stress-correct').first();
+    await expect(correctSpan).toBeVisible({ timeout: 8000 });
+    await expect(correctSpan).toContainText('\u0301');
+  });
+
+  test('hover activity reveals stress on mouseover', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    await openSidePanelForActivity(tabId, 'hover');
+
+    await page.waitForFunction(() => {
+      const spans = Array.from(document.querySelectorAll('.ʁ-stress-hover'));
+      for (const span of spans) {
+        span.dispatchEvent(new Event('mouseenter', { bubbles: true }));
+        if (span.textContent.includes('\u0301')) {
+          span.dispatchEvent(new Event('mouseleave', { bubbles: true }));
+          return true;
+        }
+        span.dispatchEvent(new Event('mouseleave', { bubbles: true }));
+      }
+      return false;
+    }, { timeout: 8000 });
   });
 });

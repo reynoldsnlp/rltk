@@ -151,7 +151,7 @@
             letterSpan.addEventListener('click', function(e) {
                 e.stopPropagation();
                 if (stressState.status !== 'known') return; // Only allow clicking if known/unambiguous
-                
+
                 const correctForm = stressState.form;
 
                 // Logic: check if correctForm has stress after this index
@@ -243,12 +243,12 @@
         return container;
     };
 
-    // 3. Cloze Activity: Hover to reveal stress
-    window.EnhanceFuncs["word-stress-cloze"] = function(originalText, cohort, cohortIndex) {
+    // 3. Hover Activity: Reveal stress on hover
+    window.EnhanceFuncs["word-stress-hover"] = function(originalText, cohort, cohortIndex) {
         const span = document.createElement('span');
-        span.className = `ʁ ʁ${cohortIndex} ʁ-stress-cloze`;
+        span.className = `ʁ ʁ${cohortIndex} ʁ-stress-hover`;
         span.textContent = originalText;
-        
+
         let analysisResult = null;
 
         span.addEventListener('mouseenter', function() {
@@ -276,6 +276,9 @@
 
         return span;
     };
+
+    // Backward compatibility alias (if any config still requests cloze for word-stress)
+    window.EnhanceFuncs["word-stress-cloze"] = window.EnhanceFuncs["word-stress-hover"];
 
     // 4. Multiple Choice Activity
     function generateStressDistractors(surfaceForm) {
@@ -316,7 +319,7 @@
 
         (async () => {
             const analysis = await analyzeStress(originalText, cohort);
-            
+
             if (analysis.status !== 'unambiguous') {
                 // If ambiguous or unknown, just leave as text
                 if (analysis.status === 'ambiguous') {
@@ -329,7 +332,7 @@
             }
 
             const correctForm = analysis.form;
-            
+
             const select = document.createElement('select');
             const width = window.RLTKUtils.getResponsiveWidth(originalText);
             select.style.cssText = window.RLTKUtils.getBaseFormStyles(width, 'margin-left: 1.2ch;');
@@ -396,7 +399,7 @@
                     });
                 }
             });
-            
+
             container.textContent = '';
             container.appendChild(select);
 

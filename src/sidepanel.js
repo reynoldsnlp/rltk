@@ -196,6 +196,8 @@ class RussianToolsSidePanel {
         this.debugTabId = debugTabIdParam ? parseInt(debugTabIdParam) : null;
 
         await this.loadDensitySetting();
+        // Hide density controls by default; they are only shown for MC/Cloze after selection.
+        this.toggleDensitySection('unselected');
 
         // Load state for the current tab
         let tabs;
@@ -965,7 +967,7 @@ ${errorMessage}`);
                 { val: 'color', text: 'Mark Stress' },
                 { val: 'click', text: 'Click on stressed vowels' },
                 { val: 'mc', text: 'Multiple Choice' },
-                { val: 'cloze', text: 'Hover' }
+                { val: 'hover', text: 'Hover' }
             ]
         };
 

@@ -333,12 +333,10 @@ class ActivityFactory {
             case 'explore':
                 return new ClickActivity(selections);
             case 'cloze':
-                // Special case: 'word-stress' 'cloze' is actually a 'Hover' activity
-                // which should apply to all tokens, not a random selection.
-                if (selections.topic === 'word-stress') {
-                    return new BaseActivity(selections);
-                }
                 return new ClozeActivity(selections);
+            case 'hover':
+                // Hover is a non-density variant that applies to all tokens
+                return new BaseActivity(selections);
             case 'mc':
             case 'multiple-choice':
                 return new MultipleChoiceActivity(selections);
