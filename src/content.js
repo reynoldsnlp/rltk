@@ -10,29 +10,6 @@
  */
 
 (function () {
-    // Inject CSS directly into the page
-    const style = document.createElement('style');
-    style.id = 'rltk-main-styles';
-    style.textContent = `
-        .ʁ {
-            border-radius: 2px;
-        }
-        .ʁ-click-green, .ʁ-click-red {
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        .ʁ-click-green:hover, .ʁ-click-red:hover {
-            background-color: rgba(255, 255, 0, 0.1);
-        }
-        .ʁ-click-green.clicked {
-            background-color: rgba(0, 255, 0, 0.3);
-        }
-        .ʁ-click-red.clicked {
-            background-color: rgba(255, 0, 0, 0.3);
-        }
-    `;
-    document.head.appendChild(style);
-
     // Reading Tutor State
     let isReadingTutorActive = false;
     let selectionDebounceTimer = null;

@@ -116,6 +116,10 @@ async function ensureContentScriptLoaded(tabId) {
         await chrome.tabs.sendMessage(tabId, { action: 'ping' });
     } catch (error) {
         try {
+            await chrome.scripting.insertCSS({
+                target: { tabId: tabId },
+                files: ['src/content.css'],
+            });
             await chrome.scripting.executeScript({
                 target: { tabId: tabId },
                 files: CONTENT_SCRIPT_FILES,
