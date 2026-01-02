@@ -83,21 +83,32 @@
             e.stopPropagation();
             e.preventDefault();
 
-            // Highlight logic
-            document.querySelectorAll('.ʁ-reading-tutor').forEach(el => el.classList.remove('ʁ-highlighted'));
-            this.classList.add('ʁ-highlighted');
+            if (this.classList.contains('ʁ-highlighted')) {
+                this.classList.remove('ʁ-highlighted');
+                chrome.runtime.sendMessage({
+                    action: 'reading_tutor_selection',
+                    text: null,
+                    cohort: null,
+                    index: null
+                });
+            } else {
+                // Highlight logic
+                document.querySelectorAll('.ʁ-reading-tutor').forEach(el => el.classList.remove('ʁ-highlighted'));
+                this.classList.add('ʁ-highlighted');
 
-            const readings = JSON.parse(this.getAttribute('data-readings') || '[]');
+                const readings = JSON.parse(this.getAttribute('data-readings') || '[]');
 
-            // Send message to side panel with full cohort data
-            chrome.runtime.sendMessage({
-                action: 'reading_tutor_selection',
-                text: originalText,
-                cohort: {
-                    w: originalText,
-                    rs: readings
-                }
-            });
+                // Send message to side panel with full cohort data
+                chrome.runtime.sendMessage({
+                    action: 'reading_tutor_selection',
+                    text: originalText,
+                    cohort: {
+                        w: originalText,
+                        rs: readings
+                    },
+                    index: cohortIndex
+                });
+            }
         });
 
         return span;

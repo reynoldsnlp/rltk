@@ -655,6 +655,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
         })();
         return true; // Keep the message channel open for async response
+    } else if (request.target === 'offscreen' && request.action === 'ping') {
+        sendResponse({ success: true });
+        return true;
     } else if (request.target === 'offscreen' && request.action === 'get_model_data') {
         (async () => {
             try {

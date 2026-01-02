@@ -19,11 +19,30 @@ class RussianToolsSidePanel {
         this.minDistanceKey = 'rltk_token_selector_minDistance';
         this.defaultMinDistance = 5;
         this.lastSavedMinDistance = null;
-        this.debugTabId = null;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        this.debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
+
         this.currentTabId = null;
         this.hasSelection = false;
+        this.userHasInteracted = false;
+        this.operationLock = Promise.resolve();
+        this.lastReadingTutorSubTab = 'translations-and-paradigms';
 
         this.init();
+    }
+
+    async runExclusive(fn) {
+        const currentLock = this.operationLock;
+        let releaseLock;
+        this.operationLock = new Promise(resolve => releaseLock = resolve);
+
+        try {
+            await currentLock;
+            await fn();
+        } finally {
+            releaseLock();
+        }
     }
 
     async loadFreqDict() {
@@ -247,6 +266,15 @@ class RussianToolsSidePanel {
                 this.checkPageStatus();
             }
         });
+
+        // Initialize the active tab
+        if (!this.userHasInteracted) {
+            const activeTabButton = document.querySelector('.tab-button.active');
+            if (activeTabButton) {
+                const tabName = activeTabButton.dataset.tab;
+                await this.switchTab(tabName);
+            }
+        }
     }
 
     /**
@@ -311,6 +339,7 @@ class RussianToolsSidePanel {
         // Tab navigation
         document.querySelectorAll('.tab-button').forEach(button => {
             button.addEventListener('click', (e) => {
+                this.userHasInteracted = true;
                 this.switchTab(e.target.dataset.tab);
             });
         });
@@ -318,6 +347,7 @@ class RussianToolsSidePanel {
         // Sub-tab navigation
         document.querySelectorAll('.sub-tab-button').forEach(button => {
             button.addEventListener('click', (e) => {
+                this.userHasInteracted = true;
                 this.switchSubTab(e.target.dataset.subtab);
             });
         });
@@ -407,13 +437,14 @@ class RussianToolsSidePanel {
      * Handles permission requests if necessary.
      */
     async enhancePage() {
-        if (this.isProcessing) return;
+        await this.runExclusive(async () => {
+            if (this.isProcessing) return;
 
-        await this.syncSelectionStateFromTab();
-        const selectionOnly = this.hasSelection;
+            await this.syncSelectionStateFromTab();
+            const selectionOnly = this.hasSelection;
 
-        this.isProcessing = true;
-        this.setProcessingState(true);
+            this.isProcessing = true;
+            this.setProcessingState(true);
 
         const selections = {
             topic: document.getElementById('topic-menu').value,
@@ -488,6 +519,7 @@ ${errorMessage}`);
             // Ensure loading is hidden if it wasn't handled by state changes
             document.getElementById('loading').style.display = 'none';
         }
+        });
     }
 
     async restorePage() {
@@ -548,6 +580,9 @@ ${errorMessage}`);
 
 
     async switchTab(tabName) {
+        const previousTab = this.currentTab;
+        this.currentTab = tabName;
+
         // Remove active class from all tabs and buttons
         document.querySelectorAll('.tab-button').forEach(button => {
             button.classList.remove('active');
@@ -563,25 +598,19 @@ ${errorMessage}`);
         // Handle Reading Tutor activation
         if (tabName === 'reading-tutor') {
             await this.activateReadingTutor();
-            // Default to translations-and-paradigms subtab
-            this.switchSubTab('translations-and-paradigms');
+            // Restore last selected subtab
+            this.switchSubTab(this.lastReadingTutorSubTab);
         } else {
             // If leaving Reading Tutor or switching to Reading Activities, restore page
-            // But if we are in Reading Activities, we might want to keep the current activity?
-            // The requirement says: "When any tab other than "Reading Activities" is selected, the page should be restored"
-            // So if we switch TO Reading Activities, we might need to restore if we came from Reading Tutor?
-            // Or just let the user click Enhance again.
-            // Let's assume switching tabs should reset the view unless it's Reading Activities -> Reading Activities (which doesn't happen).
-            // Actually, activateReadingTutor calls enhancePage with specific settings.
-            // If we switch away, we should probably restore.
-            if (this.currentTab === 'reading-tutor') {
-                await this.restorePage();
+            if (previousTab === 'reading-tutor') {
+                await this.runExclusive(() => this.restorePage());
             }
         }
-        this.currentTab = tabName;
     }
 
-    switchSubTab(subTabName) {
+    async switchSubTab(subTabName) {
+        this.lastReadingTutorSubTab = subTabName;
+
         document.querySelectorAll('.sub-tab-button').forEach(button => {
             button.classList.remove('active');
         });
@@ -599,8 +628,38 @@ ${errorMessage}`);
             content.style.display = 'block';
         }
 
+        const tabId = await this.getActiveTabId();
+
         if (subTabName === 'grammar-highlighter') {
             this.initializeGrammarHighlighterUI();
+
+            if (tabId) {
+                // Clear Translations selection
+                chrome.tabs.sendMessage(tabId, { action: 'clear_reading_tutor_selection' }).catch(() => {});
+                // Apply Grammar Highlighter styles
+                this.updateGrammarHighlighterHighlighting();
+            }
+        } else if (subTabName === 'translations-and-paradigms') {
+            if (tabId) {
+                // Clear Grammar Highlighter styles
+                chrome.tabs.sendMessage(tabId, {
+                    action: 'update_grammar_highlighter_styles',
+                    css: ''
+                }).catch(() => {});
+
+                // Restore Translations selection
+                if (this.lastReadingTutorSelectionIndex !== undefined && this.lastReadingTutorSelectionIndex !== null) {
+                    chrome.tabs.sendMessage(tabId, {
+                        action: 'restore_reading_tutor_selection',
+                        index: this.lastReadingTutorSelectionIndex
+                    }).catch(() => {});
+                }
+
+                // Restore side panel content
+                if (this.lastReadingTutorSelectionData) {
+                    this.handleReadingTutorSelection(this.lastReadingTutorSelectionData);
+                }
+            }
         }
     }
 
@@ -768,6 +827,8 @@ ${errorMessage}`);
         // 1. Restore page to clear any existing activity
         await this.restorePage();
 
+        if (this.currentTab !== 'reading-tutor') return;
+
         // 2. Trigger enhancement for Reading Tutor
         // We simulate an enhancement request with specific parameters
         const selections = {
@@ -784,7 +845,8 @@ ${errorMessage}`);
         try {
             const response = await chrome.runtime.sendMessage({
                 action: 'enhance',
-                selections: selections
+                selections: selections,
+                tabId: this.debugTabId || this.currentTabId
             });
 
             if (!response.success) {
@@ -1089,8 +1151,30 @@ ${errorMessage}`);
     }
 
     async handleReadingTutorSelection(data) {
+        if (data.text === null && data.cohort === null) {
+            this.lastReadingTutorSelectionIndex = null;
+            this.lastReadingTutorSelectionData = null;
+            const container = document.getElementById('reading-tutor-results');
+            if (container) container.innerHTML = '';
+            // Show instructions again?
+            const instructions = document.getElementById('reading-tutor-instructions');
+            if (instructions) instructions.style.display = 'block';
+            return;
+        }
+
+        if (data.index !== undefined) {
+            this.lastReadingTutorSelectionIndex = data.index;
+        }
+
+        // Store the data for restoration
+        this.lastReadingTutorSelectionData = data;
+
         const container = document.getElementById('reading-tutor-results');
         container.innerHTML = '<div class="loading">Analyzing...</div>';
+
+        // Hide instructions
+        const instructions = document.getElementById('reading-tutor-instructions');
+        if (instructions) instructions.style.display = 'none';
 
         try {
             let cohorts;

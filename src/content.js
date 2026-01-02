@@ -47,8 +47,13 @@
     }
 
     function notifySelectionState() {
+        if (!chrome.runtime?.id) return;
         const hasSelection = hasNonEmptySelection();
-        chrome.runtime.sendMessage({ action: 'selection_state', hasSelection }).catch(() => {});
+        try {
+            chrome.runtime.sendMessage({ action: 'selection_state', hasSelection }).catch(() => {});
+        } catch (e) {
+            // Ignore extension context invalidated errors
+        }
     }
 
     /**
@@ -579,6 +584,21 @@
                     document.head.appendChild(style);
                 }
                 style.textContent = request.css;
+                sendResponse({ success: true });
+                break;
+
+            case 'clear_reading_tutor_selection':
+                document.querySelectorAll('.ʁ-reading-tutor').forEach(el => el.classList.remove('ʁ-highlighted'));
+                sendResponse({ success: true });
+                break;
+
+            case 'restore_reading_tutor_selection':
+                if (request.index !== undefined && request.index !== null) {
+                    const el = document.querySelector(`.ʁ${request.index}`);
+                    if (el) {
+                        el.classList.add('ʁ-highlighted');
+                    }
+                }
                 sendResponse({ success: true });
                 break;
 

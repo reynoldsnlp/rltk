@@ -39,33 +39,43 @@ const CONTENT_SCRIPT_FILES = [
  * The offscreen document is used for heavy WASM processing (HFST/CG3).
  */
 async function createOffscreenDocument() {
-  if (offscreenCreated) return;
-
+  // Check if an offscreen document already exists
   try {
-    // Check if an offscreen document already exists
-    const existingContexts = await chrome.runtime.getContexts({
-      contextTypes: ['OFFSCREEN_DOCUMENT']
-    });
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT']
+      });
 
-    if (existingContexts.length > 0) {
+      if (existingContexts.length === 0) {
+        await chrome.offscreen.createDocument({
+          url: 'src/offscreen.html',
+          reasons: ['DOM_SCRAPING'],
+          justification: 'HFST WASM processing requires relaxed CSP'
+        });
+      }
       offscreenCreated = true;
-      return;
-    }
-
-    await chrome.offscreen.createDocument({
-      url: 'src/offscreen.html',
-      reasons: ['DOM_SCRAPING'],
-      justification: 'HFST WASM processing requires relaxed CSP'
-    });
-    offscreenCreated = true;
   } catch (error) {
-    if (error.message.includes('Only a single offscreen document may be created')) {
-      // Document already exists, just mark as created
+      if (!error.message.includes('Only a single offscreen document may be created')) {
+          throw error;
+      }
       offscreenCreated = true;
-    } else {
-      throw error;
-    }
   }
+
+  // Wait for the offscreen document to be ready
+  let retries = 50; // 5 seconds
+  while (retries > 0) {
+      try {
+          const response = await chrome.runtime.sendMessage({
+              target: 'offscreen',
+              action: 'ping'
+          });
+          if (response && response.success) return;
+      } catch (e) {
+          // Ignore
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries--;
+  }
+  console.warn('Offscreen document did not respond to ping.');
 }
 
 // Set up side panel on installation

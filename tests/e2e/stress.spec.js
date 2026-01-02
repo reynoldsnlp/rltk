@@ -245,7 +245,10 @@ test.describe('Word Stress Activity', () => {
 
     await openSidePanelForActivity(tabId, 'click');
 
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-click').length >= 5, { timeout: 8000 });
+    await page.waitForFunction(() => {
+      const letters = document.querySelectorAll('.ʁ-stress-click .letter');
+      return letters.length > 0 && Array.from(letters).some(l => getComputedStyle(l).cursor === 'pointer');
+    }, { timeout: 8000 });
 
     const cursors = await page.evaluate(() => {
       const containers = Array.from(document.querySelectorAll('.ʁ-stress-click'));
