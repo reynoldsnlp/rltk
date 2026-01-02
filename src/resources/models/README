@@ -3,3 +3,8 @@
 Note that `old-tokeniser-disamb-gt-desc.pmhfst` is from an old build that
 resulted in a smaller and faster tokenizer. The latest builds are much
 larger and slower, which needs to be debugged eventually.
+
+
+## Translations
+
+openrussian.org translations are taken from https://app.togetherdb.com/db/fwoedz5fvtwvq03v/russian3/words and https://app.togetherdb.com/db/fwoedz5fvtwvq03v/russian3/translations.

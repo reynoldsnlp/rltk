@@ -27,7 +27,7 @@ class RussianToolsSidePanel {
         this.hasSelection = false;
         this.userHasInteracted = false;
         this.operationLock = Promise.resolve();
-        this.lastReadingTutorSubTab = 'translations-and-paradigms';
+        this.lastReadingTutorSubTab = 'translations-and-tables';
 
         this.init();
     }
@@ -54,6 +54,18 @@ class RussianToolsSidePanel {
         } catch (e) {
             console.error('Failed to load frequency dictionary:', e);
             this.freqDict = {};
+        }
+    }
+
+    async loadTranslations() {
+        if (this.translations) return;
+        try {
+            const url = chrome.runtime.getURL('src/resources/models/openrussian-translations-eng.json');
+            const response = await fetch(url);
+            this.translations = await response.json();
+        } catch (e) {
+            console.error('Failed to load translations:', e);
+            this.translations = {};
         }
     }
 
@@ -601,6 +613,12 @@ ${errorMessage}`);
             // Restore last selected subtab
             this.switchSubTab(this.lastReadingTutorSubTab);
         } else {
+            // Hide attribution when leaving reading tutor
+            const attribution = document.getElementById('openrussian-attribution');
+            if (attribution) {
+                attribution.style.display = 'none';
+            }
+
             // If leaving Reading Tutor or switching to Reading Activities, restore page
             if (previousTab === 'reading-tutor') {
                 await this.runExclusive(() => this.restorePage());
@@ -610,6 +628,11 @@ ${errorMessage}`);
 
     async switchSubTab(subTabName) {
         this.lastReadingTutorSubTab = subTabName;
+
+        const attribution = document.getElementById('openrussian-attribution');
+        if (attribution) {
+            attribution.style.display = (subTabName === 'translations-and-tables') ? 'block' : 'none';
+        }
 
         document.querySelectorAll('.sub-tab-button').forEach(button => {
             button.classList.remove('active');
@@ -639,7 +662,7 @@ ${errorMessage}`);
                 // Apply Grammar Highlighter styles
                 this.updateGrammarHighlighterHighlighting();
             }
-        } else if (subTabName === 'translations-and-paradigms') {
+        } else if (subTabName === 'translations-and-tables') {
             if (tabId) {
                 // Clear Grammar Highlighter styles
                 chrome.tabs.sendMessage(tabId, {
@@ -1282,6 +1305,7 @@ ${errorMessage}`);
 
                 // Ensure frequency dictionary is loaded
                 await this.loadFreqDict();
+                await this.loadTranslations();
 
                 // Sort lemmas by frequency
                 const sortedLemmas = Object.keys(readingsByLemma).sort((a, b) => {
@@ -1347,9 +1371,68 @@ ${errorMessage}`);
                         }
                     }
 
-                    lemmaHeader.textContent = labelText;
+                    // Create a span for the lemma text
+                    const lemmaSpan = document.createElement('span');
+                    lemmaSpan.textContent = labelText;
+                    lemmaHeader.appendChild(lemmaSpan);
+
+                    // Add translation if available
+                    if (this.translations) {
+                        // Normalize lemma for lookup: remove digits, stress marks, and lowercase
+                        const cleanLemma = lemma.replace(/\d+/g, '').replace(/\u0301/g, '').toLowerCase();
+                        const translationData = this.translations[cleanLemma];
+
+                        if (translationData) {
+                            let translationHtml = null;
+
+                            // Map POS
+                            let targetPos = null;
+                            if (pos === 'N') targetPos = 'noun';
+                            else if (pos === 'V') targetPos = 'verb';
+                            else if (pos === 'A' || pos === 'Adj') targetPos = 'adjective';
+                            else if (pos === 'Adv') targetPos = 'adverb';
+
+                            if (targetPos) {
+                                if (translationData[targetPos]) {
+                                    translationHtml = translationData[targetPos];
+                                }
+                            } else {
+                                // If we don't have a clear POS from analyzer, only show 'other'
+                                if (translationData['other']) {
+                                    translationHtml = translationData['other'];
+                                }
+                            }
+
+                            if (translationHtml) {
+                                const transSpan = document.createElement('span');
+                                transSpan.style.marginLeft = '10px';
+                                transSpan.style.fontWeight = 'normal';
+                                transSpan.style.fontSize = '0.9em';
+                                transSpan.style.color = '#333';
+                                transSpan.innerHTML = translationHtml;
+
+                                // Add event listeners for audio buttons
+                                const audioBtns = transSpan.querySelectorAll('.rltk-audio-btn');
+                                audioBtns.forEach(btn => {
+                                    btn.addEventListener('click', (e) => {
+                                        e.stopPropagation();
+                                        const audioUrl = btn.getAttribute('data-audio-url');
+                                        if (audioUrl) {
+                                            new Audio(audioUrl).play();
+                                        }
+                                    });
+                                });
+
+                                lemmaHeader.appendChild(transSpan);
+                            }
+                        }
+                    }
+
                     lemmaHeader.style.color = '#2c5aa0';
                     lemmaHeader.style.margin = '0';
+                    lemmaHeader.style.display = 'flex';
+                    lemmaHeader.style.alignItems = 'center';
+                    lemmaHeader.style.flexWrap = 'wrap';
 
                     // Tooltip for readings
                     const readingsText = readingsByLemma[lemma].map(r => {

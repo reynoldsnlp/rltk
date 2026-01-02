@@ -652,3 +652,23 @@ datalist#density-ticks option {
     margin-bottom: 1em;
     line-height: 1.5;
 }
+
+/* OpenRussian Translations Styles */
+.rltk-pos {
+    color: #888;
+    font-size: 0.8em;
+    margin-right: 4px;
+}
+
+.rltk-audio-btn {
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    margin-right: 4px;
+}
+
+.rltk-entry-separator {
+    margin: 0 5px;
+    color: #ccc;
+}
