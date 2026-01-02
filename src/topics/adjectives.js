@@ -49,7 +49,9 @@
         span.textContent = originalText;
         span.style.cursor = 'pointer';
 
-        span.addEventListener('click', function() {
+        span.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
             this.classList.toggle('clicked');
         });
 

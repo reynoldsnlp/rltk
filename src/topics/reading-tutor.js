@@ -27,6 +27,7 @@
 
         span.addEventListener('click', function(e) {
             e.stopPropagation();
+            e.preventDefault();
             showAnalysis(this, cohort);
         });
 

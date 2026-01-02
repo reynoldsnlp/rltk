@@ -90,12 +90,15 @@ test.describe('Nouns Click Activity', () => {
     await expect(nounLocator).toBeVisible({ timeout: 10000 });
 
     // Click the noun
-    await nounLocator.click();
+    await nounLocator.evaluate(node => node.click());
 
     // Check if class 'clicked' is added
     await expect(nounLocator).toHaveClass(/clicked/);
 
     // Check if background color changes
     await expect(nounLocator).toHaveCSS('background-color', 'rgba(0, 255, 0, 0.3)');
+
+    // Verify we didn't navigate
+    expect(page.url()).toContain('nouns-click.html');
   });
 });

@@ -38,7 +38,9 @@
         span.className = `ʁ ʁ${cohortIndex} ${isCorrect ? 'ʁ-click-green' : 'ʁ-click-red'}`;
         span.textContent = originalText;
         span.style.cursor = 'pointer';
-        span.addEventListener('click', function() {
+        span.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
             this.classList.toggle('clicked');
         });
         return span;
