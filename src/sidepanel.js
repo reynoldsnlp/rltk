@@ -485,16 +485,15 @@ class RussianToolsSidePanel {
             });
 
             if (!response.success) {
-                throw new Error(response.error);
+                throw new Error(response.error || 'Enhancement failed');
             }
 
             // Enhancement completed successfully
             this.setCompletedState();
 
         } catch (error) {
-            console.error('Error enhancing page:', error);
+            let errorMessage = (error && error.message) ? error.message : String(error);
 
-            let errorMessage = error.message;
             if (errorMessage.includes("Extension manifest must request permission")) {
                 // Try to request permission dynamically
                 try {
@@ -1571,14 +1570,55 @@ ${errorMessage}`);
         let hasPassive = false;
         let matchFound = false;
 
+        const participleTags = ['PrsAct', 'PstAct', 'PrsPss', 'PstPss'];
+        const hasParticipleReading = (currentReadings || []).some(r => (r.ts || []).some(t => participleTags.includes(t)));
+
+        let surfaceFormForDisplay = surfaceForm;
+
+        const accentParticipleSurfaceForm = async () => {
+            if (!surfaceForm) return surfaceForm;
+            if (/[\u0300\u0301]/.test(surfaceForm)) return surfaceForm;
+
+            const participleReading = (currentReadings || []).find(r => (r.ts || []).some(t => participleTags.includes(t)));
+            if (!participleReading || !participleReading.ts) return surfaceForm;
+
+            const readingTags = participleReading.ts.filter(t => !t.startsWith('<W:'));
+            if (readingTags.length === 0) return surfaceForm;
+
+            const input = `${lemma}+${readingTags.join('+')}`;
+
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    action: 'generate',
+                    input,
+                    useStress: true
+                });
+
+                if (response.success && response.data && response.data.length > 0) {
+                    const stressed = response.data[0];
+                    if (window.RLTKUtils && typeof window.RLTKUtils.matchCapitalization === 'function' && typeof window.RLTKUtils.detectCapitalization === 'function') {
+                        const capType = window.RLTKUtils.detectCapitalization(surfaceForm);
+                        return window.RLTKUtils.matchCapitalization(stressed, capType);
+                    }
+                    return stressed;
+                }
+            } catch (e) {
+                console.warn('Failed to accent participle surface form', e);
+            }
+
+            return surfaceForm;
+        };
+
+        if (hasParticipleReading) {
+            surfaceFormForDisplay = await accentParticipleSurfaceForm();
+        }
+
         const checkMatch = (input, generatedForm) => {
             if (!currentReadings || currentReadings.length === 0) return { isMatch: false };
 
             const tagsToIgnore = ['Ind', 'AnIn'];
             const inputTags = input.split('+').slice(1).filter(t => !tagsToIgnore.includes(t));
 
-            // Identify if this is a participle form
-            const participleTags = ['PrsAct', 'PstAct', 'PrsPss', 'PstPss'];
             const isParticiple = inputTags.some(t => participleTags.includes(t));
 
             // Tags that vary for participles but shouldn't break the match for the "slot"
@@ -1615,12 +1655,12 @@ ${errorMessage}`);
             if (match) {
                 // Normalize for comparison
                 const normalize = (s) => s ? s.replace(/[\u0300\u0301]/g, '').replace(/ё/g, 'е').toLowerCase() : '';
-                const normSurface = normalize(surfaceForm);
+                const normSurface = normalize(surfaceFormForDisplay);
                 const normGenerated = normalize(generatedForm);
 
                 return {
                     isMatch: true,
-                    showSurface: normSurface !== normGenerated && surfaceForm
+                    showSurface: normSurface !== normGenerated && surfaceFormForDisplay
                 };
             }
 
@@ -1680,7 +1720,7 @@ ${errorMessage}`);
             if (matchResult.isMatch) {
                 matchFound = true;
                 if (matchResult.showSurface) {
-                    return `${form}<br><span class="surface-variant" style="font-size: 0.8em; color: #666; background-color: #fff3cd; border-bottom: 2px solid #ffc107;">(${surfaceForm})</span>`;
+                    return `${form}<br><span class="surface-variant" style="font-size: 0.8em; color: #666; background-color: #fff3cd; border-bottom: 2px solid #ffc107;">(${surfaceFormForDisplay})</span>`;
                 }
                 return `<span style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">${form}</span>`;
             }
