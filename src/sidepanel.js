@@ -328,7 +328,7 @@ class RussianToolsSidePanel {
         const ignoreAmbiguityCheckbox = document.getElementById('ignore-ambiguity');
         if (ignoreAmbiguityCheckbox) {
             ignoreAmbiguityCheckbox.addEventListener('change', () => {
-                this.updateMorphologyHighlighting();
+                this.updateGrammarHighlighterHighlighting();
             });
         }
 
@@ -372,11 +372,11 @@ class RussianToolsSidePanel {
             this.enhancePage();
         });
 
-        // Listen for grammar explorer selection
+        // Listen for reading tutor selection
         chrome.runtime.onMessage.addListener((message) => {
-            if (message.action === 'grammar_explorer_selection') {
+            if (message.action === 'reading_tutor_selection') {
                 // Handle both direct cohort data and text selection
-                this.handleGrammarExplorerSelection(message);
+                this.handleReadingTutorSelection(message);
             }
         });
 
@@ -396,7 +396,7 @@ class RussianToolsSidePanel {
         const dismissButton = document.getElementById('dismiss-instructions');
         if (dismissButton) {
             dismissButton.addEventListener('click', () => {
-                const instructions = document.getElementById('grammar-explorer-instructions');
+                const instructions = document.getElementById('reading-tutor-instructions');
                 if (instructions) instructions.style.display = 'none';
             });
         }
@@ -560,21 +560,21 @@ ${errorMessage}`);
         document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
         document.getElementById(`${tabName}-tab`).classList.add('active');
 
-        // Handle Grammar Explorer activation
-        if (tabName === 'grammar-explorer') {
-            await this.activateGrammarExplorer();
-            // Default to word-details subtab
-            this.switchSubTab('word-details');
+        // Handle Reading Tutor activation
+        if (tabName === 'reading-tutor') {
+            await this.activateReadingTutor();
+            // Default to translations-and-paradigms subtab
+            this.switchSubTab('translations-and-paradigms');
         } else {
-            // If leaving Grammar Explorer or switching to Interact, restore page
-            // But if we are in Interact, we might want to keep the current activity?
-            // The requirement says: "When any tab other than "Interact" is selected, the page should be restored"
-            // So if we switch TO Interact, we might need to restore if we came from Grammar Explorer?
+            // If leaving Reading Tutor or switching to Reading Activities, restore page
+            // But if we are in Reading Activities, we might want to keep the current activity?
+            // The requirement says: "When any tab other than "Reading Activities" is selected, the page should be restored"
+            // So if we switch TO Reading Activities, we might need to restore if we came from Reading Tutor?
             // Or just let the user click Enhance again.
-            // Let's assume switching tabs should reset the view unless it's Interact -> Interact (which doesn't happen).
-            // Actually, activateGrammarExplorer calls enhancePage with specific settings.
+            // Let's assume switching tabs should reset the view unless it's Reading Activities -> Reading Activities (which doesn't happen).
+            // Actually, activateReadingTutor calls enhancePage with specific settings.
             // If we switch away, we should probably restore.
-            if (this.currentTab === 'grammar-explorer') {
+            if (this.currentTab === 'reading-tutor') {
                 await this.restorePage();
             }
         }
@@ -599,13 +599,13 @@ ${errorMessage}`);
             content.style.display = 'block';
         }
 
-        if (subTabName === 'morphology') {
-            this.initializeMorphologyUI();
+        if (subTabName === 'grammar-highlighter') {
+            this.initializeGrammarHighlighterUI();
         }
     }
 
-    initializeMorphologyUI() {
-        const container = document.getElementById('morphology-filters');
+    initializeGrammarHighlighterUI() {
+        const container = document.getElementById('grammar-highlighter-filters');
         if (!container || container.children.length > 0) return; // Already initialized
 
         const categories = {
@@ -690,7 +690,7 @@ ${errorMessage}`);
 
         for (const [category, tags] of Object.entries(categories)) {
             const section = document.createElement('div');
-            section.className = 'morphology-section';
+            section.className = 'grammar-highlighter-section';
             section.style.marginBottom = '10px';
 
             const title = document.createElement('h4');
@@ -719,7 +719,7 @@ ${errorMessage}`);
                     button.classList.toggle('active');
                     button.style.background = button.classList.contains('active') ? '#e0e0ff' : '#fff';
                     button.style.borderColor = button.classList.contains('active') ? '#2c5aa0' : '#ccc';
-                    this.updateMorphologyHighlighting();
+                    this.updateGrammarHighlighterHighlighting();
                 };
 
                 tagsContainer.appendChild(button);
@@ -730,7 +730,7 @@ ${errorMessage}`);
         }
     }
 
-    async updateMorphologyHighlighting() {
+    async updateGrammarHighlighterHighlighting() {
         const activeButtons = document.querySelectorAll('.tag-toggle.active');
         const ignoreAmbiguity = document.getElementById('ignore-ambiguity').checked;
 
@@ -754,31 +754,31 @@ ${errorMessage}`);
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tabs.length > 0) {
             chrome.tabs.sendMessage(tabs[0].id, {
-                action: 'update_morphology_styles',
+                action: 'update_grammar_highlighter_styles',
                 css: css
             });
         }
     }
 
-    async activateGrammarExplorer() {
+    async activateReadingTutor() {
         // Show instructions
-        const instructions = document.getElementById('grammar-explorer-instructions');
+        const instructions = document.getElementById('reading-tutor-instructions');
         if (instructions) instructions.style.display = 'block';
 
         // 1. Restore page to clear any existing activity
         await this.restorePage();
 
-        // 2. Trigger enhancement for Grammar Explorer
+        // 2. Trigger enhancement for Reading Tutor
         // We simulate an enhancement request with specific parameters
         const selections = {
-            topic: 'grammar-explorer',
+            topic: 'reading-tutor',
             filter: 'all',
             activity: 'explore'
         };
 
         this.isProcessing = true;
         // Show loading in the results area
-        const container = document.getElementById('grammar-explorer-results');
+        const container = document.getElementById('reading-tutor-results');
         if (container) container.innerHTML = '<div class="loading">Preparing text...</div>';
 
         try {
@@ -794,7 +794,7 @@ ${errorMessage}`);
             if (container) container.innerHTML = '<div class="info"></div>';
 
         } catch (error) {
-            console.error('Error activating Grammar Explorer:', error);
+            console.error('Error activating Reading Tutor:', error);
             if (container) container.innerHTML = `<div class="error">Failed to activate: ${error.message}</div>`;
         } finally {
             this.isProcessing = false;
@@ -1088,8 +1088,8 @@ ${errorMessage}`);
         }
     }
 
-    async handleGrammarExplorerSelection(data) {
-        const container = document.getElementById('grammar-explorer-results');
+    async handleReadingTutorSelection(data) {
+        const container = document.getElementById('reading-tutor-results');
         container.innerHTML = '<div class="loading">Analyzing...</div>';
 
         try {

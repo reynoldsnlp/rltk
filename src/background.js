@@ -20,7 +20,7 @@ const CONTENT_SCRIPT_FILES = [
     'src/topics/adjectives.js',
     'src/topics/adverbs.js',
     'src/topics/aspects.js',
-    'src/topics/assistive-reading.js',
+    'src/topics/reading-tutor.js',
     'src/topics/cases.js',
     'src/topics/conjunctions.js',
     'src/topics/gerunds.js',

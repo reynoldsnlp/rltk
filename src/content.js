@@ -33,8 +33,8 @@
     `;
     document.head.appendChild(style);
 
-    // Grammar Explorer State
-    let isGrammarExplorerActive = false;
+    // Reading Tutor State
+    let isReadingTutorActive = false;
     let selectionDebounceTimer = null;
 
     function hasNonEmptySelection() {
@@ -447,7 +447,7 @@
         const mainStyles = document.getElementById('rltk-main-styles');
         if (mainStyles) mainStyles.remove();
 
-        const explorerStyles = document.getElementById('rltk-grammar-explorer-styles');
+        const explorerStyles = document.getElementById('rltk-reading-tutor-styles');
         if (explorerStyles) explorerStyles.remove();
 
         // Remove all highlighting by removing spans with ʁ class
@@ -571,11 +571,11 @@
                 sendResponse({ success: true, hasSelection: hasNonEmptySelection() });
                 break;
 
-            case 'update_morphology_styles':
-                let style = document.getElementById('rltk-morphology-styles');
+            case 'update_grammar_highlighter_styles':
+                let style = document.getElementById('rltk-grammar-highlighter-styles');
                 if (!style) {
                     style = document.createElement('style');
-                    style.id = 'rltk-morphology-styles';
+                    style.id = 'rltk-grammar-highlighter-styles';
                     document.head.appendChild(style);
                 }
                 style.textContent = request.css;

@@ -301,8 +301,8 @@ datalist#density-ticks option {
     line-height: 1.5;
 }
 
-/* Grammar Explorer Styles */
-#grammar-explorer-results {
+/* Reading Tutor Styles */
+#reading-tutor-results {
     font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -411,8 +411,8 @@ datalist#density-ticks option {
     display: block;
 }
 
-/* Morphology UI */
-.morphology-section h4 {
+/* Grammar Highlighter UI */
+.grammar-highlighter-section h4 {
     font-size: 14px;
     color: #333;
     border-bottom: 1px solid #eee;

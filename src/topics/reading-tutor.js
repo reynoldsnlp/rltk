@@ -1,7 +1,7 @@
 /**
- * Assistive Reading Topic Logic for RLTK Extension
+ * Reading Tutor Topic Logic for RLTK Extension
  *
- * This file defines the logic for the "Assistive Reading" mode.
+ * This file defines the logic for the "Reading Tutor" mode.
  * It includes:
  * 1. A broad filter that accepts most words.
  * 2. Enhancement logic that makes words clickable to show morphological analysis and translations.
@@ -11,17 +11,16 @@
 (function() {
     'use strict';
 
-    // Assistive reading filter function
+    // Reading Tutor filter function
     // Accept any token that has readings and is a word
-    window.FilterFuncs["assistive-reading"] = function(cohort) {
+    window.FilterFuncs["reading-tutor"] = function(cohort) {
         return cohort && cohort.w !== undefined && cohort.rs && cohort.rs.length > 0;
     };
-    window.FilterFuncs["grammar-explorer"] = window.FilterFuncs["assistive-reading"];
 
-    // Assistive reading enhancement function
-    window.EnhanceFuncs["assistive-reading-click"] = function(originalText, cohort, cohortIndex) {
+    // Reading Tutor enhancement function
+    window.EnhanceFuncs["reading-tutor-click"] = function(originalText, cohort, cohortIndex) {
         const span = document.createElement('span');
-        span.className = `ʁ ʁ${cohortIndex} ʁ-assistive`;
+        span.className = `ʁ ʁ${cohortIndex} ʁ-reading-tutor`;
         span.textContent = originalText;
         span.style.cursor = 'help';
         span.style.borderBottom = '1px dotted #666';
@@ -34,14 +33,14 @@
         return span;
     };
 
-    // Grammar Explorer enhancement function
-    window.EnhanceFuncs["grammar-explorer-explore"] = function(originalText, cohort, cohortIndex) {
+    // Reading Tutor enhancement function
+    window.EnhanceFuncs["reading-tutor-explore"] = function(originalText, cohort, cohortIndex) {
         // Inject styles if not already present
-        if (!document.getElementById('rltk-grammar-explorer-styles')) {
+        if (!document.getElementById('rltk-reading-tutor-styles')) {
             const style = document.createElement('style');
-            style.id = 'rltk-grammar-explorer-styles';
+            style.id = 'rltk-reading-tutor-styles';
             style.textContent = `
-                .ʁ-grammar-explorer.ʁ-highlighted {
+                .ʁ-reading-tutor.ʁ-highlighted {
                     background-color: #fff3cd;
                     border-bottom: 2px solid #ffc107;
                 }
@@ -50,12 +49,12 @@
         }
 
         const span = document.createElement('span');
-        span.className = `ʁ ʁ${cohortIndex} ʁ-grammar-explorer`;
+        span.className = `ʁ ʁ${cohortIndex} ʁ-reading-tutor`;
         span.textContent = originalText;
         span.style.cursor = 'pointer';
         // span.style.borderBottom = '1px dotted #2c5aa0'; // Optional styling
 
-        // Add tag classes for Morphology view
+        // Add tag classes for Grammar Highlighter view
         const readings = cohort.rs || [];
         if (readings.length > 0) {
             const allTagsCount = {};
@@ -85,14 +84,14 @@
             e.preventDefault();
 
             // Highlight logic
-            document.querySelectorAll('.ʁ-grammar-explorer').forEach(el => el.classList.remove('ʁ-highlighted'));
+            document.querySelectorAll('.ʁ-reading-tutor').forEach(el => el.classList.remove('ʁ-highlighted'));
             this.classList.add('ʁ-highlighted');
 
             const readings = JSON.parse(this.getAttribute('data-readings') || '[]');
 
             // Send message to side panel with full cohort data
             chrome.runtime.sendMessage({
-                action: 'grammar_explorer_selection',
+                action: 'reading_tutor_selection',
                 text: originalText,
                 cohort: {
                     w: originalText,
