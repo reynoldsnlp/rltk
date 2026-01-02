@@ -330,6 +330,8 @@
         // In the future, some activities may use ambigArray, but for now
         // we assume disambigArray
         const cohortArray = cohortArrays.disambigArray;
+        console.log('RLTK DEBUG: plainText sample:', plainText.substring(0, 100));
+        console.log('RLTK DEBUG: cohortArray sample:', JSON.stringify(cohortArray.slice(0, 10)));
 
         for (let i = 0; i < cohortArray.length; i++) {
             const cohort = cohortArray[i];

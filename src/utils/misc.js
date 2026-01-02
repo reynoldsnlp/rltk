@@ -103,6 +103,13 @@
     };
 
     /**
+     * Removes accents from a string
+     */
+    window.RLTKUtils.removeAccents = function(text) {
+        return text ? text.normalize('NFD').replace(/[\u0300-\u036f]/g, "") : text;
+    };
+
+    /**
      * Applies a capitalization pattern to a string
      * @param {string} text - The text to modify
      * @param {string} pattern - The pattern to apply ('all-caps', 'title-case', 'lower-case')

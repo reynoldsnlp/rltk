@@ -57,8 +57,9 @@
         const select = createMultipleChoiceSelect(originalText);
 
         // Generate distractors from common prepositions
+        const normOriginal = window.RLTKUtils.removeAccents(originalText).toLowerCase();
         const distractors = COMMON_PREPOSITIONS
-            .filter(p => p.toLowerCase() !== originalText.toLowerCase())
+            .filter(p => window.RLTKUtils.removeAccents(p).toLowerCase() !== normOriginal)
             .sort(() => Math.random() - 0.5)
             .slice(0, 3);
 

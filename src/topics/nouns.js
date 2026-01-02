@@ -90,11 +90,12 @@
         const select = createMultipleChoiceSelect(originalText);
 
         generateDistractors(baseForm, reading.ts, originalText).then(options => {
-            if (options.length <= 1) {
-                container.textContent = originalText;
-                return;
-            }
-            populateSelectOptions(select, options);
+                const sanitized = sanitizeOptions(options);
+                if (sanitized.length <= 1) {
+                    container.textContent = originalText;
+                    return;
+                }
+                populateSelectOptions(select, sanitized);
         }).catch(error => {
             console.error('Error generating distractors:', error);
             container.textContent = originalText;
@@ -169,6 +170,17 @@
 
         placeholder.selected = true;
         select.selectedIndex = 0;
+    }
+
+    function sanitizeOptions(options) {
+        const seen = new Set();
+        return options
+            .map(form => window.RLTKUtils.removeAccents(form))
+            .filter(form => {
+                if (seen.has(form)) return false;
+                seen.add(form);
+                return true;
+            });
     }
 
     function handleMultipleChoiceSelection(select, container, originalText, cohortIndex) {
@@ -298,7 +310,15 @@
                     let distractor = generatedForms[0];
                     distractor = window.RLTKUtils.matchCapitalization(distractor, capType);
 
-                    if (distractor !== correctForm && !distractors.includes(distractor)) {
+                    // Normalize for comparison (remove accents)
+                    const normDistractor = window.RLTKUtils.removeAccents(distractor);
+                    const normCorrect = window.RLTKUtils.removeAccents(correctForm);
+
+                    // Check if distractor is different from correct form (ignoring accents)
+                    // And check if we haven't already added this distractor (ignoring accents)
+                    const isDuplicate = distractors.some(d => window.RLTKUtils.removeAccents(d) === normDistractor);
+
+                    if (normDistractor !== normCorrect && !isDuplicate) {
                         distractors.push(distractor);
                     }
                 }

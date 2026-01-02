@@ -411,6 +411,7 @@ class RussianToolsSidePanel {
 
         // Action buttons
         document.getElementById('enhance-button').addEventListener('click', () => {
+            console.log('SIDEPANEL: Enhance button clicked');
             this.enhancePage();
         });
 

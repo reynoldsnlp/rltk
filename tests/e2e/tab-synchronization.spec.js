@@ -61,17 +61,11 @@ test.describe('Tab Synchronization and State Restoration', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/nouns.html`;
     const page = await browserContext.newPage();
 
-    // Capture console logs from the page
-    page.on('console', msg => console.log(`PAGE LOG: ${msg.text()}`));
-
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
     const tabId = await getFixtureTabId(fixtureUrl);
     const sidePanelPage = await browserContext.newPage();
-
-    // Capture console logs from the side panel
-    sidePanelPage.on('console', msg => console.log(`PANEL LOG: ${msg.text()}`));
 
     await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
 
@@ -80,7 +74,7 @@ test.describe('Tab Synchronization and State Restoration', () => {
 
     // 1. Initial State: Reading Tutor active, Translations sub-tab active
     await expect(sidePanelPage.locator('.tab-button[data-tab="reading-tutor"]')).toHaveClass(/active/);
-    await expect(sidePanelPage.locator('.sub-tab-button[data-subtab="translations-and-paradigms"]')).toHaveClass(/active/);
+    await expect(sidePanelPage.locator('.sub-tab-button[data-subtab="translations-and-tables"]')).toHaveClass(/active/);
 
     // Wait for enhancement (Reading Tutor is auto-activated)
     // Increase timeout just in case
@@ -111,7 +105,7 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await expect(sidePanelPage.locator('#grammar-highlighter-filters')).toBeVisible();
 
     // 4. Switch back to Translations
-    await sidePanelPage.click('.sub-tab-button[data-subtab="translations-and-paradigms"]');
+    await sidePanelPage.click('.sub-tab-button[data-subtab="translations-and-tables"]');
 
     // Verify word re-highlighted on page
     await expect(page.locator('.ʁ-reading-tutor >> nth=0')).toHaveClass(/ʁ-highlighted/);

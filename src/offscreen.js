@@ -524,6 +524,16 @@ async function analyzeL2(text) {
 }
 
 async function processTokenReadings(tokenText, readings) {
+    // If any reading is valid (no error tags), then the word is considered correct.
+    const hasValidReading = readings.some(r => !r.tags.some(t => t.startsWith('Err/')));
+    if (hasValidReading) {
+        return {
+            text: tokenText,
+            isError: false,
+            errorData: null
+        };
+    }
+
     let isError = false;
     const errorData = [];
     const seenSignatures = new Set();

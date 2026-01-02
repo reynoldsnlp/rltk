@@ -357,7 +357,15 @@
                     const capType = window.RLTKUtils.detectCapitalization(correctForm);
                     distractor = window.RLTKUtils.matchCapitalization(distractor, capType);
 
-                    if (distractor !== correctForm && !distractors.includes(distractor)) {
+                    // Normalize for comparison (remove accents)
+                    const normDistractor = window.RLTKUtils.removeAccents(distractor);
+                    const normCorrect = window.RLTKUtils.removeAccents(correctForm);
+
+                    // Check if distractor is different from correct form (ignoring accents)
+                    // And check if we haven't already added this distractor (ignoring accents)
+                    const isDuplicate = distractors.some(d => window.RLTKUtils.removeAccents(d) === normDistractor);
+
+                    if (normDistractor !== normCorrect && !isDuplicate) {
                         distractors.push(distractor);
                     }
                 }
