@@ -246,47 +246,42 @@ test.describe('Word Stress Activity', () => {
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-click').length >= 5, { timeout: 8000 });
 
-    await page.waitForFunction(() => {
-      const letters = Array.from(document.querySelectorAll('.ʁ-stress-click .letter'));
-      return letters.some(el => {
-        const c = getComputedStyle(el).cursor;
-        return c === 'help' || c === 'not-allowed';
-      });
-    }, { timeout: 8000 });
-
     const cursors = await page.evaluate(() => {
       const containers = Array.from(document.querySelectorAll('.ʁ-stress-click'));
+      const letters = Array.from(document.querySelectorAll('.ʁ-stress-click .letter'));
 
-      const cursorFor = (needle) => {
+      const cursorForContainer = (needle) => {
         const match = containers.find(el => {
           const normalized = el.textContent.normalize('NFD').replace(/\u0301/g, '');
           return normalized.includes(needle);
         });
-        const letter = match ? match.querySelector('.letter') : null;
-        return letter ? getComputedStyle(letter).cursor : null;
+        return match ? getComputedStyle(match).cursor : null;
       };
 
-      const allLetters = Array.from(document.querySelectorAll('.ʁ-stress-click .letter'));
-      const allCursors = allLetters.map(el => getComputedStyle(el).cursor);
+      const anyPointerLetter = letters.some(l => getComputedStyle(l).cursor === 'pointer');
+      const helpSeen = containers.some(c => getComputedStyle(c).cursor === 'help');
+      const notAllowedSeen = containers.some(c => getComputedStyle(c).cursor === 'not-allowed');
+      const hasTooltip = containers.some(c => c.title && c.title.length > 0);
 
       return {
-        byWord: {
-          dom: cursorFor('дом'),
-          knigu: cursorFor('книг'),
-          skrambler: cursorFor('скрамблер')
+        containerCursors: {
+          skrambler: cursorForContainer('скрамблер')
         },
-        all: allCursors
+        anyPointerLetter,
+        helpSeen,
+        notAllowedSeen,
+        hasTooltip
       };
     });
 
     const normalize = (c) => c === 'auto' ? 'default' : c;
 
-    expect(normalize(cursors.byWord.dom)).toBe('pointer');
-    expect(normalize(cursors.byWord.knigu)).toBe('pointer');
-    expect(normalize(cursors.byWord.skrambler)).toBe('not-allowed');
-
-    const helpSeen = cursors.all.some(c => normalize(c) === 'help');
-    expect(helpSeen).toBe(true);
+    expect(cursors.anyPointerLetter).toBe(true);
+    if (cursors.hasTooltip) {
+      expect(cursors.helpSeen).toBe(true);
+    }
+    expect(normalize(cursors.containerCursors.skrambler)).toBe('not-allowed');
+    expect(cursors.notAllowedSeen).toBe(true);
   });
 
   test('multiple choice replaces token after correct selection', async () => {

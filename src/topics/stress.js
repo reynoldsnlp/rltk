@@ -142,17 +142,13 @@
                 letterSpan.textContent = ch;
                 letterSpan.className = 'letter';
                 letterSpan.dataset.index = String(i);
-                letterSpan.style.cursor = 'default';
 
                 letterSpan.addEventListener('mouseenter', function() {
                     if (stressState.status === 'known') {
                         this.style.cursor = 'pointer';
                         this.style.backgroundColor = 'rgba(0,0,0,0.08)';
-                    } else if (stressState.status === 'ambiguous') {
-                        this.style.cursor = 'help';
-                        this.style.backgroundColor = '';
-                    } else if (stressState.status === 'unknown') {
-                        this.style.cursor = 'not-allowed';
+                    } else {
+                        this.style.cursor = '';
                         this.style.backgroundColor = '';
                     }
                 });
@@ -225,13 +221,16 @@
                 stressState.status = 'known';
                 stressState.form = analysis.form;
                 letters.forEach(l => l.style.cursor = 'pointer');
+                container.style.cursor = 'default';
             } else if (analysis.status === 'ambiguous') {
                 stressState.status = 'ambiguous';
                 container.title = createAmbiguousTooltip(analysis);
-                letters.forEach(l => l.style.cursor = 'help');
+                container.style.cursor = 'help';
+                letters.forEach(l => l.style.cursor = '');
             } else {
                 stressState.status = 'unknown';
-                letters.forEach(l => l.style.cursor = 'not-allowed');
+                container.style.cursor = 'not-allowed';
+                letters.forEach(l => l.style.cursor = '');
             }
         })();
 
