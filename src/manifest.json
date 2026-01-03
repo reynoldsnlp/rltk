@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Russian Language ToolKit (RLTK)",
-  "version": "0.0.0.3",
+  "version": "0.0.0.4",
   "description": "Toolbar for Russian language learning, including automatic exercise generation and text analysis.",
   "icons": {
-    "16":  "src/resources/img/RLTK-16x16.png",
-    "32":  "src/resources/img/RLTK-32x32.png",
-    "48":  "src/resources/img/RLTK-48x48.png",
-    "128": "src/resources/img/RLTK-128x128.png"
+    "16":  "rltk/resources/img/RLTK-16x16.png",
+    "32":  "rltk/resources/img/RLTK-32x32.png",
+    "48":  "rltk/resources/img/RLTK-48x48.png",
+    "128": "rltk/resources/img/RLTK-128x128.png"
   },
   "permissions": [
     "activeTab",
@@ -21,18 +21,18 @@
     "http://127.0.0.1/*"
   ],
   "background": {
-    "service_worker": "src/background.js"
+    "service_worker": "rltk/background.js"
   },
   "side_panel": {
-    "default_path": "src/sidepanel.html"
+    "default_path": "rltk/sidepanel.html"
   },
   "action": {
     "default_title": "RLTK",
     "default_icon": {
-      "16":  "src/resources/img/RLTK-16x16.png",
-      "32":  "src/resources/img/RLTK-32x32.png",
-      "48":  "src/resources/img/RLTK-48x48.png",
-      "128": "src/resources/img/RLTK-128x128.png"
+      "16":  "rltk/resources/img/RLTK-16x16.png",
+      "32":  "rltk/resources/img/RLTK-32x32.png",
+      "48":  "rltk/resources/img/RLTK-48x48.png",
+      "128": "rltk/resources/img/RLTK-128x128.png"
     }
   },
   "content_security_policy": {

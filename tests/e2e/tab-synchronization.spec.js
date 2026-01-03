@@ -16,7 +16,7 @@ test.describe('Tab Synchronization and State Restoration', () => {
     });
     port = serverInstance.address().port;
 
-    const pathToExtension = path.resolve(__dirname, '../../');
+    const pathToExtension = path.resolve(__dirname, '../../src/');
     const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
 
     browserContext = await chromium.launchPersistentContext(userDataDir, {
@@ -67,7 +67,7 @@ test.describe('Tab Synchronization and State Restoration', () => {
     const tabId = await getFixtureTabId(fixtureUrl);
     const sidePanelPage = await browserContext.newPage();
 
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
     // Wait for side panel to initialize
     await sidePanelPage.waitForLoadState('domcontentloaded');
@@ -122,7 +122,7 @@ test.describe('Tab Synchronization and State Restoration', () => {
 
     const tabId = await getFixtureTabId(fixtureUrl);
     const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
     // 1. Start in Reading Tutor, select a word
     await page.waitForSelector('.ʁ-reading-tutor');

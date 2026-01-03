@@ -14,24 +14,24 @@ const annotatedTabs = new Set();
 const activeSidePanelPorts = new Set();
 
 const CONTENT_SCRIPT_FILES = [
-    'src/utils/misc.js',
-    'src/utils/tokenSelector.js',
-    'src/activities.js',
-    'src/topics/adjectives.js',
-    'src/topics/adverbs.js',
-    'src/topics/aspects.js',
-    'src/topics/reading-tutor.js',
-    'src/topics/cases.js',
-    'src/topics/conjunctions.js',
-    'src/topics/gerunds.js',
-    'src/topics/nouns.js',
-    'src/topics/participles.js',
-    'src/topics/phonetics.js',
-    'src/topics/prepositions.js',
-    'src/topics/pronouns.js',
-    'src/topics/stress.js',
-    'src/topics/verbs.js',
-    'src/content.js'
+    'rltk/utils/misc.js',
+    'rltk/utils/tokenSelector.js',
+    'rltk/activities.js',
+    'rltk/topics/adjectives.js',
+    'rltk/topics/adverbs.js',
+    'rltk/topics/aspects.js',
+    'rltk/topics/reading-tutor.js',
+    'rltk/topics/cases.js',
+    'rltk/topics/conjunctions.js',
+    'rltk/topics/gerunds.js',
+    'rltk/topics/nouns.js',
+    'rltk/topics/participles.js',
+    'rltk/topics/phonetics.js',
+    'rltk/topics/prepositions.js',
+    'rltk/topics/pronouns.js',
+    'rltk/topics/stress.js',
+    'rltk/topics/verbs.js',
+    'rltk/content.js'
 ];
 
 /**
@@ -47,7 +47,7 @@ async function createOffscreenDocument() {
 
       if (existingContexts.length === 0) {
         await chrome.offscreen.createDocument({
-          url: 'src/offscreen.html',
+          url: 'rltk/offscreen.html',
           reasons: ['DOM_SCRAPING'],
           justification: 'HFST WASM processing requires relaxed CSP'
         });
@@ -118,7 +118,7 @@ async function ensureContentScriptLoaded(tabId) {
         try {
             await chrome.scripting.insertCSS({
                 target: { tabId: tabId },
-                files: ['src/content.css'],
+                files: ['rltk/content.css'],
             });
             await chrome.scripting.executeScript({
                 target: { tabId: tabId },

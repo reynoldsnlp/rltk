@@ -20,7 +20,7 @@ test.describe('Density controls', () => {
     });
     port = serverInstance.address().port;
 
-    const pathToExtension = path.resolve(__dirname, '../../');
+    const pathToExtension = path.resolve(__dirname, '../../src/');
     const userDataDir = `/tmp/test-user-data-dir-${Math.random()}`;
 
     browserContext = await chromium.launchPersistentContext(userDataDir, {
@@ -69,7 +69,7 @@ test.describe('Density controls', () => {
 
   test('options page points users to side panel', async () => {
     const optionsPage = await browserContext.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/src/options/options.html`);
+    await optionsPage.goto(`chrome-extension://${extensionId}/rltk/options/options.html`);
 
     await expect(optionsPage.locator('.box strong')).toHaveText('Density controls now live in the side panel.');
     await expect(optionsPage.getByText('Open RLTK from the toolbar, pick an activity, and adjust spacing there.')).toBeVisible();
@@ -91,7 +91,7 @@ test.describe('Density controls', () => {
     expect(tabId).not.toBeNull();
 
     const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'nouns');

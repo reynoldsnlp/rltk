@@ -48,7 +48,7 @@ class RussianToolsSidePanel {
     async loadFreqDict() {
         if (this.freqDict) return;
         try {
-            const url = chrome.runtime.getURL('src/resources/models/Sharoff_lem_freq_dict.json');
+            const url = chrome.runtime.getURL('rltk/resources/models/Sharoff_lem_freq_dict.json');
             const response = await fetch(url);
             this.freqDict = await response.json();
         } catch (e) {
@@ -60,7 +60,7 @@ class RussianToolsSidePanel {
     async loadTranslations() {
         if (this.translations) return;
         try {
-            const url = chrome.runtime.getURL('src/resources/models/openrussian-translations-eng.json');
+            const url = chrome.runtime.getURL('rltk/resources/models/openrussian-translations-eng.json');
             const response = await fetch(url);
             this.translations = await response.json();
         } catch (e) {

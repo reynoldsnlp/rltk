@@ -20,7 +20,7 @@ test.describe('Side panel density for MC/Cloze', () => {
     });
     port = serverInstance.address().port;
 
-    const pathToExtension = path.resolve(__dirname, '../../');
+    const pathToExtension = path.resolve(__dirname, '../../src/');
     const userDataDir = `/tmp/test-user-data-dir-${Math.random()}`;
 
     browserContext = await chromium.launchPersistentContext(userDataDir, {
@@ -80,7 +80,7 @@ test.describe('Side panel density for MC/Cloze', () => {
     expect(tabId).not.toBeNull();
 
     const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'nouns');

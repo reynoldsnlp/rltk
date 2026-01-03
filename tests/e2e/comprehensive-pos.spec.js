@@ -17,7 +17,7 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
     });
     port = serverInstance.address().port;
 
-    const pathToExtension = path.resolve(__dirname, '../../');
+    const pathToExtension = path.resolve(__dirname, '../../src/');
     const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
 
     browserContext = await chromium.launchPersistentContext(userDataDir, {
@@ -65,7 +65,7 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
 
   async function openSidePanelAndActivateReadingTutor(tabId) {
     const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
     // Click Reading Tutor tab
     await sidePanelPage.click('.tab-button[data-tab="reading-tutor"]');
@@ -82,7 +82,7 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
   }
 
   test('should generate paradigms for various parts of speech', async () => {
-    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    // page.on('console', msg => console.log('PAGE LOG:', msg.text()));
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/comprehensive-pos.html`;
     await page.goto(fixtureUrl);
 
@@ -90,7 +90,7 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
     expect(tabId).not.toBeNull();
 
     const sidePanelPage = await openSidePanelAndActivateReadingTutor(tabId);
-    sidePanelPage.on('console', msg => console.log('SIDEPANEL LOG:', msg.text()));
+    // sidePanelPage.on('console', msg => console.log('SIDEPANEL LOG:', msg.text()));
 
     // Verify page loaded
     await expect(page.locator('h1')).toHaveText('Comprehensive POS Test Page');
@@ -111,16 +111,18 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
     ];
 
     for (const id of testIds) {
-        console.log(`Testing word with ID: ${id}`);
+        // console.log(`Testing word with ID: ${id}`);
         const element = page.locator(`#${id}`);
 
         // Debug: print HTML
+        /*
         try {
             const html = await element.innerHTML();
             console.log(`HTML for #${id}: ${html}`);
         } catch (e) {
             console.log(`Could not get HTML for #${id}`);
         }
+        */
 
         const clickableSpan = element.locator('.ʁ-reading-tutor').first();
         await expect(clickableSpan).toBeVisible();
@@ -145,9 +147,9 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
             // Check for "Oops! The clicked form was not found" warning
             const warning = sidePanelPage.locator('.warning:has-text("Oops!")');
             if (await warning.isVisible()) {
-                console.log(`Warning found for #${id}. Table content:`);
-                const tableContent = await sidePanelPage.locator('.paradigm-table').innerText();
-                console.log(tableContent);
+                // console.log(`Warning found for #${id}. Table content:`);
+                // const tableContent = await sidePanelPage.locator('.paradigm-table').innerText();
+                // console.log(tableContent);
             }
             await expect(warning).not.toBeVisible();
 
@@ -157,8 +159,8 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
             for (let i = 0; i < count; ++i) {
                 const tableText = await tables.nth(i).innerText();
                 if (tableText.includes('—')) {
-                     console.log(`Missing form found for #${id} in table ${i}. Table content:`);
-                     console.log(tableText);
+                     // console.log(`Missing form found for #${id} in table ${i}. Table content:`);
+                     // console.log(tableText);
                 }
 
                 // Skip strict check for 'verb-eat' and 'verb-doing-refl' as they are known to have missing participle forms or non-applicable forms

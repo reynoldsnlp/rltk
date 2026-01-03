@@ -17,7 +17,7 @@ test.describe('Distractor Accent Handling', () => {
     });
     port = serverInstance.address().port;
 
-    const pathToExtension = path.resolve(__dirname, '../../');
+    const pathToExtension = path.resolve(__dirname, '../../src/');
     const userDataDir = `/tmp/test-user-data-dir-${Math.random()}`;
 
     browserContext = await chromium.launchPersistentContext(userDataDir, {
@@ -71,7 +71,7 @@ test.describe('Distractor Accent Handling', () => {
 
     // Open the side panel targeting the fixture tab
     const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
     // Navigate to Reading activities -> Nouns -> MC following existing test pattern
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');

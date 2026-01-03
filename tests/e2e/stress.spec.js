@@ -19,7 +19,7 @@ test.describe('Word Stress Activity', () => {
     });
     port = serverInstance.address().port;
 
-    const pathToExtension = path.resolve(__dirname, '../../');
+    const pathToExtension = path.resolve(__dirname, '../../src/');
     const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
 
     browserContext = await chromium.launchPersistentContext(userDataDir, {
@@ -32,7 +32,7 @@ test.describe('Word Stress Activity', () => {
 
     const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
     const swUrl = serviceWorker.url();
-    // URL format: chrome-extension://<id>/src/background.js
+    // URL format: chrome-extension://<id>/rltk/background.js
     extensionId = swUrl.split('/')[2];
   });
 
@@ -72,7 +72,7 @@ test.describe('Word Stress Activity', () => {
   async function openSidePanelForActivity(tabId, activityValue, options = {}) {
     const { clickEnhance = true } = options;
     const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'word-stress');

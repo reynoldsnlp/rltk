@@ -17,7 +17,7 @@ test.describe('Nouns Click Activity', () => {
     });
     port = serverInstance.address().port;
 
-    const pathToExtension = path.resolve(__dirname, '../../');
+    const pathToExtension = path.resolve(__dirname, '../../src/');
     const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
 
     browserContext = await chromium.launchPersistentContext(userDataDir, {
@@ -63,7 +63,7 @@ test.describe('Nouns Click Activity', () => {
 
   async function openSidePanelForActivity(tabId, topicValue, activityValue) {
     const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/src/sidepanel.html?debugTabId=${tabId}`);
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', topicValue);

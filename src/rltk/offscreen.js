@@ -41,7 +41,7 @@ async function loadJson(modelName) {
 
     console.log(`Loading JSON: ${modelName}...`);
     try {
-        const url = chrome.runtime.getURL(`src/resources/models/${modelName}.json`);
+        const url = chrome.runtime.getURL(`rltk/resources/models/${modelName}.json`);
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Failed to fetch ${modelName}`);
         models[modelName] = await response.json();
@@ -60,7 +60,7 @@ async function initHfst() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
             if (path.endsWith('.wasm')) {
-                return chrome.runtime.getURL('src/resources/js/' + path);
+                return chrome.runtime.getURL('rltk/resources/js/' + path);
             }
             return scriptDirectory + path;
         }
@@ -80,11 +80,11 @@ async function initHfst() {
 
     // Load transducers in parallel
     const loadPromises = [
-        loadTransducer("src/resources/models/generator-gt-norm.hfstol", `generator`).then(res => generator = res),
-        loadTransducer("src/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`).then(res => stressGenerator = res),
-        loadTransducer("src/resources/models/g2p.hfstol", `g2p`).then(res => g2p = res),
-        loadTransducer("src/resources/models/analyser-gt-desc-L2.hfstol", `l2Analyser`).then(res => l2Analyser = res),
-        loadTokenizer("src/resources/models/old-tokeniser-disamb-gt-desc.pmhfst").then(res => tokenizer = res)
+        loadTransducer("rltk/resources/models/generator-gt-norm.hfstol", `generator`).then(res => generator = res),
+        loadTransducer("rltk/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`).then(res => stressGenerator = res),
+        loadTransducer("rltk/resources/models/g2p.hfstol", `g2p`).then(res => g2p = res),
+        loadTransducer("rltk/resources/models/analyser-gt-desc-L2.hfstol", `l2Analyser`).then(res => l2Analyser = res),
+        loadTokenizer("rltk/resources/models/old-tokeniser-disamb-gt-desc.pmhfst").then(res => tokenizer = res)
     ];
 
     await Promise.all(loadPromises);
@@ -97,7 +97,7 @@ async function initCg3() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
             if (path.endsWith('.wasm')) {
-                return chrome.runtime.getURL('src/resources/js/' + path);
+                return chrome.runtime.getURL('rltk/resources/js/' + path);
             }
             return scriptDirectory + path;
         }
@@ -121,8 +121,8 @@ async function initCg3() {
         console.error('Error in cgConv test:', error);
     }
 
-    // Retrieve the CG3 grammar string from src/resources/models/disambiguator.cg3
-    const response = await fetch(chrome.runtime.getURL('src/resources/models/disambiguator.cg3'));
+    // Retrieve the CG3 grammar string
+    const response = await fetch(chrome.runtime.getURL('rltk/resources/models/disambiguator.cg3'));
     cg3GrammarString = await response.text();
     cg3.FS.writeFile(cg3GrammarPath, cg3GrammarString, { encoding: 'utf8' });
     console.log('CG3 grammar loaded successfully');
