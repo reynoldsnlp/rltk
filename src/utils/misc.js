@@ -106,7 +106,7 @@
      * Removes accents from a string
      */
     window.RLTKUtils.removeAccents = function(text) {
-        return text ? text.normalize('NFD').replace(/[\u0300-\u036f]/g, "") : text;
+        return text ? text.replace(/[\u0300\u0301]/g, "").replace(/ё/g, "е").replace(/Ё/g, "Е") : text;
     };
 
     /**

@@ -1,0 +1,84 @@
+Unlock the full potential of the Russian internet for your language learning journey with RLTK, the comprehensive browser extension designed for learners and teachers of Russian. Whether you are a beginner struggling with the Cyrillic alphabet or an advanced student refining your style, RLTK provides the tools you need to read, write, and learn Russian effectively.
+
+WHAT DOES RLTK DO?
+
+RLTK (Russian Language ToolKit) transforms your web browser into a powerful language learning platform. It uses advanced Natural Language Processing (NLP) and machine learning technology to analyze Russian text on any webpage, providing instant support and interactive exercises customized to your level and needs. It acts as a smart dictionary, grammar reference, and personal tutor all in one.
+
+WHY SHOULD YOU INSTALL RLTK?
+
+For the Independent Learner:
+- **Master Russian Stress & Accents:** One of the greatest hurdles in learning Russian is the unpredictable word stress. RLTK automatically marks stresses (accents) on words, helping you read with confidence and improve your pronunciation.
+- **Instant Dictionary & Grammar:** No need to switch tabs to look up words or use a separate translator. Simply click on any word to see its translation, part of speech, and full grammatical tables (declensions for nouns/adjectives, conjugations for verbs).
+- **Turn Any Text into a Lesson:** Found an interesting article? RLTK can generate interactive exercises and quizzes (fill-in-the-blank, multiple choice, etc.) directly from the text you are reading.
+- **Improve Your Writing:** The built-in Writing Tutor analyzes your Russian text, checking for common spelling and grammar errors to help you write more accurately.
+
+For Teachers and Tutors:
+- **Create Custom Materials:** Use RLTK to turn authentic online content into lesson materials and quizzes.
+- **Differentiate Instruction:** Tailor exercises to specific grammar topics (e.g., focus only on Verbs of Motion or Case endings) to suit your students' needs.
+- **Encourage Independent Reading:** Empower your students to read real-world Russian texts by providing them with the scaffolding they need to succeed.
+
+KEY FEATURES
+
+RLTK is organized into three main sections, each designed to target a specific aspect of language acquisition:
+
+1. READING TUTOR
+The Reading Tutor is your constant companion for browsing the Russian web. It provides immediate assistance to help you understand what you are reading.
+
+- **Dictionary, Translations, and Tables:**
+  Never get stuck on a word again. When you select a word in the text, RLTK displays:
+  - **English Translations:** Context-appropriate meanings and definitions.
+  - **Grammar Tables:** Complete paradigms for the selected word. See all cases for nouns and adjectives, and all tenses/aspects for verbs. This is crucial for understanding how words change form in Russian sentences.
+  - **Stress Marks (Accents):** The system identifies the lemma (dictionary form) and shows the stress, which is essential for correct pronunciation.
+
+- **Grammar Highlighter:**
+  Visualize the structure of the sentence. You can configure the highlighter to color-code words based on their grammatical properties.
+  - **Ambiguity Filter:** Advanced users can choose to exclude words with unresolved ambiguity, ensuring that you focus on clear examples.
+
+2. READING ACTIVITIES & QUIZZES
+Turn passive reading into active learning and vocabulary building. The Reading Activities tab allows you to generate exercises on the fly from the page you are viewing. You can choose from a wide range of topics and activity types.
+
+- **Topics:**
+  Focus your study on specific areas of Russian grammar:
+  - **Adjectives:** Practice gender, number, and case agreement.
+  - **Gerunds (Verbal Adverbs):** Master these complex verb forms.
+  - **Nouns:** Drill case endings and plural forms.
+  - **Participles:** Distinguish between active and passive, present and past.
+  - **Phonetics:** Improve your reading rules and pronunciation.
+  - **Prepositions:** Learn which cases follow which prepositions.
+  - **Verbal Aspect:** Practice the distinction between Imperfective and Perfective verbs.
+  - **Verb Tense:** Drill Past, Present, and Future forms.
+  - **Verbs:** General verb practice.
+  - **Word Stress:** A dedicated mode for practicing stress placement.
+
+- **Activity Types:**
+  For each topic, you can select different ways to practice:
+  - **Highlight / Color:** Visually identify all instances of the chosen topic in the text. Great for noticing patterns.
+  - **Click to Identify:** Test your ability to find specific grammatical forms.
+  - **Multiple Choice:** The extension replaces words with a dropdown menu of options. Choose the correct form to complete the sentence.
+  - **Fill in the Blanks (Cloze):** The ultimate challenge. Words are removed, and you must type in the correct form.
+  - **Mark Stress / Click on Stressed Vowels:** Specifically for the Word Stress topic, these activities challenge you to identify the stressed syllable in words.
+
+- **Customization:**
+  - **Filters:** Refine your practice further. For example, if you select "Verbs," you can filter to practice only "Perfective" verbs. If you select "Nouns," you can focus on "Plural" forms.
+  - **Density Control:** Use the slider to control how many exercises are generated. You can set it to create a question for every word, or space them out (e.g., every 5 words) to keep the reading flow.
+
+3. WRITING TUTOR
+Improve your written Russian with the Writing Tutor.
+- **Analyze Your Text:** Paste or type your Russian text into the panel.
+- **Error Detection:** RLTK scans your writing for common errors, such as:
+  - **Spelling:** Detects common letter mix-ups (e.g., o vs. a, e vs. э).
+  - **Grammar:** Identifies potential issues with endings or forms.
+- **Detailed Feedback:** Click on highlighted errors to see an explanation and learn how to correct them.
+
+SPECIAL FOCUS: STRESS ANNOTATION
+Russian word stress is mobile and often not marked in standard texts, making it a nightmare for learners. RLTK gives special prominence to stress annotation.
+- **Automatic Stress Marking:** The Reading Tutor can automatically determine and display the stress for words on the page.
+- **Stress Practice:** The "Word Stress" topic in Reading Activities is specifically designed to help you master this difficult aspect of the language. You can test yourself by trying to click the stressed vowel in words, receiving instant feedback.
+
+WHO IS THIS FOR?
+- **Self-Guided Learners:** If you are learning Russian on your own, RLTK acts as your tutor, answering your questions about vocabulary and grammar instantly.
+- **Students in Courses:** Use RLTK to complete reading assignments more efficiently and to practice grammar topics covered in class.
+- **Casual Readers:** Enjoy Russian news, blogs, and literature without constantly reaching for a dictionary.
+- **Focused Study:** Use the "Reading Activities" to drill specific weak points in your grammar knowledge.
+
+Start learning Russian smarter, not harder. Install RLTK today and take control of your language learning experience.

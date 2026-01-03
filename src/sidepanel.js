@@ -1759,24 +1759,49 @@ ${errorMessage}`);
 
         if (pos === 'N') {
             // Noun Paradigm
-            const gender = tags.find(t => ['Msc', 'Fem', 'Neu', 'MFN'].includes(t)) || 'Msc';
-            const animacy = tags.find(t => ['Anim', 'Inan'].includes(t)) || 'Inan';
+            const varyTags = ['Sg', 'Pl', 'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc', 'Par', 'Loc2'];
+            const baseTagsList = tags.filter(t => !varyTags.includes(t));
+            const baseTags = baseTagsList.length > 0 ? '+' + baseTagsList.join('+') : '';
             const cases = ['Nom', 'Acc', 'Gen', 'Loc', 'Dat', 'Ins'];
 
             html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Singular</th><th>Plural</th></tr></thead><tbody>';
 
             for (const c of cases) {
-                const sgInput = `${lemma}+N+${gender}+${animacy}+Sg+${c}`;
-                const plInput = `${lemma}+N+${gender}+${animacy}+Pl+${c}`;
-                const label = c === 'Ins' ? 'Inst' : c;
+                const sgInput = `${lemma}${baseTags}+Sg+${c}`;
+                const plInput = `${lemma}${baseTags}+Pl+${c}`;
 
-                const [sgForm, plForm] = await Promise.all([generateForm(sgInput), generateForm(plInput)]);
+                let label = c;
+                if (c === 'Ins') label = 'Inst';
+                if (c === 'Loc') label = 'Prep';
+
+                let [sgForm, plForm] = await Promise.all([generateForm(sgInput), generateForm(plInput)]);
+
+                if (c === 'Loc') {
+                    const loc2Input = `${lemma}${baseTags}+Sg+Loc2`;
+                    const loc2Form = await generateForm(loc2Input);
+                    if (!loc2Form.includes('—') && !loc2Form.includes('impossible')) {
+                         sgForm += `<br><span class="secondary-form" title="Used after в or на when expressing location.">(Locative = ${loc2Form})</span>`;
+                    }
+                }
+
+                if (c === 'Nom') {
+                    const vocInput = `${lemma}${baseTags}+Sg+Voc`;
+                    const vocForm = await generateForm(vocInput);
+                    if (!vocForm.includes('—') && !vocForm.includes('impossible')) {
+                         sgForm += `<br><span class="secondary-form" title="Used to call someone's name.">(Vocative = ${vocForm})</span>`;
+                    }
+                }
+
                 html += `<tr><td>${label}</td><td>${sgForm}</td><td>${plForm}</td></tr>`;
             }
             html += '</tbody></table>';
 
         } else if (pos === 'A' || pos === 'Adj' || pos === 'Det') {
             // Adjective Paradigm (and Determiners)
+            const varyTags = ['Msc', 'Fem', 'Neu', 'MFN', 'Anim', 'Inan', 'AnIn', 'Sg', 'Pl', 'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Loc2', 'Voc', 'Pred', 'Short', 'Cmp', 'Cmpar', 'Sup'];
+            const baseTagsList = tags.filter(t => !varyTags.includes(t));
+
+            const baseTags = baseTagsList.length > 0 ? '+' + baseTagsList.join('+') : '';
             const cases = ['Nom', 'Acc', 'Gen', 'Loc', 'Dat', 'Ins'];
             // Short forms (Pred) usually only for Nom? Or separate category.
             // Standard adjective table: Msc, Neu, Fem, Pl
@@ -1784,18 +1809,20 @@ ${errorMessage}`);
             html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Masc</th><th>Neut</th><th>Fem</th><th>Plural</th></tr></thead><tbody>';
 
             for (const c of cases) {
-                const label = c === 'Ins' ? 'Inst' : c;
+                let label = c;
+                if (c === 'Ins') label = 'Inst';
+                if (c === 'Loc') label = 'Prep';
 
                 let forms;
                 if (c === 'Acc') {
                     // Generate Inan and Anim for Msc and Pl
                     const inputs = [
-                        `${lemma}+${pos}+Msc+Inan+Sg+Acc`,
-                        `${lemma}+${pos}+Msc+Anim+Sg+Acc`,
-                        `${lemma}+${pos}+Neu+AnIn+Sg+Acc`,
-                        `${lemma}+${pos}+Fem+AnIn+Sg+Acc`,
-                        `${lemma}+${pos}+MFN+Inan+Pl+Acc`,
-                        `${lemma}+${pos}+MFN+Anim+Pl+Acc`
+                        `${lemma}${baseTags}+Msc+Inan+Sg+Acc`,
+                        `${lemma}${baseTags}+Msc+Anim+Sg+Acc`,
+                        `${lemma}${baseTags}+Neu+AnIn+Sg+Acc`,
+                        `${lemma}${baseTags}+Fem+AnIn+Sg+Acc`,
+                        `${lemma}${baseTags}+MFN+Inan+Pl+Acc`,
+                        `${lemma}${baseTags}+MFN+Anim+Pl+Acc`
                     ];
                     const results = await Promise.all(inputs.map(generateForm));
 
@@ -1807,10 +1834,10 @@ ${errorMessage}`);
                     forms = [mscForm, neuForm, femForm, plForm];
                 } else {
                     const inputs = [
-                        `${lemma}+${pos}+Msc+AnIn+Sg+${c}`,
-                        `${lemma}+${pos}+Neu+AnIn+Sg+${c}`,
-                        `${lemma}+${pos}+Fem+AnIn+Sg+${c}`,
-                        `${lemma}+${pos}+MFN+AnIn+Pl+${c}`
+                        `${lemma}${baseTags}+Msc+AnIn+Sg+${c}`,
+                        `${lemma}${baseTags}+Neu+AnIn+Sg+${c}`,
+                        `${lemma}${baseTags}+Fem+AnIn+Sg+${c}`,
+                        `${lemma}${baseTags}+MFN+AnIn+Pl+${c}`
                     ];
                     forms = await Promise.all(inputs.map(generateForm));
                 }
@@ -1821,10 +1848,10 @@ ${errorMessage}`);
             // Short forms (Pred)
             if (pos !== 'Det') {
                 const shortInputs = [
-                    `${lemma}+${pos}+Msc+Sg+Pred`,
-                    `${lemma}+${pos}+Neu+Sg+Pred`,
-                    `${lemma}+${pos}+Fem+Sg+Pred`,
-                    `${lemma}+${pos}+MFN+Pl+Pred`
+                    `${lemma}${baseTags}+Msc+Sg+Pred`,
+                    `${lemma}${baseTags}+Neu+Sg+Pred`,
+                    `${lemma}${baseTags}+Fem+Sg+Pred`,
+                    `${lemma}${baseTags}+MFN+Pl+Pred`
                 ];
                 const shortForms = await Promise.all(shortInputs.map(generateForm));
                 if (shortForms.some(f => f !== '-')) {
@@ -1832,14 +1859,28 @@ ${errorMessage}`);
                 }
             }
 
+            // Comparative
+            if (pos !== 'Det') {
+                const compInput = `${lemma}${baseTags}+Cmpar+Pred`;
+                const compForm = await generateForm(compInput);
+                if (compForm && compForm !== '-' && !compForm.includes('impossible')) {
+                    html += `<tr><td>Comparative</td><td colspan="4" style="text-align: center;">${compForm}</td></tr>`;
+                }
+            }
+
             html += '</tbody></table>';
 
         } else if (pos === 'V') {
             // Verb Paradigm
-            const aspect = tags.find(t => ['Impf', 'Perf'].includes(t)) || 'Impf';
-            const transitivity = tags.find(t => ['TV', 'IV'].includes(t)) || '';
-            const transitivityTag = transitivity ? `+${transitivity}` : '';
+            const varyTags = ['Sg', 'Pl', 'Sg1', 'Sg2', 'Sg3', 'Pl1', 'Pl2', 'Pl3',
+                              'Prs', 'Fut', 'Pst', 'Imp', 'Inf',
+                              'Msc', 'Fem', 'Neu', 'MFN',
+                              'PrsAct', 'PstAct', 'PrsPss', 'PstPss', 'Adv', 'Pass', 'Pres',
+                              '1', '2', '3'];
+            const baseTagsList = tags.filter(t => !varyTags.includes(t));
+            const baseTags = baseTagsList.length > 0 ? '+' + baseTagsList.join('+') : '';
 
+            const aspect = tags.find(t => ['Impf', 'Perf'].includes(t)) || 'Impf';
             // Present/Future
             const tense = aspect === 'Perf' ? 'Fut' : 'Prs';
             const tenseLabel = aspect === 'Perf' ? 'Future' : 'Present';
@@ -1849,8 +1890,8 @@ ${errorMessage}`);
 
             const persons = [1, 2, 3];
             for (const p of persons) {
-                const sgInput = `${lemma}+V+${aspect}${transitivityTag}+${tense}+Sg${p}`;
-                const plInput = `${lemma}+V+${aspect}${transitivityTag}+${tense}+Pl${p}`;
+                const sgInput = `${lemma}${baseTags}+${tense}+Sg${p}`;
+                const plInput = `${lemma}${baseTags}+${tense}+Pl${p}`;
                 const [sgForm, plForm] = await Promise.all([generateVerbForm(sgInput), generateVerbForm(plInput)]);
                 html += `<tr><td>${p}</td><td>${sgForm}</td><td>${plForm}</td></tr>`;
             }
@@ -1861,9 +1902,9 @@ ${errorMessage}`);
             html += '<table class="paradigm-table"><thead><tr><th>Gender/Number</th><th>Form</th></tr></thead><tbody>';
 
             const pastInputs = [
-                { label: 'Masc', input: `${lemma}+V+${aspect}${transitivityTag}+Pst+Msc+Sg` },
-                { label: 'Fem', input: `${lemma}+V+${aspect}${transitivityTag}+Pst+Fem+Sg` },
-                { label: 'Neut', input: `${lemma}+V+${aspect}${transitivityTag}+Pst+Neu+Sg` }
+                { label: 'Masc', input: `${lemma}${baseTags}+Pst+Msc+Sg` },
+                { label: 'Fem', input: `${lemma}${baseTags}+Pst+Fem+Sg` },
+                { label: 'Neut', input: `${lemma}${baseTags}+Pst+Neu+Sg` }
             ];
 
             for (const item of pastInputs) {
@@ -1872,7 +1913,7 @@ ${errorMessage}`);
             }
 
             // Plural is the same for all genders in Past
-            const plInput = `${lemma}+V+${aspect}${transitivityTag}+Pst+MFN+Pl`;
+            const plInput = `${lemma}${baseTags}+Pst+MFN+Pl`;
             const plForm = await generateVerbForm(plInput);
             html += `<tr><td>Plural</td><td>${plForm}</td></tr>`;
 
@@ -1881,14 +1922,14 @@ ${errorMessage}`);
             // Imperative
             html += `<h4>Imperative</h4>`;
             html += '<table class="paradigm-table"><thead><tr><th>Number</th><th>Form</th></tr></thead><tbody>';
-            const impSg = await generateVerbForm(`${lemma}+V+${aspect}${transitivityTag}+Imp+Sg2`);
-            const impPl = await generateVerbForm(`${lemma}+V+${aspect}${transitivityTag}+Imp+Pl2`);
+            const impSg = await generateVerbForm(`${lemma}${baseTags}+Imp+Sg2`);
+            const impPl = await generateVerbForm(`${lemma}${baseTags}+Imp+Pl2`);
             html += `<tr><td>Sg (2nd)</td><td>${impSg}</td></tr>`;
             html += `<tr><td>Pl (2nd)</td><td>${impPl}</td></tr>`;
             html += '</tbody></table>';
 
             // Infinitive
-            const inf = await generateVerbForm(`${lemma}+V+${aspect}${transitivityTag}+Inf`);
+            const inf = await generateVerbForm(`${lemma}${baseTags}+Inf`);
             html += `<p><strong>Infinitive:</strong> ${inf}</p>`;
 
             // Participles and Verbal Adverbs
@@ -1896,20 +1937,20 @@ ${errorMessage}`);
             html += '<table class="paradigm-table"><thead><tr><th>Type</th><th>Present</th><th>Past</th></tr></thead><tbody>';
 
             // Active Participle
-            const prsActPartInput = `${lemma}+V+${aspect}${transitivityTag}+PrsAct+Msc+AnIn+Sg+Nom`;
-            const pstActPartInput = `${lemma}+V+${aspect}${transitivityTag}+PstAct+Msc+AnIn+Sg+Nom`;
+            const prsActPartInput = `${lemma}${baseTags}+PrsAct+Msc+AnIn+Sg+Nom`;
+            const pstActPartInput = `${lemma}${baseTags}+PstAct+Msc+AnIn+Sg+Nom`;
             const [prsActPart, pstActPart] = await Promise.all([generateVerbForm(prsActPartInput), generateVerbForm(pstActPartInput)]);
             html += `<tr><td>Active Participle</td><td>${prsActPart}</td><td>${pstActPart}</td></tr>`;
 
             // Passive Participle
-            const prsPssPartInput = `${lemma}+V+${aspect}+TV+PrsPss+Msc+AnIn+Sg+Nom`;
-            const pstPssPartInput = `${lemma}+V+${aspect}+TV+PstPss+Msc+AnIn+Sg+Nom`;
+            const prsPssPartInput = `${lemma}${baseTags}+PrsPss+Msc+AnIn+Sg+Nom`;
+            const pstPssPartInput = `${lemma}${baseTags}+PstPss+Msc+AnIn+Sg+Nom`;
             const [prsPssPart, pstPssPart] = await Promise.all([generateVerbForm(prsPssPartInput), generateVerbForm(pstPssPartInput)]);
             html += `<tr><td>Passive Participle</td><td>${prsPssPart}</td><td>${pstPssPart}</td></tr>`;
 
             // Verbal Adverb
-            const prsAdvInput = `${lemma}+V+${aspect}${transitivityTag}+PrsAct+Adv`;
-            const pstAdvInput = `${lemma}+V+${aspect}${transitivityTag}+PstAct+Adv`;
+            const prsAdvInput = `${lemma}${baseTags}+PrsAct+Adv`;
+            const pstAdvInput = `${lemma}${baseTags}+PstAct+Adv`;
             const [prsAdv, pstAdv] = await Promise.all([generateVerbForm(prsAdvInput), generateVerbForm(pstAdvInput)]);
             html += `<tr><td>Verbal Adverb</td><td>${prsAdv}</td><td>${pstAdv}</td></tr>`;
 
