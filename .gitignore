@@ -4,6 +4,7 @@ node_modules/
 playwright-report/
 test-results/
 
+rltk.zip
 src/rltk/resources/models/*.cg3
 src/rltk/resources/models/*.hfstol
 src/rltk/resources/models/*.pmhfst

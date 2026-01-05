@@ -84,7 +84,7 @@ async function initHfst() {
         loadTransducer("rltk/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`).then(res => stressGenerator = res),
         loadTransducer("rltk/resources/models/g2p.hfstol", `g2p`).then(res => g2p = res),
         loadTransducer("rltk/resources/models/analyser-gt-desc-L2.hfstol", `l2Analyser`).then(res => l2Analyser = res),
-        loadTokenizer("rltk/resources/models/old-tokeniser-disamb-gt-desc.pmhfst").then(res => tokenizer = res)
+        loadTokenizer("rltk/resources/models/tokeniser-disamb-gt-desc.pmhfst").then(res => tokenizer = res)
     ];
 
     await Promise.all(loadPromises);
