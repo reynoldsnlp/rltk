@@ -1341,19 +1341,15 @@ ${errorMessage}`);
                     if (canInflect) {
                         toggleButton = document.createElement('button');
                         toggleButton.textContent = '+';
-                        toggleButton.style.width = '24px';
-                        toggleButton.style.height = '24px';
-                        toggleButton.style.padding = '0';
+                        toggleButton.className = 'toggle-button';
                         toggleButton.style.cursor = 'pointer';
-                        toggleButton.style.border = '1px solid #ccc';
-                        toggleButton.style.background = '#f0f0f0';
-                        toggleButton.style.borderRadius = '4px';
-                        toggleButton.style.display = 'flex';
-                        toggleButton.style.alignItems = 'center';
-                        toggleButton.style.justifyContent = 'center';
-                        toggleButton.style.fontWeight = 'bold';
 
                         headerContainer.appendChild(toggleButton);
+                    } else {
+                        // Add invisible spacer to maintain alignment
+                        const spacer = document.createElement('span');
+                        spacer.className = 'toggle-button-spacer';
+                        headerContainer.appendChild(spacer);
                     }
 
                     const lemmaHeader = document.createElement('h4');
