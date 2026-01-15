@@ -1395,14 +1395,31 @@ ${errorMessage}`);
                             else if (pos === 'A' || pos === 'Adj') targetPos = 'adjective';
                             else if (pos === 'Adv') targetPos = 'adverb';
 
-                            if (targetPos) {
-                                if (translationData[targetPos]) {
-                                    translationHtml = translationData[targetPos];
-                                }
+                            let selectedPosKey = null;
+
+                            if (targetPos && translationData[targetPos]) {
+                                translationHtml = translationData[targetPos];
+                                selectedPosKey = targetPos;
+                            } else if (translationData['other']) {
+                                // Many common words (incl. some adverbs like "уже") are stored under 'other'.
+                                translationHtml = translationData['other'];
+                                selectedPosKey = 'other';
                             } else {
-                                // If we don't have a clear POS from analyzer, only show 'other'
-                                if (translationData['other']) {
-                                    translationHtml = translationData['other'];
+                                // Fallback to any available POS entry.
+                                const preferredOrder = ['noun', 'verb', 'adjective', 'adverb', 'expression', 'other'];
+                                for (const key of preferredOrder) {
+                                    if (translationData[key]) {
+                                        translationHtml = translationData[key];
+                                        selectedPosKey = key;
+                                        break;
+                                    }
+                                }
+                                if (!translationHtml) {
+                                    const first = Object.values(translationData)[0];
+                                    if (typeof first === 'string') {
+                                        translationHtml = first;
+                                        selectedPosKey = Object.keys(translationData)[0] || null;
+                                    }
                                 }
                             }
 
@@ -1412,7 +1429,19 @@ ${errorMessage}`);
                                 transSpan.style.fontWeight = 'normal';
                                 transSpan.style.fontSize = '0.9em';
                                 transSpan.style.color = '#333';
-                                transSpan.innerHTML = translationHtml;
+
+                                const posMismatch = !!(targetPos && selectedPosKey && selectedPosKey !== targetPos);
+                                if (posMismatch) {
+                                    const prefix = document.createElement('span');
+                                    prefix.textContent = 'Translation uncertain: ';
+                                    prefix.style.fontStyle = 'italic';
+                                    prefix.style.color = '#666';
+                                    transSpan.appendChild(prefix);
+                                }
+
+                                const translationContent = document.createElement('span');
+                                translationContent.innerHTML = translationHtml;
+                                transSpan.appendChild(translationContent);
 
                                 // Add event listeners for audio buttons
                                 const audioBtns = transSpan.querySelectorAll('.rltk-audio-btn');
@@ -1447,14 +1476,7 @@ ${errorMessage}`);
                     headerContainer.appendChild(lemmaHeader);
                     lemmaDiv.appendChild(headerContainer);
 
-                    // Fetch translations (using original lemma for lookup)
                     const originalLemma = readingsByLemma[lemma][0].originalLemma;
-                    const translation = await this.getTranslations(originalLemma);
-                    if (translation) {
-                        const transP = document.createElement('p');
-                        transP.innerHTML = `<strong>Translation:</strong> ${translation}`;
-                        lemmaDiv.appendChild(transP);
-                    }
 
                     if (canInflect) {
                         paradigmContainer = document.createElement('div');
@@ -1542,31 +1564,6 @@ ${errorMessage}`);
         } catch (error) {
             container.innerHTML = `<div class="error">Error: ${error.message}</div>`;
         }
-    }
-
-    async getTranslations(lemma) {
-        const response = await chrome.runtime.sendMessage({
-            action: 'get_model_data',
-            modelName: 'lemmaToTranslationsMap',
-            key: lemma
-        });
-
-        if (response.success && response.data) {
-            const word = response.data;
-            let translation = "";
-            if (word.senses) {
-                word.senses.forEach(sense => {
-                    if (sense && sense.glosses) {
-                        translation += sense.glosses.join(', ') + "; ";
-                    }
-                });
-                if (translation.endsWith("; ")) {
-                    translation = translation.substring(0, translation.length - 2);
-                }
-            }
-            return translation;
-        }
-        return null;
     }
 
     async generateParadigm(lemma, pos, tags, currentReadings = [], surfaceForm = null) {

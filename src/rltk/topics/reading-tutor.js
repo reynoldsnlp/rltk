@@ -121,24 +121,31 @@
     async function getTranslations(lemma) {
         const response = await chrome.runtime.sendMessage({
             action: 'get_model_data',
-            modelName: 'lemmaToTranslationsMap',
+            modelName: 'openrussian-translations-eng',
             key: lemma
         });
 
         if (response.success && response.data) {
             const word = response.data;
-            let translation = "";
-            if (word.senses) {
-                word.senses.forEach(sense => {
-                    if (sense && sense.glosses) {
-                        translation += sense.glosses.join(',') + "; ";
-                    }
-                });
-                if (translation.endsWith("; ")) {
-                    translation = translation.substring(0, translation.length - 2);
-                }
+
+            // Shipped format: lemma -> { pos: "<span class=...>..." }
+            // Extract the human-readable gloss from the HTML.
+            const extractGlossFromHtml = (html) => {
+                if (typeof html !== 'string') return null;
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const spans = Array.from(doc.querySelectorAll('span')).filter(s => !s.classList.contains('rltk-pos'));
+                const parts = spans.map(s => (s.textContent || '').trim()).filter(Boolean);
+                const text = (parts.length ? parts.join(' ') : (doc.body.textContent || ''))
+                    .replace(/\s*🔊\s*/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                return text || null;
+            };
+
+            if (word && typeof word === 'object') {
+                const byPos = Object.values(word).map(extractGlossFromHtml).filter(Boolean);
+                return byPos.length ? byPos.join('; ') : null;
             }
-            return translation;
         }
         return null;
     }

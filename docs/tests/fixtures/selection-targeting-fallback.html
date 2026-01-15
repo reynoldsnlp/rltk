@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Selection Targeting Fallback Fixture</title>
+</head>
+<body>
+  <header>
+    <h1>Заголовок со столом и домом</h1>
+  </header>
+  <nav>
+    <ul>
+      <li>Меню: стол, дом, кот</li>
+    </ul>
+  </nav>
+
+  <!-- Main exists, but contains almost no nouns (so the strict main/article-only heuristic yields ~0 highlights). -->
+  <main>
+    <p>Здравствуйте.</p>
+  </main>
+
+  <!-- Real content lives outside main/article, similar to some blog layouts. -->
+  <div id="post-content">
+    <p>Это основной текст. Дом стоит рядом. Кот спит на столе. Машина у дома.</p>
+    <p>Дополнительный абзац с существительными: книга, окно, город.</p>
+  </div>
+
+  <footer>
+    <p>Подвал со словом дом.</p>
+  </footer>
+</body>
+</html>

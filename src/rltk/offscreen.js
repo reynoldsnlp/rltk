@@ -26,8 +26,7 @@ const models = {
     imperfectiveToPerfectiveVerbMap: null,
     perfectiveToImperfectiveVerbMap: null,
     lemmaToExemplarMap: null,
-    lemmaToTranslationsMap: null,
-    lemmaToTranslationsMapWiktExtract: null,
+    'openrussian-translations-eng': null,
     adjectivesToExcludeFromParticiples: null,
     Sharoff_lem_freq_dict: null
 };
@@ -42,8 +41,15 @@ async function loadJson(modelName) {
     console.log(`Loading JSON: ${modelName}...`);
     try {
         const url = chrome.runtime.getURL(`rltk/resources/models/${modelName}.json`);
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch ${modelName}`);
+
+        let response;
+        try {
+            response = await fetch(url);
+        } catch (e) {
+            throw new Error(`Failed to fetch ${modelName} from ${url}`);
+        }
+
+        if (!response.ok) throw new Error(`Failed to fetch ${modelName} (${response.status}) from ${url}`);
         models[modelName] = await response.json();
         console.log(`JSON ${modelName} loaded.`);
         return models[modelName];
