@@ -166,6 +166,33 @@ datalist#density-ticks option {
     font-style: italic;
 }
 
+.loading .loading-text {
+    color: #666;
+    font-style: italic;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    margin: 12px auto 0;
+    border-radius: 50%;
+    border: 3px solid rgba(0, 0, 0, 0.12);
+    border-top-color: rgba(44, 90, 160, 0.95);
+    box-sizing: border-box;
+    will-change: transform;
+    animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner {
+        animation: none;
+    }
+}
+
 /* Russian-specific styling */
 .panel-section select option[value*="case"] {
     font-style: italic;

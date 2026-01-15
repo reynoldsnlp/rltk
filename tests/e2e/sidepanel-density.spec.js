@@ -82,6 +82,12 @@ test.describe('Side panel density for MC/Cloze', () => {
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
 
+    // Ensure the processing indicator is present in the DOM
+    await expect(sidePanelPage.locator('#loading .spinner')).toHaveCount(1);
+
+    // Reading Tutor shows a "Preparing text..." loading state briefly on activation
+    await expect(sidePanelPage.locator('#reading-tutor-results .spinner')).toHaveCount(1);
+
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'nouns');
     await sidePanelPage.waitForFunction(() => {

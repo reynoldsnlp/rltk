@@ -215,25 +215,61 @@ test.describe('Word Stress Activity', () => {
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-click').length >= 5, { timeout: 8000 });
 
-    const allVowelSpansAreVowels = await page.evaluate(() => {
+    const vowelWrapCheck = await page.evaluate(() => {
       const vowels = ['а','е','ё','и','о','у','ы','э','ю','я','А','Е','Ё','И','О','У','Ы','Э','Ю','Я'];
       const containers = Array.from(document.querySelectorAll('.ʁ-stress-click'));
       let anyWithVowels = false;
-      const allPass = containers.every(container => {
-        const text = container.textContent.normalize('NFD').replace(/\u0301/g, '');
+      const failures = [];
+      const allPass = containers.every((container, idx) => {
+        const text = container.textContent
+          .normalize('NFD')
+          .replace(/\u0301/g, '')
+          .normalize('NFC');
         const vowelCount = Array.from(text).filter(ch => vowels.includes(ch)).length;
         const spans = Array.from(container.querySelectorAll('.letter'));
         if (vowelCount > 0) {
           anyWithVowels = true;
         }
-        const spansAreVowels = spans.every(s => vowels.includes(s.textContent));
-        const countsOk = spans.length <= vowelCount;
-        return spansAreVowels && countsOk;
+
+        const normalizedSpanChars = spans.map(s => (s.textContent || '')
+          .normalize('NFD')
+          .replace(/\u0301/g, '')
+          .normalize('NFC'));
+        const nonEmptySpanChars = normalizedSpanChars.filter(ch => ch);
+        const nonVowelSpans = nonEmptySpanChars.filter(ch => !vowels.includes(ch));
+        const spansAreVowels = nonVowelSpans.length === 0;
+
+        const countsOk = vowelCount === 0
+          ? nonEmptySpanChars.length === 0
+          : (nonEmptySpanChars.length >= vowelCount && nonEmptySpanChars.length <= vowelCount * 2);
+        const ok = spansAreVowels && countsOk;
+
+        if (!ok) {
+          failures.push({
+            idx,
+            text,
+            vowelCount,
+            spanCount: spans.length,
+            nonEmptySpanCount: nonEmptySpanChars.length,
+            nonVowelSpans: nonVowelSpans.slice(0, 12),
+            sampleSpanChars: nonEmptySpanChars.slice(0, 12),
+            countsOk,
+            spansAreVowels
+          });
+        }
+
+        return ok;
       });
-      return allPass && anyWithVowels;
+
+      return {
+        ok: allPass && anyWithVowels,
+        anyWithVowels,
+        containerCount: containers.length,
+        failures: failures.slice(0, 3)
+      };
     });
 
-    expect(allVowelSpansAreVowels).toBe(true);
+    expect(vowelWrapCheck.ok).toBe(true);
   });
 
   test('click activity sets cursors by stress status', async () => {

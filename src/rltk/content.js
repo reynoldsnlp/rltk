@@ -270,20 +270,21 @@
      * Phase 2: Build token positions from cohorts and plain text
      */
     function buildTokenPositionsWithActivity(cohortArrays, plainText, positionMap, activity, selectionRange) {
-        const tokenPositions = [];
-        let currentOffset = 0;
-
         // Precompute allowed roots for targeting heuristics
+        // Default behavior: if a page provides <main> or <article>, only target within those.
+        // Fallback behavior: if that yields almost no highlighted tokens, relax to target the rest
+        // of the document (still excluding obvious chrome like header/nav/footer and common classnames).
         const allowedRoots = Array.from(document.querySelectorAll('main, article'));
         const hasAllowedRoots = allowedRoots.length > 0;
         const blacklistRe = /(header|footer|nav|menu|sidebar|toolbar|masthead|breadcrumb)/i;
+        const FALLBACK_MIN_HIGHLIGHTED_TOKENS = 5;
 
-        function isNodeAllowed(textNode) {
+        function isNodeAllowed(textNode, enforceAllowedRoots) {
             if (selectionRange) return true;
             const el = textNode && textNode.parentElement;
             if (!el) return true;
 
-            if (hasAllowedRoots) {
+            if (hasAllowedRoots && enforceAllowedRoots) {
                 return allowedRoots.some(root => root.contains(el));
             }
 
@@ -301,53 +302,66 @@
             return true;
         }
 
-        // Reset TokenSelector so selection starts fresh for this run
-        window.RLTKUtils.TokenSelector.reset();
+        function buildTokenPositions(enforceAllowedRoots) {
+            const tokenPositions = [];
+            let currentOffset = 0;
 
-        // In the future, some activities may use ambigArray, but for now
-        // we assume disambigArray
-        const cohortArray = cohortArrays.disambigArray;
-        console.log('RLTK DEBUG: plainText sample:', plainText.substring(0, 100));
-        console.log('RLTK DEBUG: cohortArray sample:', JSON.stringify(cohortArray.slice(0, 10)));
+            // Reset TokenSelector so selection starts fresh for this run
+            window.RLTKUtils.TokenSelector.reset();
 
-        for (let i = 0; i < cohortArray.length; i++) {
-            const cohort = cohortArray[i];
+            // In the future, some activities may use ambigArray, but for now
+            // we assume disambigArray
+            const cohortArray = cohortArrays.disambigArray;
 
-            // Only process word cohorts
-            if (cohort.w === undefined) continue;
+            for (let i = 0; i < cohortArray.length; i++) {
+                const cohort = cohortArray[i];
 
-            const cohortToken = cohort.w;
-            if (cohortToken === '') continue;
+                // Only process word cohorts
+                if (cohort.w === undefined) continue;
 
-            const cohortStart = plainText.indexOf(cohortToken, currentOffset);
-            if (cohortStart === -1) continue;
+                const cohortToken = cohort.w;
+                if (cohortToken === '') continue;
 
-            currentOffset = cohortStart;
-            const cohortEnd = currentOffset + cohortToken.length;
+                const cohortStart = plainText.indexOf(cohortToken, currentOffset);
+                if (cohortStart === -1) continue;
 
-            // Find the text-node mapping that covers this token start to apply DOM heuristics
-            const coveringMap = positionMap.find(m => cohortStart >= m.plainTextStart && cohortStart < m.plainTextEnd);
-                if (coveringMap && !isNodeAllowed(coveringMap.node)) {
+                currentOffset = cohortStart;
+                const cohortEnd = currentOffset + cohortToken.length;
+
+                // Find the text-node mapping that covers this token start to apply DOM heuristics
+                const coveringMap = positionMap.find(m => cohortStart >= m.plainTextStart && cohortStart < m.plainTextEnd);
+                if (coveringMap && !isNodeAllowed(coveringMap.node, enforceAllowedRoots)) {
+                    currentOffset = cohortEnd;
+                    continue;
+                }
+
+                // Use the activity's logic to determine if this token should be highlighted
+                // Pass cohort index so activities can use TokenSelector
+                if (activity.shouldHighlightToken(cohort, i)) {
+                    tokenPositions.push({
+                        start: currentOffset,
+                        end: cohortEnd,
+                        text: cohortToken,
+                        cohortIndex: i,
+                        cohort: cohort
+                    });
+                }
+
                 currentOffset = cohortEnd;
-                continue;
             }
 
-            // Use the activity's logic to determine if this token should be highlighted
-            // Pass cohort index so activities can use TokenSelector
-            if (activity.shouldHighlightToken(cohort, i)) {
-                tokenPositions.push({
-                    start: currentOffset,
-                    end: cohortEnd,
-                    text: cohortToken,
-                    cohortIndex: i,
-                    cohort: cohort
-                });
-            }
-
-            currentOffset = cohortEnd;
+            return tokenPositions;
         }
 
-        return tokenPositions;
+        const primaryEnforceAllowedRoots = !(activity && activity.topic === 'reading-tutor');
+        const primary = buildTokenPositions(primaryEnforceAllowedRoots);
+
+        if (hasAllowedRoots && !selectionRange && primaryEnforceAllowedRoots && primary.length < FALLBACK_MIN_HIGHLIGHTED_TOKENS) {
+            const fallback = buildTokenPositions(false);
+            return fallback.length > primary.length ? fallback : primary;
+        }
+
+        return primary;
     }
 
     /**

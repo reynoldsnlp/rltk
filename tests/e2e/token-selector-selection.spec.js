@@ -137,4 +137,73 @@ test.describe('Token selector respects layout heuristics and selection override'
     expect(footerCountAfter).toBe(0);
     expect(mainCountAfter).toBe(0);
   });
+
+  test('falls back outside main/article when main/article yields almost nothing', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/selection-targeting-fallback.html`;
+    const page = await browserContext.newPage();
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+
+    await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
+    await sidePanelPage.selectOption('#topic-menu', 'nouns');
+    await sidePanelPage.waitForFunction(() => {
+      const select = document.querySelector('#activity-menu');
+      return select && select.options.length > 1;
+    }, { timeout: 5000 });
+    await sidePanelPage.selectOption('#activity-menu', 'mc');
+
+    // Dense selection to ensure coverage
+    await sidePanelPage.$eval('#density-slider', (el) => {
+      el.value = '0';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await sidePanelPage.click('#enhance-button');
+
+    // The fallback should allow highlighting in #post-content despite <main> existing.
+    await page.waitForFunction(() => document.querySelectorAll('#post-content .ʁ-noun-mc').length > 0, { timeout: 8000 });
+
+    const headerCount = await page.locator('header .ʁ-noun-mc').count();
+    const navCount = await page.locator('nav .ʁ-noun-mc').count();
+    const footerCount = await page.locator('footer .ʁ-noun-mc').count();
+    const postCount = await page.locator('#post-content .ʁ-noun-mc').count();
+
+    expect(headerCount).toBe(0);
+    expect(navCount).toBe(0);
+    expect(footerCount).toBe(0);
+    expect(postCount).toBeGreaterThan(0);
+  });
+
+  test('reading tutor annotates outside main/article while still skipping header/nav/footer', async () => {
+    const fixtureUrl = `http://localhost:${port}/tests/fixtures/selection-targeting-fallback.html`;
+    const page = await browserContext.newPage();
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    const tabId = await getFixtureTabId(fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+
+    await sidePanelPage.click('.tab-button[data-tab="reading-tutor"]');
+
+    await page.waitForFunction(() => document.querySelectorAll('#post-content .ʁ-reading-tutor').length > 0, { timeout: 8000 });
+
+    const headerCount = await page.locator('header .ʁ-reading-tutor').count();
+    const navCount = await page.locator('nav .ʁ-reading-tutor').count();
+    const footerCount = await page.locator('footer .ʁ-reading-tutor').count();
+    const postCount = await page.locator('#post-content .ʁ-reading-tutor').count();
+
+    expect(headerCount).toBe(0);
+    expect(navCount).toBe(0);
+    expect(footerCount).toBe(0);
+    expect(postCount).toBeGreaterThan(0);
+  });
 });

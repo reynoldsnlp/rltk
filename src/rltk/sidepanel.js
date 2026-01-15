@@ -863,7 +863,14 @@ ${errorMessage}`);
         this.isProcessing = true;
         // Show loading in the results area
         const container = document.getElementById('reading-tutor-results');
-        if (container) container.innerHTML = '<div class="loading">Preparing text...</div>';
+        if (container) {
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-text">Preparing text...</div>
+                    <div class="spinner" aria-hidden="true"></div>
+                </div>
+            `;
+        }
 
         try {
             const response = await chrome.runtime.sendMessage({
