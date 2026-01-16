@@ -470,20 +470,91 @@ datalist#density-ticks option {
 }
 
 /* Grammar Highlighter UI */
-.grammar-highlighter-section h4 {
+.grammar-highlighter-grid {
+    --gh-col-width: 100px;
+    --gh-gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, var(--gh-col-width));
+    gap: var(--gh-gap);
+    justify-content: start;
+    align-items: start;
+    width: fit-content;
+}
+
+.grammar-highlighter-grid h4 {
     font-size: 14px;
     color: #333;
     border-bottom: 1px solid #eee;
     padding-bottom: 4px;
+    margin: 6px 0 2px;
+}
+
+.grammar-grid-header {
+    grid-column: 1 / -1;
+}
+
+.grammar-grid-subheader {
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+
+    align-self: flex-end;
+}
+
+.grammar-grid-cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 22px;
+    position: relative;
+}
+
+.grammar-grid-divider {
+    border-right: none;
+}
+
+.grammar-grid-divider::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    right: calc(var(--gh-gap) / -2);
+    width: 1px;
+    background: #e0e0e0;
+}
+
+.grammar-grid-spacer {
+    min-height: 22px;
+    pointer-events: none;
 }
 
 .tag-toggle {
     font-size: 12px;
     transition: all 0.2s;
+    padding: 2px 6px;
+    min-height: 22px;
+    box-sizing: border-box;
+    text-align: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.grammar-highlighter-grid .tag-toggle {
+    width: var(--gh-col-width);
 }
 
 .tag-toggle:hover {
     background-color: #f0f0f0;
+}
+
+.tag-toggle.active {
+    background-color: #e0e0ff;
+    border-color: #2c5aa0;
 }
 
 /* Writing Tutor Tab Styles */

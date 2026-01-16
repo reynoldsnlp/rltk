@@ -690,126 +690,210 @@ ${errorMessage}`);
         const container = document.getElementById('grammar-highlighter-filters');
         if (!container || container.children.length > 0) return; // Already initialized
 
-        const categories = {
-            'Part of Speech': [
+        const createTagButton = (tagObj, category) => {
+            const button = document.createElement('button');
+            button.textContent = tagObj.label;
+            button.className = 'tag-toggle';
+            button.dataset.category = category;
+            button.dataset.tag = tagObj.tag;
+
+            button.onclick = () => {
+                button.classList.toggle('active');
+                this.updateGrammarHighlighterHighlighting();
+            };
+
+            return button;
+        };
+
+        const grid = document.createElement('div');
+        grid.className = 'grammar-highlighter-grid';
+        container.appendChild(grid);
+
+        const appendHeader = (text) => {
+            const header = document.createElement('h4');
+            header.textContent = text;
+            header.className = 'grammar-grid-header';
+            grid.appendChild(header);
+        };
+
+        const appendCell = (node, options = {}) => {
+            const cell = document.createElement('div');
+            cell.className = 'grammar-grid-cell';
+            if (options.divider) {
+                cell.classList.add('grammar-grid-divider');
+            }
+            if (options.spacer) {
+                cell.classList.add('grammar-grid-spacer');
+            }
+            if (node) {
+                cell.appendChild(node);
+            }
+            grid.appendChild(cell);
+        };
+
+        const appendRow = (category, rowTags, options = {}) => {
+            rowTags.forEach((tagObj, index) => {
+                const divider = options.dividers && index < 2;
+                if (tagObj) {
+                    const button = createTagButton(tagObj, tagObj.category || category);
+                    appendCell(button, { divider });
+                } else {
+                    appendCell(null, { divider, spacer: true });
+                }
+            });
+        };
+
+        const appendRowWise = (category, tags, options = {}) => {
+            for (let i = 0; i < tags.length; i += 3) {
+                const rowTags = tags.slice(i, i + 3);
+                while (rowTags.length < 3) {
+                    rowTags.push(null);
+                }
+                appendRow(category, rowTags, options);
+            }
+        };
+
+        const appendColumnGroup = (category, columns, options = {}) => {
+            const maxRows = Math.max(...columns.map(col => col.length));
+            for (let row = 0; row < maxRows; row++) {
+                const rowTags = columns.map(col => col[row] || null);
+                appendRow(category, rowTags, options);
+            }
+        };
+
+        const appendHeaderRow = (headers, options = {}) => {
+            headers.forEach((text, index) => {
+                const divider = options.dividers && index < 2;
+                const header = document.createElement('h4');
+                header.textContent = text;
+                header.className = 'grammar-grid-subheader';
+                appendCell(header, { divider });
+            });
+        };
+
+        appendHeader('Part of Speech');
+        appendColumnGroup('Part of Speech', [
+            [
                 { tag: 'N', label: 'Noun' },
                 { tag: 'V', label: 'Verb' },
                 { tag: 'A', label: 'Adjective' },
                 { tag: 'Adv', label: 'Adverb' },
-                { tag: 'Pron', label: 'Pronoun' },
+                { tag: 'Pron', label: 'Pronoun' }
+            ],
+            [
                 { tag: 'Num', label: 'Numeral' },
                 { tag: 'Det', label: 'Determiner' },
                 { tag: 'Pr', label: 'Preposition' },
                 { tag: 'CC', label: 'Coord. Conj.' },
-                { tag: 'CS', label: 'Subord. Conj.' },
+                { tag: 'CS', label: 'Subord. Conj.' }
+            ],
+            [
                 { tag: 'Interj', label: 'Interjection' },
-                { tag: 'Pcle', label: 'Particle' }
-            ],
-            'Case': [
-                { tag: 'Nom', label: 'Nominative' },
-                { tag: 'Gen', label: 'Genitive' },
-                { tag: 'Dat', label: 'Dative' },
-                { tag: 'Acc', label: 'Accusative' },
-                { tag: 'Ins', label: 'Instrumental' },
-                { tag: 'Loc', label: 'Locative' },
-                { tag: 'Voc', label: 'Vocative' },
-                { tag: 'Loc2', label: 'Locative 2' },
-                { tag: 'Gen2', label: 'Genitive 2' }
-            ],
-            'Number': [
-                { tag: 'Sg', label: 'Singular' },
-                { tag: 'Pl', label: 'Plural' }
-            ],
-            'Gender': [
-                { tag: 'Msc', label: 'Masculine' },
-                { tag: 'Fem', label: 'Feminine' },
-                { tag: 'Neu', label: 'Neuter' }
-            ],
-            'Tense': [
-                { tag: 'Prs', label: 'Present' },
-                { tag: 'Pst', label: 'Past' },
-                { tag: 'Fut', label: 'Future' }
-            ],
-            'Aspect': [
-                { tag: 'Perf', label: 'Perfective' },
-                { tag: 'Impf', label: 'Imperfective' }
-            ],
-            'Person': [
-                { tag: 'Sg1', label: '1st Sg' },
-                { tag: 'Sg2', label: '2nd Sg' },
-                { tag: 'Sg3', label: '3rd Sg' },
-                { tag: 'Pl1', label: '1st Pl' },
-                { tag: 'Pl2', label: '2nd Pl' },
-                { tag: 'Pl3', label: '3rd Pl' }
-            ],
-            'Verb Form': [
-                { tag: 'Inf', label: 'Infinitive' },
-                { tag: 'Imp', label: 'Imperative' },
-                { tag: 'Pass', label: 'Passive Voice' },
-                { tag: 'PrsAct', label: 'Pres. Act. Part.' },
-                { tag: 'PrsPss', label: 'Pres. Pass. Part.' },
-                { tag: 'PstAct', label: 'Past Act. Part.' },
-                { tag: 'PstPss', label: 'Past Pass. Part.' }
-            ],
-            'Representation': [
-                { tag: 'Pers', label: 'Personal' },
-                { tag: 'Refl', label: 'Reflexive' },
-                { tag: 'Dem', label: 'Demonstrative' },
-                { tag: 'Pos', label: 'Possessive' },
-                { tag: 'Interr', label: 'Interrogative' },
-                { tag: 'Rel', label: 'Relative' },
-                { tag: 'Neg', label: 'Negative' },
-                { tag: 'Indef', label: 'Indefinite' }
-            ],
-            'Other': [
-                { tag: 'Anim', label: 'Animate' },
-                { tag: 'Inan', label: 'Inanimate' },
-                { tag: 'Cmpar', label: 'Comparative' },
-                { tag: 'Pred', label: 'Short Form' },
+                { tag: 'Pcle', label: 'Particle' },
                 { tag: 'Paren', label: 'Parenthetical' }
             ]
-        };
+        ]);
 
-        for (const [category, tags] of Object.entries(categories)) {
-            const section = document.createElement('div');
-            section.className = 'grammar-highlighter-section';
-            section.style.marginBottom = '10px';
+        appendHeader('Case');
+        appendColumnGroup('Case', [
+            [
+                { tag: 'Nom', label: 'Nominative' },
+                { tag: 'Acc', label: 'Accusative' },
+                { tag: 'Gen', label: 'Genitive' }
+            ],
+            [
+                { tag: 'Loc', label: 'Prepositional' },
+                { tag: 'Dat', label: 'Dative' },
+                { tag: 'Ins', label: 'Instrumental' }
+            ],
+            [
+                { tag: 'Loc2', label: 'Locative' },
+                { tag: 'Gen2', label: 'Genitive 2' }
+            ]
+        ]);
 
-            const title = document.createElement('h4');
-            title.textContent = category;
-            title.style.margin = '5px 0';
-            section.appendChild(title);
+        appendHeaderRow(['Gender', 'Number', 'Animacy'], { dividers: true });
+        appendColumnGroup(null, [
+            [
+                { tag: 'Msc', label: 'Masculine', category: 'Gender' },
+                { tag: 'Fem', label: 'Feminine', category: 'Gender' },
+                { tag: 'Neu', label: 'Neuter', category: 'Gender' }
+            ],
+            [
+                { tag: 'Sg', label: 'Singular', category: 'Number' },
+                { tag: 'Pl', label: 'Plural', category: 'Number' }
+            ],
+            [
+                { tag: 'Anim', label: 'Animate', category: 'Animacy' },
+                { tag: 'Inan', label: 'Inanimate', category: 'Animacy' }
+            ]
+        ], { dividers: true });
 
-            const tagsContainer = document.createElement('div');
-            tagsContainer.style.display = 'flex';
-            tagsContainer.style.flexWrap = 'wrap';
-            tagsContainer.style.gap = '5px';
+        appendHeader('Pronouns');
+        appendRowWise('Pronouns', [
+            { tag: 'Pers', label: 'Personal' },
+            { tag: 'Refl', label: 'Reflexive' },
+            { tag: 'Dem', label: 'Demonstrative' },
+            { tag: 'Pos', label: 'Possessive' },
+            { tag: 'Interr', label: 'Interrogative' },
+            { tag: 'Rel', label: 'Relative' },
+            { tag: 'Neg', label: 'Negative' },
+            { tag: 'Indef', label: 'Indefinite' }
+        ]);
 
-            tags.forEach(tagObj => {
-                const button = document.createElement('button');
-                button.textContent = tagObj.label;
-                button.className = 'tag-toggle';
-                button.dataset.category = category;
-                button.dataset.tag = tagObj.tag;
-                button.style.padding = '2px 6px';
-                button.style.border = '1px solid #ccc';
-                button.style.borderRadius = '4px';
-                button.style.background = '#fff';
-                button.style.cursor = 'pointer';
+        appendHeader('Adjectives');
+        appendRowWise('Adjectives', [
+            { tag: 'Cmpar', label: 'Comparative' },
+            { tag: 'Pred', label: 'Short Form' }
+        ]);
 
-                button.onclick = () => {
-                    button.classList.toggle('active');
-                    button.style.background = button.classList.contains('active') ? '#e0e0ff' : '#fff';
-                    button.style.borderColor = button.classList.contains('active') ? '#2c5aa0' : '#ccc';
-                    this.updateGrammarHighlighterHighlighting();
-                };
+        appendHeader('Person');
+        appendColumnGroup('Person', [
+            [
+                { tag: 'Sg1', label: '1Sg' },
+                { tag: 'Sg2', label: '2Sg' },
+                { tag: 'Sg3', label: '3Sg' }
+            ],
+            [
+                { tag: 'Pl1', label: '1Pl' },
+                { tag: 'Pl2', label: '2Pl' },
+                { tag: 'Pl3', label: '3Pl' }
+            ],
+            []
+        ]);
 
-                tagsContainer.appendChild(button);
-            });
+        appendHeader('Verb Form');
+        appendRowWise('Verb Form', [
+            { tag: 'Inf', label: 'Infinitive' },
+            { tag: 'Imp', label: 'Imperative' },
+            { tag: 'Pass', label: 'Passive Voice' }
+        ]);
 
-            section.appendChild(tagsContainer);
-            container.appendChild(section);
-        }
+        appendHeader('Participles');
+        appendColumnGroup('Verb Form', [
+            [
+                { tag: 'PrsAct', label: 'Pres. Act.' },
+                { tag: 'PstAct', label: 'Past Act.' }
+            ],
+            [
+                { tag: 'PrsPss', label: 'Pres. Pass.' },
+                { tag: 'PstPss', label: 'Past Pass.' }
+            ],
+            []
+        ]);
+
+        appendHeader('Tense');
+        appendRowWise('Tense', [
+            { tag: 'Pst', label: 'Past' },
+            { tag: 'Prs', label: 'Present' },
+            { tag: 'Fut', label: 'Future' }
+        ]);
+
+        appendHeader('Aspect');
+        appendRowWise('Aspect', [
+            { tag: 'Impf', label: 'Imperfective' },
+            { tag: 'Perf', label: 'Perfective' }
+        ]);
     }
 
     async updateGrammarHighlighterHighlighting() {
