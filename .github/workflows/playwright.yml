@@ -21,7 +21,10 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Prepare Chromium crash directory
-        run: mkdir -p /tmp/chrome-crash
+        run: |
+          mkdir -p /tmp/chrome-crash
+          touch /tmp/chrome.log
+          chmod 666 /tmp/chrome.log
 
       - name: Run tests (headed Chromium via Xvfb)
         env:

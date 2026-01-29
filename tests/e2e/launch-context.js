@@ -5,9 +5,10 @@ const CI_CHROMIUM_ARGS = [
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
   '--disable-gpu',
-  '--enable-logging=stderr',
+  '--enable-logging',
   '--v=1',
   '--log-file=/tmp/chrome.log',
+  '--enable-crash-reporter',
   `--crash-dumps-dir=${process.env.CHROME_CRASH_DIR || '/tmp/chrome-crash'}`,
 ];
 
