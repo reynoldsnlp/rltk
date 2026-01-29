@@ -23,10 +23,8 @@ async function launchPersistentContext(userDataDir, { extensionPath }) {
     args.push(...CI_CHROMIUM_ARGS);
   }
 
-  const headless = process.env.PW_HEADLESS === '1';
-
   return chromium.launchPersistentContext(userDataDir, {
-    headless,
+    headless: false,
     args,
     ignoreDefaultArgs: ['--disable-breakpad'],
   });
