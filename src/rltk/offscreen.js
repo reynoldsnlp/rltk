@@ -181,25 +181,45 @@ async function ensureWasmScriptsLoaded() {
     }
 
     wasmScriptsReadyPromise = (async () => {
-        const scriptUrlFor = (file) => new URL(`resources/js/${file}`, location.href).toString();
-        const scripts = [
-            { url: scriptUrlFor('libhfst.js'), global: 'createHfstModule' },
-            { url: scriptUrlFor('libcg3.js'), global: 'createCG3Module' },
-        ];
-
-        for (const { url, global } of scripts) {
-            if (typeof window[global] === 'function') {
-                continue;
+        const loadScriptWithFallbacks = async (candidates, globalName) => {
+            if (typeof window[globalName] === 'function') {
+                return;
             }
 
-            await new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = url;
-                script.onload = () => resolve();
-                script.onerror = () => reject(new Error(`Failed to load ${url}`));
-                document.head.appendChild(script);
-            });
-        }
+            for (const src of candidates) {
+                try {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = src;
+                        script.onload = () => resolve();
+                        script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                        document.head.appendChild(script);
+                    });
+                    if (typeof window[globalName] === 'function') {
+                        return;
+                    }
+                } catch (error) {
+                    // Try next candidate
+                }
+            }
+
+            throw new Error(`Failed to load ${globalName} from ${candidates.join(', ')}`);
+        };
+
+        const baseUrl = new URL('resources/js/', location.href);
+        const hfstCandidates = [
+            new URL('libhfst.js', baseUrl).toString(),
+            new URL('libhfst-optimized.js', baseUrl).toString(),
+            new URL('libhfst-debug.js', baseUrl).toString(),
+        ];
+        const cg3Candidates = [
+            new URL('libcg3.js', baseUrl).toString(),
+            new URL('libcg3-optimized.js', baseUrl).toString(),
+            new URL('libcg3-debug.js', baseUrl).toString(),
+        ];
+
+        await loadScriptWithFallbacks(hfstCandidates, 'createHfstModule');
+        await loadScriptWithFallbacks(cg3Candidates, 'createCG3Module');
     })();
 
     return await wasmScriptsReadyPromise;
