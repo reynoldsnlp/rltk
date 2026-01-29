@@ -57,7 +57,11 @@ jobs:
           echo "=== memory ==="
           free -m || true
           echo "=== dmesg (tail) ==="
-          dmesg | tail -n 200 || true
+          sudo dmesg | tail -n 200 || true
+          echo "=== journalctl -k (tail) ==="
+          sudo journalctl -k --no-pager -n 200 || true
+          echo "=== coredumpctl (tail) ==="
+          sudo coredumpctl list --no-pager | tail -n 200 || true
 
       - name: Upload test artifacts
         if: always()

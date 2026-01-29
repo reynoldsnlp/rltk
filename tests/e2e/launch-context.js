@@ -26,6 +26,7 @@ async function launchPersistentContext(userDataDir, { extensionPath }) {
   return chromium.launchPersistentContext(userDataDir, {
     headless: false,
     args,
+    ignoreDefaultArgs: ['--disable-breakpad'],
   });
 }
 
