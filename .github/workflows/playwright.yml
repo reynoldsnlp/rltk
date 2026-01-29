@@ -33,7 +33,7 @@ jobs:
           CHROME_CRASH_DIR: /tmp/chrome-crash
         run: |
           ulimit -c unlimited || true
-          xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test
+          xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test --workers=1 --retries=0
 
       - name: Dump browser debug info
         if: always()
