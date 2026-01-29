@@ -21,4 +21,16 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run tests (headed Chromium via Xvfb)
-        run: xvfb-run -a npx playwright test
+        env:
+          DEBUG: pw:browser,pw:protocol
+          PWTEST_REPORTER: line
+        run: xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results
+            playwright-report
