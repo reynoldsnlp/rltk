@@ -14,6 +14,11 @@ jobs:
         with:
           node-version: 20
 
+      - name: List workspace files
+        run: |
+          echo "=== workspace files ==="
+          find . -type f | sort
+
       - name: Install dependencies
         run: npm ci
 

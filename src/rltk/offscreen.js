@@ -23,6 +23,13 @@ let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
 let wasmScriptsReadyPromise = null;
 
+function resolveWasmUrl(path) {
+    const base = new URL('resources/js/', location.href);
+    const url = new URL(path, base).toString();
+    console.log(`WASM locateFile: ${path} -> ${url}`);
+    return url;
+}
+
 const models = {
     imperfectiveToPerfectiveVerbMap: null,
     perfectiveToImperfectiveVerbMap: null,
@@ -67,12 +74,7 @@ async function initHfst() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
             if (path.endsWith('.wasm')) {
-                const base = new URL('resources/js/', location.href);
-                try {
-                    return chrome.runtime.getURL('rltk/resources/js/' + path);
-                } catch (error) {
-                    return new URL(path, base).toString();
-                }
+                return resolveWasmUrl(path);
             }
             return scriptDirectory + path;
         }
@@ -112,12 +114,7 @@ async function initCg3() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
             if (path.endsWith('.wasm')) {
-                const base = new URL('resources/js/', location.href);
-                try {
-                    return chrome.runtime.getURL('rltk/resources/js/' + path);
-                } catch (error) {
-                    return new URL(path, base).toString();
-                }
+                return resolveWasmUrl(path);
             }
             return scriptDirectory + path;
         }
