@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
-const { launchPersistentContext, ensureExtensionReady } = require('./launch-context');
+const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -39,9 +39,7 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
   });
 
   test.afterEach(async () => {
-    for (const p of browserContext.pages()) {
-      await p.close();
-    }
+    await closeNonKeepAlivePages(browserContext);
   });
 
   async function getFixtureTabId(fixtureUrl) {

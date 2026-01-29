@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
-const { launchPersistentContext, ensureExtensionReady } = require('./launch-context');
+const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
 
 // Run serially so we can share the fixture server.
 test.describe.configure({ mode: 'serial' });
@@ -40,15 +40,11 @@ test.describe('Token selector respects layout heuristics and selection override'
     const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
     await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
 
-    for (const p of browserContext.pages()) {
-      await p.close();
-    }
+    await closeNonKeepAlivePages(browserContext);
   });
 
   test.afterEach(async () => {
-    for (const p of browserContext.pages()) {
-      await p.close();
-    }
+    await closeNonKeepAlivePages(browserContext);
   });
 
   async function getFixtureTabId(fixtureUrl) {

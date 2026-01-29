@@ -40,6 +40,23 @@ async function launchPersistentContext(userDataDir, { extensionPath }) {
   return context;
 }
 
+async function closeNonKeepAlivePages(browserContext) {
+  const keepAlivePage = browserContext.__rltkKeepAlivePage;
+
+  for (const page of browserContext.pages()) {
+    if (keepAlivePage && page === keepAlivePage) {
+      continue;
+    }
+    await page.close();
+  }
+
+  if (!browserContext.__rltkKeepAlivePage || browserContext.__rltkKeepAlivePage.isClosed()) {
+    const newKeepAlivePage = await browserContext.newPage();
+    await newKeepAlivePage.goto('about:blank');
+    browserContext.__rltkKeepAlivePage = newKeepAlivePage;
+  }
+}
+
 async function ensureExtensionReady(browserContext) {
   const serviceWorker = browserContext.serviceWorkers()[0]
     || await browserContext.waitForEvent('serviceworker');
@@ -62,5 +79,6 @@ async function ensureExtensionReady(browserContext) {
 
 module.exports = {
   launchPersistentContext,
+  closeNonKeepAlivePages,
   ensureExtensionReady,
 };
