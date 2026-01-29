@@ -21,6 +21,7 @@ let g2p = null;
 let l2Analyser = null;
 let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
+let wasmScriptsReadyPromise = null;
 
 const models = {
     imperfectiveToPerfectiveVerbMap: null,
@@ -73,6 +74,9 @@ async function initHfst() {
     };
 
     // Initialize HFST module
+    if (typeof createHfstModule !== 'function') {
+        throw new Error('createHfstModule is not available');
+    }
     hfst = await createHfstModule(moduleConfig);
     console.log('    ...HFST module loaded as `hfst`');
 
@@ -110,6 +114,9 @@ async function initCg3() {
     };
 
     // Initialize CG3 module
+    if (typeof createCG3Module !== 'function') {
+        throw new Error('createCG3Module is not available');
+    }
     cg3 = await createCG3Module(moduleConfig);
     console.log('    ...CG3 module loaded as `cg3`');
 
@@ -150,6 +157,7 @@ async function initWasmTools() {
     // Create and store the initialization promise
     initializationPromise = (async () => {
         try {
+            await ensureWasmScriptsLoaded();
             if (!hfstToolsReady) {
                 await initHfst();
             }
@@ -165,6 +173,36 @@ async function initWasmTools() {
     })();
 
     return await initializationPromise;
+}
+
+async function ensureWasmScriptsLoaded() {
+    if (wasmScriptsReadyPromise) {
+        return await wasmScriptsReadyPromise;
+    }
+
+    wasmScriptsReadyPromise = (async () => {
+        const scriptUrlFor = (file) => chrome.runtime.getURL(`rltk/resources/js/${file}`);
+        const scripts = [
+            { url: scriptUrlFor('libhfst.js'), global: 'createHfstModule' },
+            { url: scriptUrlFor('libcg3.js'), global: 'createCG3Module' },
+        ];
+
+        for (const { url, global } of scripts) {
+            if (typeof window[global] === 'function') {
+                continue;
+            }
+
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error(`Failed to load ${url}`));
+                document.head.appendChild(script);
+            });
+        }
+    })();
+
+    return await wasmScriptsReadyPromise;
 }
 
 
