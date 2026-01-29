@@ -11,6 +11,9 @@ const CI_CHROMIUM_ARGS = [
   '--enable-crash-reporter',
   `--crash-dumps-dir=${process.env.CHROME_CRASH_DIR || '/tmp/chrome-crash'}`,
   '--vmodule=content/browser/renderer_host/*=2,content/renderer/*=2,components/crash/*=2',
+  '--disable-features=IsolateOrigins,site-per-process',
+  '--disable-site-isolation-trials',
+  '--process-per-site',
 ];
 
 async function launchPersistentContext(userDataDir, { extensionPath }) {
