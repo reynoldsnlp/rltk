@@ -9,12 +9,12 @@
  * 4. Activity Factory: Creates activity instances based on user selection.
  */
 
-if (typeof window !== 'undefined') {
-    if (window.__rltkActivitiesLoaded) {
-        throw new Error('RLTK activities already loaded');
+if (typeof window !== 'undefined' && window.__rltkActivitiesLoaded) {
+    console.warn('RLTK activities already loaded; skipping duplicate injection.');
+} else {
+    if (typeof window !== 'undefined') {
+        window.__rltkActivitiesLoaded = true;
     }
-    window.__rltkActivitiesLoaded = true;
-}
 
 /**
  * Base Activity Class
@@ -360,3 +360,4 @@ window.ClickActivity = ClickActivity;
 window.MultipleChoiceActivity = MultipleChoiceActivity;
 window.ClozeActivity = ClozeActivity;
 window.ActivityFactory = ActivityFactory;
+}

@@ -181,12 +181,7 @@ async function ensureWasmScriptsLoaded() {
     }
 
     wasmScriptsReadyPromise = (async () => {
-        const scriptUrlFor = (file) => {
-            if (typeof location !== 'undefined' && location.protocol === 'file:') {
-                return new URL(`resources/js/${file}`, location.href).toString();
-            }
-            return chrome.runtime.getURL(`rltk/resources/js/${file}`);
-        };
+        const scriptUrlFor = (file) => new URL(`resources/js/${file}`, location.href).toString();
         const scripts = [
             { url: scriptUrlFor('libhfst.js'), global: 'createHfstModule' },
             { url: scriptUrlFor('libcg3.js'), global: 'createCG3Module' },
