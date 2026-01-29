@@ -21,14 +21,6 @@ let g2p = null;
 let l2Analyser = null;
 let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
-let wasmScriptsReadyPromise = null;
-
-function resolveWasmUrl(path) {
-    const base = new URL('resources/js/', location.href);
-    const url = new URL(path, base).toString();
-    console.log(`WASM locateFile: ${path} -> ${url}`);
-    return url;
-}
 
 const models = {
     imperfectiveToPerfectiveVerbMap: null,
@@ -74,16 +66,13 @@ async function initHfst() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
             if (path.endsWith('.wasm')) {
-                return resolveWasmUrl(path);
+                return chrome.runtime.getURL('rltk/resources/js/' + path);
             }
             return scriptDirectory + path;
         }
     };
 
     // Initialize HFST module
-    if (typeof createHfstModule !== 'function') {
-        throw new Error('createHfstModule is not available');
-    }
     hfst = await createHfstModule(moduleConfig);
     console.log('    ...HFST module loaded as `hfst`');
 
@@ -114,16 +103,13 @@ async function initCg3() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
             if (path.endsWith('.wasm')) {
-                return resolveWasmUrl(path);
+                return chrome.runtime.getURL('rltk/resources/js/' + path);
             }
             return scriptDirectory + path;
         }
     };
 
     // Initialize CG3 module
-    if (typeof createCG3Module !== 'function') {
-        throw new Error('createCG3Module is not available');
-    }
     cg3 = await createCG3Module(moduleConfig);
     console.log('    ...CG3 module loaded as `cg3`');
 
@@ -164,7 +150,6 @@ async function initWasmTools() {
     // Create and store the initialization promise
     initializationPromise = (async () => {
         try {
-            await ensureWasmScriptsLoaded();
             if (!hfstToolsReady) {
                 await initHfst();
             }
@@ -180,56 +165,6 @@ async function initWasmTools() {
     })();
 
     return await initializationPromise;
-}
-
-async function ensureWasmScriptsLoaded() {
-    if (wasmScriptsReadyPromise) {
-        return await wasmScriptsReadyPromise;
-    }
-
-    wasmScriptsReadyPromise = (async () => {
-        const loadScriptWithFallbacks = async (candidates, globalName) => {
-            if (typeof window[globalName] === 'function') {
-                return;
-            }
-
-            for (const src of candidates) {
-                try {
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = src;
-                        script.onload = () => resolve();
-                        script.onerror = () => reject(new Error(`Failed to load ${src}`));
-                        document.head.appendChild(script);
-                    });
-                    if (typeof window[globalName] === 'function') {
-                        return;
-                    }
-                } catch (error) {
-                    // Try next candidate
-                }
-            }
-
-            throw new Error(`Failed to load ${globalName} from ${candidates.join(', ')}`);
-        };
-
-        const baseUrl = new URL('resources/js/', location.href);
-        const hfstCandidates = [
-            new URL('libhfst.js', baseUrl).toString(),
-            new URL('libhfst-optimized.js', baseUrl).toString(),
-            new URL('libhfst-debug.js', baseUrl).toString(),
-        ];
-        const cg3Candidates = [
-            new URL('libcg3.js', baseUrl).toString(),
-            new URL('libcg3-optimized.js', baseUrl).toString(),
-            new URL('libcg3-debug.js', baseUrl).toString(),
-        ];
-
-        await loadScriptWithFallbacks(hfstCandidates, 'createHfstModule');
-        await loadScriptWithFallbacks(cg3Candidates, 'createCG3Module');
-    })();
-
-    return await wasmScriptsReadyPromise;
 }
 
 
