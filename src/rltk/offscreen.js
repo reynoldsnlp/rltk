@@ -67,7 +67,12 @@ async function initHfst() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
             if (path.endsWith('.wasm')) {
-                return chrome.runtime.getURL('rltk/resources/js/' + path);
+                const base = new URL('resources/js/', location.href);
+                try {
+                    return chrome.runtime.getURL('rltk/resources/js/' + path);
+                } catch (error) {
+                    return new URL(path, base).toString();
+                }
             }
             return scriptDirectory + path;
         }
@@ -107,7 +112,12 @@ async function initCg3() {
     const moduleConfig = {
         locateFile: function(path, scriptDirectory) {
             if (path.endsWith('.wasm')) {
-                return chrome.runtime.getURL('rltk/resources/js/' + path);
+                const base = new URL('resources/js/', location.href);
+                try {
+                    return chrome.runtime.getURL('rltk/resources/js/' + path);
+                } catch (error) {
+                    return new URL(path, base).toString();
+                }
             }
             return scriptDirectory + path;
         }
