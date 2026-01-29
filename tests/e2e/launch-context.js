@@ -7,6 +7,7 @@ const CI_CHROMIUM_ARGS = [
   '--disable-gpu',
   '--enable-logging=stderr',
   '--v=1',
+  '--log-file=/tmp/chrome.log',
 ];
 
 async function launchPersistentContext(userDataDir, { extensionPath }) {
