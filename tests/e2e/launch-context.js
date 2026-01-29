@@ -11,8 +11,6 @@ const CI_CHROMIUM_ARGS = [
   '--enable-crash-reporter',
   `--crash-dumps-dir=${process.env.CHROME_CRASH_DIR || '/tmp/chrome-crash'}`,
   '--vmodule=content/browser/renderer_host/*=2,content/renderer/*=2,components/crash/*=2',
-  '--single-process',
-  '--no-zygote',
 ];
 
 async function launchPersistentContext(userDataDir, { extensionPath }) {
@@ -25,8 +23,10 @@ async function launchPersistentContext(userDataDir, { extensionPath }) {
     args.push(...CI_CHROMIUM_ARGS);
   }
 
+  const headless = process.env.PW_HEADLESS === '1';
+
   return chromium.launchPersistentContext(userDataDir, {
-    headless: false,
+    headless,
     args,
     ignoreDefaultArgs: ['--disable-breakpad'],
   });

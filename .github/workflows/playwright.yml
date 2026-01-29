@@ -31,9 +31,10 @@ jobs:
           DEBUG: pw:browser,pw:protocol
           PWTEST_REPORTER: line
           CHROME_CRASH_DIR: /tmp/chrome-crash
+          PW_HEADLESS: "1"
         run: |
           ulimit -c unlimited || true
-          xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test --workers=1 --retries=0
+          npx playwright test --workers=1 --retries=0 --trace=retain-on-failure
 
       - name: Dump browser debug info
         if: always()
