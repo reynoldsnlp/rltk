@@ -20,11 +20,36 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Prepare Chromium crash directory
+        run: mkdir -p /tmp/chrome-crash
+
       - name: Run tests (headed Chromium via Xvfb)
         env:
           DEBUG: pw:browser,pw:protocol
           PWTEST_REPORTER: line
         run: xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test
+
+      - name: Dump browser debug info
+        if: always()
+        run: |
+          echo "=== /tmp contents ==="
+          ls -la /tmp || true
+          echo "=== chrome.log tail ==="
+          if [ -f /tmp/chrome.log ]; then
+            tail -n 200 /tmp/chrome.log
+          else
+            echo "chrome.log not found"
+          fi
+          echo "=== chrome crash dumps ==="
+          if [ -d /tmp/chrome-crash ]; then
+            find /tmp/chrome-crash -maxdepth 2 -type f -ls || true
+          else
+            echo "/tmp/chrome-crash not found"
+          fi
+          echo "=== disk ==="
+          df -h || true
+          echo "=== memory ==="
+          free -m || true
 
       - name: Upload test artifacts
         if: always()
@@ -35,3 +60,4 @@ jobs:
             test-results
             playwright-report
             /tmp/chrome.log
+            /tmp/chrome-crash

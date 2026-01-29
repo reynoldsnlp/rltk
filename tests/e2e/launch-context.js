@@ -8,6 +8,7 @@ const CI_CHROMIUM_ARGS = [
   '--enable-logging=stderr',
   '--v=1',
   '--log-file=/tmp/chrome.log',
+  `--crash-dumps-dir=${process.env.CHROME_CRASH_DIR || '/tmp/chrome-crash'}`,
 ];
 
 async function launchPersistentContext(userDataDir, { extensionPath }) {
