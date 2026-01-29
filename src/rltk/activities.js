@@ -9,6 +9,13 @@
  * 4. Activity Factory: Creates activity instances based on user selection.
  */
 
+if (typeof window !== 'undefined') {
+    if (window.__rltkActivitiesLoaded) {
+        throw new Error('RLTK activities already loaded');
+    }
+    window.__rltkActivitiesLoaded = true;
+}
+
 /**
  * Base Activity Class
  * Handles the core logic for language learning activities
