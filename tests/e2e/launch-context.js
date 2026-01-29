@@ -5,6 +5,8 @@ const CI_CHROMIUM_ARGS = [
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
   '--disable-gpu',
+  '--enable-logging=stderr',
+  '--v=1',
 ];
 
 async function launchPersistentContext(userDataDir, { extensionPath }) {
@@ -23,6 +25,27 @@ async function launchPersistentContext(userDataDir, { extensionPath }) {
   });
 }
 
+async function ensureExtensionReady(browserContext) {
+  const serviceWorker = browserContext.serviceWorkers()[0]
+    || await browserContext.waitForEvent('serviceworker');
+  const swUrl = serviceWorker.url();
+  const extensionId = swUrl.split('/')[2];
+
+  const probePage = await browserContext.newPage();
+  try {
+    await probePage.goto(`chrome-extension://${extensionId}/rltk/background.js`);
+    await probePage.waitForFunction(
+      () => typeof chrome !== 'undefined' && !!chrome.runtime?.id,
+      { timeout: 10000 }
+    );
+  } finally {
+    await probePage.close();
+  }
+
+  return { serviceWorker, extensionId };
+}
+
 module.exports = {
   launchPersistentContext,
+  ensureExtensionReady,
 };

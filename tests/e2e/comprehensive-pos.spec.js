@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
-const { launchPersistentContext } = require('./launch-context');
+const { launchPersistentContext, ensureExtensionReady } = require('./launch-context');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -25,13 +25,8 @@ test.describe('Comprehensive POS Paradigm Generation', () => {
       extensionPath: pathToExtension,
     });
 
-    // Wait for extension to load
-    let serviceWorker = browserContext.serviceWorkers()[0];
-    if (!serviceWorker) {
-      serviceWorker = await browserContext.waitForEvent('serviceworker');
-    }
-    const swUrl = serviceWorker.url();
-    extensionId = swUrl.split('/')[2];
+    const extension = await ensureExtensionReady(browserContext);
+    extensionId = extension.extensionId;
   });
 
   test.afterAll(async () => {

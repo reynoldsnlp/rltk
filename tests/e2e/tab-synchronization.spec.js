@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
-const { launchPersistentContext } = require('./launch-context');
+const { launchPersistentContext, ensureExtensionReady } = require('./launch-context');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -24,9 +24,8 @@ test.describe('Tab Synchronization and State Restoration', () => {
       extensionPath: pathToExtension,
     });
 
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const swUrl = serviceWorker.url();
-    extensionId = swUrl.split('/')[2];
+    const extension = await ensureExtensionReady(browserContext);
+    extensionId = extension.extensionId;
   });
 
   test.afterAll(async () => {

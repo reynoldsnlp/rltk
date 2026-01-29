@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
-const { launchPersistentContext } = require('./launch-context');
+const { launchPersistentContext, ensureExtensionReady } = require('./launch-context');
 
 // Run serially to share a single fixture server.
 test.describe.configure({ mode: 'serial' });
@@ -27,10 +27,8 @@ test.describe('Word Stress Activity', () => {
       extensionPath: pathToExtension,
     });
 
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const swUrl = serviceWorker.url();
-    // URL format: chrome-extension://<id>/rltk/background.js
-    extensionId = swUrl.split('/')[2];
+    const extension = await ensureExtensionReady(browserContext);
+    extensionId = extension.extensionId;
   });
 
   test.afterAll(async () => {
