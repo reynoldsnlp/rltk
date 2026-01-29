@@ -1,6 +1,7 @@
-const { test, expect, chromium } = require('@playwright/test');
+const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
+const { launchPersistentContext } = require('./launch-context');
 
 // Run serially so we can share one fixture server/port.
 test.describe.configure({ mode: 'serial' });
@@ -23,12 +24,8 @@ test.describe('Side panel density for MC/Cloze', () => {
     const pathToExtension = path.resolve(__dirname, '../../src/');
     const userDataDir = `/tmp/test-user-data-dir-${Math.random()}`;
 
-    browserContext = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
-      args: [
-        `--disable-extensions-except=${pathToExtension}`,
-        `--load-extension=${pathToExtension}`,
-      ],
+    browserContext = await launchPersistentContext(userDataDir, {
+      extensionPath: pathToExtension,
     });
 
     const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
