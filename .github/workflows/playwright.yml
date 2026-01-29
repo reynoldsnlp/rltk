@@ -30,7 +30,10 @@ jobs:
         env:
           DEBUG: pw:browser,pw:protocol
           PWTEST_REPORTER: line
-        run: xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test
+          CHROME_CRASH_DIR: /tmp/chrome-crash
+        run: |
+          ulimit -c unlimited || true
+          xvfb-run -a -s "-screen 0 1280x720x24" npx playwright test
 
       - name: Dump browser debug info
         if: always()
@@ -53,6 +56,8 @@ jobs:
           df -h || true
           echo "=== memory ==="
           free -m || true
+          echo "=== dmesg (tail) ==="
+          dmesg | tail -n 200 || true
 
       - name: Upload test artifacts
         if: always()
