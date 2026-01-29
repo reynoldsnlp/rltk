@@ -26,11 +26,18 @@ async function launchPersistentContext(userDataDir, { extensionPath }) {
     args.push(...CI_CHROMIUM_ARGS);
   }
 
-  return chromium.launchPersistentContext(userDataDir, {
+  const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
     args,
     ignoreDefaultArgs: ['--disable-breakpad'],
   });
+
+  // Keep at least one tab open so Chromium doesn't exit when tests close pages.
+  const keepAlivePage = await context.newPage();
+  await keepAlivePage.goto('about:blank');
+  context.__rltkKeepAlivePage = keepAlivePage;
+
+  return context;
 }
 
 async function ensureExtensionReady(browserContext) {
