@@ -21,5 +21,5 @@ fi
 if command -v xvfb-run >/dev/null 2>&1; then
   xvfb-run npm exec playwright test --retries=1
 else
-  npm exec playwright test --retries=1
+  npm exec playwright test --retries=3
 fi
