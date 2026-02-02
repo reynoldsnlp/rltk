@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
 const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 // Run serially to share a single fixture server.
 test.describe.configure({ mode: 'serial' });
@@ -49,21 +50,11 @@ test.describe('Word Stress Activity', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function getFixtureTabId(fixtureUrl) {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const tabId = await serviceWorker.evaluate(async (targetUrl) => {
-      const exact = await chrome.tabs.query({ url: targetUrl });
-      if (exact.length > 0) return exact[0].id;
-      const all = await chrome.tabs.query({});
-      return all.length > 0 ? all[0].id : null;
-    }, fixtureUrl);
-    return tabId;
-  }
-
   async function openSidePanelForActivity(tabId, activityValue, options = {}) {
     const { clickEnhance = true } = options;
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'word-stress');
@@ -82,7 +73,7 @@ test.describe('Word Stress Activity', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     const sidePanelPage = await openSidePanelForActivity(tabId, 'click', { clickEnhance: false });
@@ -117,7 +108,7 @@ test.describe('Word Stress Activity', () => {
     expect(baselineHtml.includes('\u0301')).toBe(false);
     await expect(page.locator('.ʁ-stress')).toHaveCount(0);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'color');
@@ -133,7 +124,7 @@ test.describe('Word Stress Activity', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'color');
@@ -184,7 +175,7 @@ test.describe('Word Stress Activity', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'click');
@@ -199,7 +190,7 @@ test.describe('Word Stress Activity', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'click');
@@ -267,7 +258,7 @@ test.describe('Word Stress Activity', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'click');
@@ -319,7 +310,7 @@ test.describe('Word Stress Activity', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'mc');
@@ -345,7 +336,7 @@ test.describe('Word Stress Activity', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'hover');
@@ -368,7 +359,7 @@ test.describe('Word Stress Activity', () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'hover');

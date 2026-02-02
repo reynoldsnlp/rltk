@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
 const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 // Run serially so we can share the fixture server.
 test.describe.configure({ mode: 'serial' });
@@ -47,28 +48,18 @@ test.describe('Token selector respects layout heuristics and selection override'
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function getFixtureTabId(fixtureUrl) {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const tabId = await serviceWorker.evaluate(async (targetUrl) => {
-      const exact = await chrome.tabs.query({ url: targetUrl });
-      if (exact.length > 0) return exact[0].id;
-      const all = await chrome.tabs.query({});
-      return all.length > 0 ? all[0].id : null;
-    }, fixtureUrl);
-    return tabId;
-  }
-
   test('skips header/footer/nav unless user selection overrides', async () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/selection-targeting.html`;
     const page = await browserContext.newPage();
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'nouns');
@@ -136,11 +127,12 @@ test.describe('Token selector respects layout heuristics and selection override'
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'nouns');
@@ -178,11 +170,12 @@ test.describe('Token selector respects layout heuristics and selection override'
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-tutor"]');
 

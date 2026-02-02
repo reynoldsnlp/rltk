@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
 const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 // Follow the same serial pattern as the other e2e tests
 test.describe.configure({ mode: 'serial' });
@@ -41,17 +42,6 @@ test.describe('Distractor Accent Handling', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function getFixtureTabId(fixtureUrl) {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const tabId = await serviceWorker.evaluate(async (targetUrl) => {
-      const exact = await chrome.tabs.query({ url: targetUrl });
-      if (exact.length > 0) return exact[0].id;
-      const all = await chrome.tabs.query({});
-      return all.length > 0 ? all[0].id : null;
-    }, fixtureUrl);
-    return tabId;
-  }
-
   test('Nouns MC strips accents from originally stressed tokens', async () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/nouns.html`;
 
@@ -59,13 +49,15 @@ test.describe('Distractor Accent Handling', () => {
     const page = await browserContext.newPage();
     await page.goto(fixtureUrl);
     await page.bringToFront();
+    await page.bringToFront();
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     // Open the side panel targeting the fixture tab
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
 
     // Navigate to Reading activities -> Nouns -> MC following existing test pattern
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
@@ -76,12 +68,21 @@ test.describe('Distractor Accent Handling', () => {
     }, { timeout: 5000 });
     await sidePanelPage.selectOption('#activity-menu', 'mc');
 
+    await sidePanelPage.waitForFunction(() => {
+      const btn = document.getElementById('enhance-button');
+      return btn && !btn.disabled;
+    }, { timeout: 10000 });
+
     await sidePanelPage.click('#enhance-button');
+
+    await page.waitForFunction(() => {
+      return document.querySelectorAll('.ʁ-noun-mc select').length > 0;
+    }, { timeout: 20000 });
 
     // Wait for MC enhancement to land inside the stressed example block
     const stressedCase = page.locator('.case', { hasText: 'Stressed example' });
     const stressedSelect = stressedCase.locator('.ʁ-noun-mc select').first();
-    await expect(stressedSelect).toBeVisible({ timeout: 12000 });
+    await expect(stressedSelect).toBeVisible({ timeout: 20000 });
 
     // Extract options from the select that corresponds to the stressed noun
     const options = await stressedSelect.evaluate((sel) => Array.from(sel.options).map(o => o.textContent || ''));

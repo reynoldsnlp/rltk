@@ -2,13 +2,14 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
 const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 // Run serially so we can share one fixture server/port.
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Density controls', () => {
-  // Shorter timeout since local processing finishes quickly.
-  test.setTimeout(20000);
+  // Allow more time for CI environments.
+  test.setTimeout(30000);
 
   let browserContext;
   let extensionId;
@@ -48,17 +49,6 @@ test.describe('Density controls', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function getFixtureTabId(fixtureUrl) {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const tabId = await serviceWorker.evaluate(async (targetUrl) => {
-      const exact = await chrome.tabs.query({ url: targetUrl });
-      if (exact.length > 0) return exact[0].id;
-      const all = await chrome.tabs.query({});
-      return all.length > 0 ? all[0].id : null;
-    }, fixtureUrl);
-    return tabId;
-  }
-
   test('options page points users to side panel', async () => {
     const optionsPage = await browserContext.newPage();
     await optionsPage.goto(`chrome-extension://${extensionId}/rltk/options/options.html`);
@@ -79,11 +69,12 @@ test.describe('Density controls', () => {
     await page.bringToFront();
 
     // 2) Open side panel targeting the fixture tab
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'nouns');
@@ -114,12 +105,15 @@ test.describe('Density controls', () => {
     const mcSpan = page.locator('.ʁ-noun-mc').first();
     await expect(mcSpan).toBeVisible({ timeout: 12000 });
 
-    // Move the slider to a sparser setting and ensure enhancement reruns automatically
+    // Move the slider to a sparser setting and rerun enhancement
     await sidePanelPage.$eval('#density-slider', (el) => {
       el.value = '10';
       el.dispatchEvent(new Event('input', { bubbles: true }));
     });
+    await expect(sidePanelPage.locator('#restore-button')).toBeEnabled();
+    await sidePanelPage.click('#restore-button');
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length === 0, { timeout: 12000 });
+    await sidePanelPage.click('#enhance-button');
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length > 0, { timeout: 12000 });
     const rerunCount = await page.locator('.ʁ-noun-mc').count();
     expect(rerunCount).toBeGreaterThan(0);

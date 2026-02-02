@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
 const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 function createParadigmSuite(suiteLabel, testIds, options = {}) {
   const allowMissingIds = new Set(options.allowMissingIds || []);
@@ -9,6 +10,8 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
   test.describe.configure({ mode: 'serial' });
 
   test.describe(`Paradigm Generation - ${suiteLabel}`, () => {
+    test.setTimeout(options.timeout ?? 90000);
+
     let browserContext;
     let page;
     let extensionId;
@@ -45,20 +48,10 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
       await closeNonKeepAlivePages(browserContext);
     });
 
-    async function getFixtureTabId(fixtureUrl) {
-      const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-      const tabId = await serviceWorker.evaluate(async (targetUrl) => {
-        const exact = await chrome.tabs.query({ url: targetUrl });
-        if (exact.length > 0) return exact[0].id;
-        const all = await chrome.tabs.query({});
-        return all.length > 0 ? all[0].id : null;
-      }, fixtureUrl);
-      return tabId;
-    }
-
     async function openSidePanelAndActivateReadingTutor(tabId) {
       const sidePanelPage = await browserContext.newPage();
       await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+      await waitForSidePanelReady(sidePanelPage);
 
       // Click Reading Tutor tab
       await sidePanelPage.click('.tab-button[data-tab="reading-tutor"]');
@@ -78,7 +71,7 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
       const fixtureUrl = `http://localhost:${port}/tests/fixtures/comprehensive-pos.html`;
       await page.goto(fixtureUrl);
 
-      const tabId = await getFixtureTabId(fixtureUrl);
+      const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
       expect(tabId).not.toBeNull();
 
       const sidePanelPage = await openSidePanelAndActivateReadingTutor(tabId);

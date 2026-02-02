@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
 const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -40,17 +41,6 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function getFixtureTabId(fixtureUrl) {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const tabId = await serviceWorker.evaluate(async (targetUrl) => {
-      const exact = await chrome.tabs.query({ url: targetUrl });
-      if (exact.length > 0) return exact[0].id;
-      const all = await chrome.tabs.query({});
-      return all.length > 0 ? all[0].id : null;
-    }, fixtureUrl);
-    return tabId;
-  }
-
   test('Reading Tutor sub-tabs restore state correctly', async () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/nouns.html`;
     const page = await browserContext.newPage();
@@ -58,13 +48,11 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     const sidePanelPage = await browserContext.newPage();
 
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-
-    // Wait for side panel to initialize
-    await sidePanelPage.waitForLoadState('domcontentloaded');
+    await waitForSidePanelReady(sidePanelPage);
 
     // 1. Initial State: Reading Tutor active, Translations sub-tab active
     await expect(sidePanelPage.locator('.tab-button[data-tab="reading-tutor"]')).toHaveClass(/active/);
@@ -114,9 +102,10 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage);
 
     // 1. Start in Reading Tutor, select a word
     await page.waitForSelector('.ʁ-reading-tutor');

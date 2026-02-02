@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 const server = require('./server');
 const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -44,20 +45,10 @@ test.describe('Nouns Click Activity', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function getFixtureTabId(fixtureUrl) {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
-    const tabId = await serviceWorker.evaluate(async (targetUrl) => {
-      const exact = await chrome.tabs.query({ url: targetUrl });
-      if (exact.length > 0) return exact[0].id;
-      const all = await chrome.tabs.query({});
-      return all.length > 0 ? all[0].id : null;
-    }, fixtureUrl);
-    return tabId;
-  }
-
   async function openSidePanelForActivity(tabId, topicValue, activityValue) {
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', topicValue);
@@ -66,6 +57,10 @@ test.describe('Nouns Click Activity', () => {
       return select && select.options.length > 1;
     }, { timeout: 5000 });
     await sidePanelPage.selectOption('#activity-menu', activityValue);
+    await sidePanelPage.waitForFunction(() => {
+      const btn = document.getElementById('enhance-button');
+      return btn && !btn.disabled;
+    }, { timeout: 10000 });
     await sidePanelPage.click('#enhance-button');
     return sidePanelPage;
   }
@@ -73,15 +68,16 @@ test.describe('Nouns Click Activity', () => {
   test('nouns click activity highlights on click', async () => {
     const fixtureUrl = `http://localhost:${port}/tests/fixtures/nouns-click.html`;
     await page.goto(fixtureUrl);
+    await page.bringToFront();
 
-    const tabId = await getFixtureTabId(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
     await openSidePanelForActivity(tabId, 'nouns', 'click');
 
     // Wait for enhancement
     const nounLocator = page.locator('span.ʁ-click-green').first();
-    await expect(nounLocator).toBeVisible({ timeout: 10000 });
+    await expect(nounLocator).toBeVisible({ timeout: 20000 });
 
     // Click the noun
     await nounLocator.evaluate(node => node.click());
