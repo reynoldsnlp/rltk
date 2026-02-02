@@ -160,23 +160,33 @@ if [ "$USE_LOCAL" -eq 0 ] || [ "$ONLINE" -eq 1 ]; then
   HFSTOL_BASE_URL="https://pkg.pjj.cc/f/n/gs/giella-rus/usr/share/giella/rus"
   PMHFST_BASE_URL="https://pkg.pjj.cc/f/n/gs/giella-rus/usr/share/giella/rus"
   CG3_URL="https://raw.githubusercontent.com/giellalt/lang-rus/refs/heads/main/src/cg3/disambiguator.cg3"
+  BACKUP_BASE_URL="https://icall.byu.edu/lang-rus"
 
   for file in "${REQUIRED_PMHFST[@]}"; do
     if [ "$FORCE" -eq 1 ] || is_broken_or_missing "$RES_DIR/$file"; then
       echo "Preflight: downloading $file."
-      download_file "$PMHFST_BASE_URL/$file" "$RES_DIR/$file"
+      if ! download_file "$PMHFST_BASE_URL/$file" "$RES_DIR/$file"; then
+        echo "Preflight: primary download failed for $file, trying backup."
+        download_file "$BACKUP_BASE_URL/$file" "$RES_DIR/$file"
+      fi
     fi
   done
   for file in "${REQUIRED_CG3[@]}"; do
     if [ "$FORCE" -eq 1 ] || is_broken_or_missing "$RES_DIR/$file"; then
       echo "Preflight: downloading $file."
-      download_file "$CG3_URL" "$RES_DIR/$file"
+      if ! download_file "$CG3_URL" "$RES_DIR/$file"; then
+        echo "Preflight: primary download failed for $file, trying backup."
+        download_file "$BACKUP_BASE_URL/$file" "$RES_DIR/$file"
+      fi
     fi
   done
   for file in "${REQUIRED_HFSTOL[@]}"; do
     if [ "$FORCE" -eq 1 ] || is_broken_or_missing "$RES_DIR/$file"; then
       echo "Preflight: downloading $file."
-      download_file "$HFSTOL_BASE_URL/$file" "$RES_DIR/$file"
+      if ! download_file "$HFSTOL_BASE_URL/$file" "$RES_DIR/$file"; then
+        echo "Preflight: primary download failed for $file, trying backup."
+        download_file "$BACKUP_BASE_URL/$file" "$RES_DIR/$file"
+      fi
     fi
   done
 fi
