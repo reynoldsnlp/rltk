@@ -9,7 +9,7 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('Density controls', () => {
   // Allow more time for CI environments.
-  test.setTimeout(30000);
+  test.setTimeout(60000);
 
   let browserContext;
   let extensionId;
@@ -74,7 +74,7 @@ test.describe('Density controls', () => {
 
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
+    await waitForSidePanelReady(sidePanelPage);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'nouns');

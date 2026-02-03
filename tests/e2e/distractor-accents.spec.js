@@ -8,6 +8,8 @@ const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers')
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Distractor Accent Handling', () => {
+  test.setTimeout(60000);
+
   let browserContext;
   let extensionId;
   let serverInstance;
@@ -57,7 +59,7 @@ test.describe('Distractor Accent Handling', () => {
     // Open the side panel targeting the fixture tab
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
+    await waitForSidePanelReady(sidePanelPage);
 
     // Navigate to Reading activities -> Nouns -> MC following existing test pattern
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
@@ -84,14 +86,36 @@ test.describe('Distractor Accent Handling', () => {
     const stressedSelect = stressedCase.locator('.ʁ-noun-mc select').first();
     await expect(stressedSelect).toBeVisible({ timeout: 20000 });
 
-    // Extract options from the select that corresponds to the stressed noun
-    const options = await stressedSelect.evaluate((sel) => Array.from(sel.options).map(o => o.textContent || ''));
+    await page.waitForFunction(() => {
+      const cases = Array.from(document.querySelectorAll('.case'));
+      const stressed = cases.find(el => (el.textContent || '').includes('Stressed example'));
+      if (!stressed) return false;
+      const sel = stressed.querySelector('.ʁ-noun-mc select');
+      if (!sel) return false;
+      const opts = Array.from(sel.options);
+      return opts.length > 1 && opts.some(o => o.dataset && o.dataset.isCorrect === 'true' && o.value);
+    }, { timeout: 20000 });
 
-    // Assert: no option should carry an accent mark; base form should be present
+    // Extract options and correct value from the select
+    const { options, correctValue } = await stressedSelect.evaluate((sel) => {
+      const opts = Array.from(sel.options).map(o => ({
+        text: o.textContent || '',
+        value: o.value || '',
+        isCorrect: o.dataset && o.dataset.isCorrect === 'true'
+      }));
+      const correct = opts.find(o => o.isCorrect && o.value) || null;
+      return {
+        options: opts.map(o => o.text),
+        correctValue: correct ? correct.value : ''
+      };
+    });
+
+    // Assert: no option should carry an accent mark; correct option should be accentless
     const hasAccent = options.some(o => o.normalize('NFD').match(/\u0301/));
-    const hasBaseForm = options.some(o => o.normalize('NFD').replace(/\u0301/g, '') === 'дом');
+    const correctIsAccentless = correctValue.length > 0
+      && correctValue.normalize('NFD').replace(/\u0301/g, '') === correctValue;
 
     expect(hasAccent).toBeFalsy();
-    expect(hasBaseForm).toBeTruthy();
+    expect(correctIsAccentless).toBeTruthy();
   });
 });

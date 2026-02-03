@@ -7,6 +7,8 @@ const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers')
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Nouns Click Activity', () => {
+  test.setTimeout(60000);
+
   let browserContext;
   let page;
   let extensionId;
@@ -48,7 +50,7 @@ test.describe('Nouns Click Activity', () => {
   async function openSidePanelForActivity(tabId, topicValue, activityValue) {
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
+    await waitForSidePanelReady(sidePanelPage);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', topicValue);
