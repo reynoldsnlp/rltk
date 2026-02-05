@@ -2651,11 +2651,20 @@ ${errorMessage}`);
 
         } else if (pos === 'V') {
             // Verb Paradigm
+            // varyTags: tags that vary across the paradigm and should be stripped from baseTags
+            // This includes participle-specific tags (case, gender, animacy) so that clicking
+            // on a participle form still generates the full verb paradigm correctly.
             const varyTags = ['Sg', 'Pl', 'Sg1', 'Sg2', 'Sg3', 'Pl1', 'Pl2', 'Pl3',
                               'Prs', 'Fut', 'Pst', 'Imp', 'Inf',
                               'Msc', 'Fem', 'Neu', 'MFN',
                               'PrsAct', 'PstAct', 'PrsPss', 'PstPss', 'Adv', 'Pass', 'Pres',
-                              '1', '2', '3'];
+                              '1', '2', '3',
+                              // Case tags (for participles)
+                              'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc',
+                              // Animacy tags (for participles)
+                              'Anim', 'Inan', 'AnIn',
+                              // Lexicalized marker and other special tags
+                              'Lxc', 'Lxc-tentative'];
             const baseTagsList = tags.filter(t => !varyTags.includes(t));
             const baseTags = baseTagsList.length > 0 ? '+' + baseTagsList.join('+') : '';
 

@@ -123,6 +123,10 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
               const tableText = await tables.nth(i).innerText();
               if (!allowMissingIds.has(id)) {
                 expect(tableText).not.toContain('—');
+                
+                // Verify table cells contain actual Cyrillic text (Russian word forms)
+                const cyrillicPattern = /[\u0400-\u04FF]/;
+                expect(cyrillicPattern.test(tableText)).toBe(true);
               }
             }
           }
