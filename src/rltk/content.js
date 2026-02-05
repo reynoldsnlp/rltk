@@ -266,40 +266,72 @@
         return plainText;
     }
 
+    function computeTextHash(text) {
+        let hash = 0;
+        for (let i = 0; i < text.length; i++) {
+            hash = ((hash << 5) - hash) + text.charCodeAt(i);
+            hash |= 0;
+        }
+        return `${hash >>> 0}:${text.length}`;
+    }
+
     /**
      * Phase 2: Build token positions from cohorts and plain text
      */
     function buildTokenPositionsWithActivity(cohortArrays, plainText, positionMap, activity, selectionRange) {
-        // Precompute allowed roots for targeting heuristics
-        // Default behavior: if a page provides <main> or <article>, only target within those.
-        // Fallback behavior: if that yields almost no highlighted tokens, relax to target the rest
-        // of the document (still excluding obvious chrome like header/nav/footer and common classnames).
+        // Precompute allowed roots for targeting heuristics.
+        //
+        // READING TUTOR vs READING ACTIVITIES:
+        // - Reading Tutor always processes the ENTIRE page (including header/nav/footer)
+        //   so users can click on any word to see translations and grammar tables.
+        // - Reading Activities focus annotations within <main>/<article> to avoid
+        //   distracting users with exercises in navigation chrome.
+        //
+        // FALLBACK BEHAVIOR for Reading Activities:
+        // If <main>/<article> contains less than 1/3 of the page's text, we assume the
+        // page doesn't use semantic markup properly and fall back to the whole document
+        // (still excluding obvious chrome like header/nav/footer).
         const allowedRoots = Array.from(document.querySelectorAll('main, article'));
         const hasAllowedRoots = allowedRoots.length > 0;
         const blacklistRe = /(header|footer|nav|menu|sidebar|toolbar|masthead|breadcrumb)/i;
-        const FALLBACK_MIN_HIGHLIGHTED_TOKENS = 5;
+        // 1/3 threshold: if main/article has less than a third of the text, assume poor semantic markup
+        const FALLBACK_MIN_TEXT_RATIO = 1 / 3;
+        // Reading Tutor and Explore activity intentionally process the whole page
+        const applyChromeBlacklist = !(activity && (activity.topic === 'reading-tutor' || activity.activity === 'explore'));
 
         function isNodeAllowed(textNode, enforceAllowedRoots) {
             if (selectionRange) return true;
             const el = textNode && textNode.parentElement;
             if (!el) return true;
 
+            if (applyChromeBlacklist) {
+                let cur = el;
+                while (cur && cur !== document.body) {
+                    if (cur.tagName === 'HEADER' || cur.tagName === 'FOOTER' || cur.tagName === 'NAV') {
+                        return false;
+                    }
+                    const idClass = `${cur.id || ''} ${cur.className || ''}`;
+                    if (blacklistRe.test(idClass)) {
+                        return false;
+                    }
+                    cur = cur.parentElement;
+                }
+            }
+
             if (hasAllowedRoots && enforceAllowedRoots) {
                 return allowedRoots.some(root => root.contains(el));
             }
-
-            let cur = el;
-            while (cur && cur !== document.body) {
-                if (cur.tagName === 'HEADER' || cur.tagName === 'FOOTER' || cur.tagName === 'NAV') {
-                    return false;
-                }
-                const idClass = `${cur.id || ''} ${cur.className || ''}`;
-                if (blacklistRe.test(idClass)) {
-                    return false;
-                }
-                cur = cur.parentElement;
-            }
             return true;
+        }
+
+        function getTextLength(enforceAllowedRoots) {
+            let total = 0;
+            for (const mapping of positionMap) {
+                if (isNodeAllowed(mapping.node, enforceAllowedRoots)) {
+                    total += (mapping.plainTextEnd - mapping.plainTextStart);
+                }
+            }
+            return total;
         }
 
         function buildTokenPositions(enforceAllowedRoots) {
@@ -353,12 +385,18 @@
             return tokenPositions;
         }
 
-        const primaryEnforceAllowedRoots = !(activity && activity.topic === 'reading-tutor');
+        const primaryEnforceAllowedRoots = !(activity && (activity.topic === 'reading-tutor' || activity.activity === 'explore'));
         const primary = buildTokenPositions(primaryEnforceAllowedRoots);
 
-        if (hasAllowedRoots && !selectionRange && primaryEnforceAllowedRoots && primary.length < FALLBACK_MIN_HIGHLIGHTED_TOKENS) {
-            const fallback = buildTokenPositions(false);
-            return fallback.length > primary.length ? fallback : primary;
+        if (hasAllowedRoots && !selectionRange && primaryEnforceAllowedRoots) {
+            const totalTextLength = Math.max(1, positionMap.reduce((sum, m) => sum + (m.plainTextEnd - m.plainTextStart), 0));
+            const primaryTextLength = getTextLength(true);
+            const coverageRatio = primaryTextLength / totalTextLength;
+
+            if (coverageRatio < FALLBACK_MIN_TEXT_RATIO) {
+                const fallback = buildTokenPositions(false);
+                return fallback.length > primary.length ? fallback : primary;
+            }
         }
 
         return primary;
@@ -497,6 +535,23 @@
                 const isEnhanced = document.querySelectorAll('.ʁ').length > 0;
                 sendResponse({ success: true, isEnhanced: isEnhanced });
                 break;
+
+            case 'get_reading_tutor_status': {
+                const count = document.querySelectorAll('.ʁ-reading-tutor').length;
+                sendResponse({ success: true, count: count });
+                break;
+            }
+
+            case 'get_text_hash': {
+                try {
+                    const text = extractPlainText(document.body, null);
+                    const hash = computeTextHash(text || '');
+                    sendResponse({ success: true, hash: hash });
+                } catch (e) {
+                    sendResponse({ success: false, error: e.message });
+                }
+                break;
+            }
 
             case 'enhance':
                 try {

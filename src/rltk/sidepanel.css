@@ -329,6 +329,29 @@ datalist#density-ticks option {
 }
 
 /* Reading Tutor Styles */
+.reading-tutor-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+}
+
+.reading-tutor-refresh {
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #333;
+    border-radius: 14px;
+    width: 28px;
+    height: 28px;
+    line-height: 24px;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+.reading-tutor-refresh:hover {
+    background: #f6f6f6;
+}
+
 #reading-tutor-results {
     font-family: Arial, Helvetica, sans-serif;
 }

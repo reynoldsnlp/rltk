@@ -219,7 +219,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     // Handle side panel requests to communicate with content script
-    if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore' || request.action === 'get_status') {
+    if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore' || request.action === 'get_status' || request.action === 'get_reading_tutor_status' || request.action === 'get_text_hash') {
         (async () => {
             try {
                 let tabId;

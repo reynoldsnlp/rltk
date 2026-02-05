@@ -16,9 +16,28 @@ class RussianToolsSidePanel {
         this.isProcessing = false;
         this.freqDict = null;
         this.pageEnhanced = false;
+        this.readingTutorHash = null;
+        this.lastReadingTutorSelectionHash = null;
+        this.readingTutorPollTimer = null;
+        this.readingTutorInstructionsDismissed = false;
+        this.lastReadingTutorSelectionIndex = null;
+        this.lastReadingTutorSelectionData = null;
+        this.lastEnhancement = null;
         this.minDistanceKey = 'rltk_token_selector_minDistance';
         this.defaultMinDistance = 5;
         this.lastSavedMinDistance = null;
+        this.tabStateHandlers = [];
+        this.tabStateHandlersInitialized = false;
+        this.isApplyingTabState = false;
+        this.saveStateTimer = null;
+        this.grammarHighlighterState = { activeTags: [], ignoreAmbiguity: false };
+        this.lastWritingInput = '';
+        this.lastWritingTokens = null;
+        this.lastWritingSelectedErrorIndex = null;
+        this.tabAccessCache = new Map();
+        this.tabSwitchToken = 0;
+        this.processingContext = null;
+        this.readingTutorActivationToken = 0;
 
         const urlParams = new URLSearchParams(window.location.search);
         this.debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
@@ -42,6 +61,271 @@ class RussianToolsSidePanel {
             await fn();
         } finally {
             releaseLock();
+        }
+    }
+
+    registerTabState(key, { capture, apply, defaultValue, order = 100 }) {
+        this.tabStateHandlers.push({ key, capture, apply, defaultValue, order });
+        this.tabStateHandlers.sort((a, b) => a.order - b.order);
+    }
+
+    registerDefaultTabStateHandlers() {
+        if (this.tabStateHandlersInitialized) return;
+        this.tabStateHandlersInitialized = true;
+
+        // Add new tab-scoped UI state slices here to keep per-tab behavior consistent.
+        this.registerTabState('readingTutor', {
+            order: 10,
+            capture: () => ({
+                data: this.lastReadingTutorSelectionData || null,
+                index: this.lastReadingTutorSelectionIndex ?? null,
+                hash: this.lastReadingTutorSelectionHash || null,
+                processedHash: this.readingTutorHash || null,
+                instructionsDismissed: this.readingTutorInstructionsDismissed || false
+            }),
+            apply: (value) => {
+                const next = value || {};
+                this.lastReadingTutorSelectionData = next.data || null;
+                this.lastReadingTutorSelectionIndex = next.index ?? null;
+                this.lastReadingTutorSelectionHash = next.hash || null;
+                this.readingTutorHash = next.processedHash || null;
+                this.readingTutorInstructionsDismissed = !!next.instructionsDismissed;
+            },
+            defaultValue: { data: null, index: null, hash: null, processedHash: null, instructionsDismissed: false }
+        });
+
+        this.registerTabState('access', {
+            order: 15,
+            capture: () => {
+                if (!this.currentTabId) return null;
+                const cached = this.tabAccessCache.get(this.currentTabId);
+                return cached === undefined ? null : cached;
+            },
+            apply: (value) => {
+                if (!this.currentTabId) return;
+                if (value === true || value === false) {
+                    this.tabAccessCache.set(this.currentTabId, value);
+                } else {
+                    this.tabAccessCache.delete(this.currentTabId);
+                }
+                this.applyCachedAccessState(this.currentTabId);
+            },
+            defaultValue: null
+        });
+
+        this.registerTabState('selectionState', {
+            order: 25,
+            capture: () => ({ hasSelection: !!this.hasSelection }),
+            apply: (value) => {
+                this.applySelectionState(value && value.hasSelection);
+            },
+            defaultValue: { hasSelection: false }
+        });
+
+        this.registerTabState('ui', {
+            order: 20,
+            capture: () => ({
+                activeTab: this.currentTab || document.querySelector('.tab-button.active')?.dataset.tab || 'reading-tutor',
+                readingTutorSubTab: this.lastReadingTutorSubTab || document.querySelector('.sub-tab-button.active')?.dataset.subtab || 'translations-and-tables'
+            }),
+            apply: async (value) => {
+                const next = value || {};
+                this.lastReadingTutorSubTab = next.readingTutorSubTab || 'translations-and-tables';
+                const nextTab = next.activeTab || 'reading-tutor';
+                await this.switchTab(nextTab, { persist: false, restoreOnExit: false });
+            },
+            defaultValue: () => ({
+                activeTab: 'reading-tutor',
+                readingTutorSubTab: 'translations-and-tables'
+            })
+        });
+
+        this.registerTabState('selections', {
+            order: 30,
+            capture: () => ({
+                topic: document.getElementById('topic-menu')?.value,
+                filter: document.getElementById('filter-menu')?.value,
+                activity: document.getElementById('activity-menu')?.value
+            }),
+            apply: (value) => {
+                if (!value) return;
+                this.applySelections(value.topic, value.filter, value.activity);
+            },
+            defaultValue: () => ({
+                topic: document.getElementById('topic-menu')?.value,
+                filter: document.getElementById('filter-menu')?.value,
+                activity: document.getElementById('activity-menu')?.value
+            })
+        });
+
+        this.registerTabState('enhancement', {
+            order: 35,
+            capture: () => ({
+                pageEnhanced: !!this.pageEnhanced,
+                lastEnhancement: this.lastEnhancement || null
+            }),
+            apply: (value) => {
+                const next = value || {};
+                // Only overwrite lastEnhancement if:
+                // 1. We have a non-null value from storage, OR
+                // 2. lastEnhancement is currently null (safe to apply default)
+                // This prevents defaults from overwriting a lastEnhancement that was
+                // set during async operations triggered by earlier tab-state handlers.
+                if (next.lastEnhancement || this.lastEnhancement === null) {
+                    this.lastEnhancement = next.lastEnhancement || null;
+                }
+                if (next.pageEnhanced) {
+                    this.setCompletedState();
+                } else {
+                    this.setInitialState();
+                }
+            },
+            defaultValue: { pageEnhanced: false, lastEnhancement: null }
+        });
+
+        this.registerTabState('density', {
+            order: 40,
+            capture: () => {
+                const slider = document.getElementById('density-slider');
+                if (slider) return Number(slider.value);
+                return this.lastSavedMinDistance ?? this.defaultMinDistance;
+            },
+            apply: async (value) => {
+                await this.applyDensityValue(value);
+            },
+            defaultValue: () => this.lastSavedMinDistance ?? this.defaultMinDistance
+        });
+
+        this.registerTabState('grammarHighlighter', {
+            order: 50,
+            capture: () => this.syncGrammarHighlighterStateFromUI(),
+            apply: async (value) => {
+                await this.applyGrammarHighlighterState(value);
+            },
+            defaultValue: { activeTags: [], ignoreAmbiguity: false }
+        });
+
+        this.registerTabState('writing', {
+            order: 60,
+            capture: () => ({
+                input: this.lastWritingInput || '',
+                tokens: this.lastWritingTokens || null,
+                selectedErrorIndex: this.lastWritingSelectedErrorIndex ?? null
+            }),
+            apply: (value) => {
+                this.applyWritingState(value);
+            },
+            defaultValue: { input: '', tokens: null, selectedErrorIndex: null }
+        });
+    }
+
+    async captureTabState() {
+        const state = {};
+        for (const handler of this.tabStateHandlers) {
+            try {
+                state[handler.key] = await handler.capture();
+            } catch (e) {
+                console.warn(`Failed to capture tab state: ${handler.key}`, e);
+            }
+        }
+        return state;
+    }
+
+    async applyTabState(state) {
+        this.isApplyingTabState = true;
+        try {
+            for (const handler of this.tabStateHandlers) {
+                const hasValue = state && Object.prototype.hasOwnProperty.call(state, handler.key);
+                const rawValue = hasValue ? state[handler.key] : handler.defaultValue;
+                const value = typeof rawValue === 'function' ? rawValue() : rawValue;
+                await handler.apply(value);
+            }
+        } finally {
+            this.isApplyingTabState = false;
+        }
+    }
+
+    scheduleTabStateSave(delayMs = 200) {
+        if (this.isApplyingTabState) return;
+        if (this.saveStateTimer) {
+            clearTimeout(this.saveStateTimer);
+        }
+        this.saveStateTimer = setTimeout(() => {
+            this.saveTabState();
+        }, delayMs);
+    }
+
+    async applyDensityValue(value) {
+        const slider = document.getElementById('density-slider');
+        if (!slider) return;
+        const minDistance = Math.max(0, Math.min(10, Math.round(Number(value) || 0)));
+        slider.value = String(minDistance);
+        this.updateDensityDisplay(minDistance);
+        this.lastSavedMinDistance = minDistance;
+        await this.pushMinDistanceToContent(minDistance);
+    }
+
+    syncGrammarHighlighterStateFromUI() {
+        const buttons = document.querySelectorAll('.tag-toggle');
+        const activeTags = buttons.length
+            ? Array.from(document.querySelectorAll('.tag-toggle.active')).map(btn => btn.dataset.tag)
+            : (this.grammarHighlighterState?.activeTags || []);
+        const ignoreAmbiguityCheckbox = document.getElementById('ignore-ambiguity');
+        const ignoreAmbiguity = ignoreAmbiguityCheckbox ? ignoreAmbiguityCheckbox.checked : (this.grammarHighlighterState?.ignoreAmbiguity || false);
+        this.grammarHighlighterState = { activeTags, ignoreAmbiguity };
+        return this.grammarHighlighterState;
+    }
+
+    async applyGrammarHighlighterState(value) {
+        const next = value || { activeTags: [], ignoreAmbiguity: false };
+        this.grammarHighlighterState = {
+            activeTags: Array.isArray(next.activeTags) ? next.activeTags : [],
+            ignoreAmbiguity: !!next.ignoreAmbiguity
+        };
+
+        const ignoreAmbiguityCheckbox = document.getElementById('ignore-ambiguity');
+        if (ignoreAmbiguityCheckbox) {
+            ignoreAmbiguityCheckbox.checked = this.grammarHighlighterState.ignoreAmbiguity;
+        }
+
+        if (document.getElementById('grammar-highlighter-filters')) {
+            this.initializeGrammarHighlighterUI();
+        }
+
+        const buttons = document.querySelectorAll('.tag-toggle');
+        buttons.forEach(btn => {
+            const isActive = this.grammarHighlighterState.activeTags.includes(btn.dataset.tag);
+            btn.classList.toggle('active', isActive);
+        });
+
+        if (this.currentTab === 'reading-tutor' && this.lastReadingTutorSubTab === 'grammar-highlighter') {
+            this.updateGrammarHighlighterHighlighting();
+        }
+    }
+
+    applyWritingState(value) {
+        const next = value || {};
+        this.lastWritingInput = next.input || '';
+        this.lastWritingTokens = Array.isArray(next.tokens) ? next.tokens : null;
+        this.lastWritingSelectedErrorIndex = next.selectedErrorIndex ?? null;
+
+        const textarea = document.getElementById('writing-input');
+        if (textarea) textarea.value = this.lastWritingInput;
+
+        const resultsContainer = document.getElementById('writing-results');
+        const detailsContainer = document.getElementById('writing-details');
+        const writingContainer = document.getElementById('writing-container');
+
+        if (this.lastWritingTokens && this.lastWritingTokens.length > 0) {
+            this.displayWritingResults(this.lastWritingTokens, {
+                selectedIndex: this.lastWritingSelectedErrorIndex,
+                skipSave: true
+            });
+            if (writingContainer) writingContainer.style.display = 'flex';
+        } else {
+            if (resultsContainer) resultsContainer.innerHTML = '';
+            if (detailsContainer) detailsContainer.innerHTML = '';
+            if (writingContainer) writingContainer.style.display = 'none';
         }
     }
 
@@ -168,13 +452,14 @@ class RussianToolsSidePanel {
     applySelectionState(hasSelection) {
         this.hasSelection = !!hasSelection;
         this.updateEnhanceButtonLabel();
+        this.scheduleTabStateSave();
     }
 
-    async syncSelectionStateFromTab() {
+    async syncSelectionStateFromTab(tabId = null) {
         try {
-            const tabId = await this.getActiveTabId();
-            if (!tabId) return;
-            const response = await chrome.tabs.sendMessage(tabId, { action: 'get_selection_state' });
+            const targetTabId = tabId || await this.getTargetTabId();
+            if (!targetTabId) return;
+            const response = await chrome.tabs.sendMessage(targetTabId, { action: 'get_selection_state' });
             this.applySelectionState(response && response.hasSelection);
         } catch (e) {
             // Ignore if the content script is not available for this tab
@@ -183,9 +468,9 @@ class RussianToolsSidePanel {
 
     async pushMinDistanceToContent(minDistance) {
         try {
-            const tabId = await this.getActiveTabId();
-            if (tabId) {
-                await chrome.tabs.sendMessage(tabId, {
+            const targetTabId = await this.getTargetTabId();
+            if (targetTabId) {
+                await chrome.tabs.sendMessage(targetTabId, {
                     action: 'set_token_selector_min_distance',
                     value: minDistance
                 });
@@ -206,6 +491,10 @@ class RussianToolsSidePanel {
         if (this.pageEnhanced && !this.isProcessing) {
             await this.enhancePage();
         }
+
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
     }
 
     async getActiveTabId() {
@@ -215,12 +504,23 @@ class RussianToolsSidePanel {
         return tabs.length > 0 ? tabs[0].id : null;
     }
 
+    async getTargetTabId() {
+        if (this.debugTabId) return this.debugTabId;
+        if (this.currentTabId) return this.currentTabId;
+        return this.getActiveTabId();
+    }
+
+    isLatestTabSwitch(token) {
+        return token === this.tabSwitchToken;
+    }
+
     /**
      * Initializes the side panel: sets up listeners, loads state, and checks access.
      */
     async init() {
         this.setupEventListeners();
         this.initializeActivitySelectors();
+        this.registerDefaultTabStateHandlers();
 
         const urlParams = new URLSearchParams(window.location.search);
         const debugTabIdParam = urlParams.get('debugTabId');
@@ -248,20 +548,8 @@ class RussianToolsSidePanel {
         }
 
         // Listen for tab activation to switch state
-        chrome.tabs.onActivated.addListener(async (activeInfo) => {
-            // Re-connect for the new tab if needed, or just update state
-            // Since side panel is tab-specific, this instance might be for a specific tab?
-            // Actually, if the side panel is open for multiple tabs, is it the same instance?
-            // "A single instance of the side panel is shared across all tabs." -> This is for global side panel.
-            // But we use `open({ tabId })`.
-            // "If you specify a tabId, the side panel is specific to that tab."
-            // This implies there might be separate instances or the same instance reloaded?
-            // Usually it's the same document if the URL is the same.
-
-            this.currentTabId = activeInfo.tabId;
-            await this.loadTabState(activeInfo.tabId);
-            this.checkAccess(activeInfo.tabId);
-            await this.syncSelectionStateFromTab();
+        chrome.tabs.onActivated.addListener((activeInfo) => {
+            this.handleTabActivated(activeInfo);
         });
 
         // Listen for tab updates (navigation)
@@ -274,8 +562,14 @@ class RussianToolsSidePanel {
         // Listen for access granted message
         chrome.runtime.onMessage.addListener((message) => {
             if (message.action === 'access_granted') {
-                this.hideAccessModal();
-                this.checkPageStatus();
+                if (message.tabId) {
+                    this.tabAccessCache.set(message.tabId, true);
+                    this.scheduleTabStateSave();
+                }
+                if (!message.tabId || this.isActiveTab(message.tabId)) {
+                    this.hideAccessModal();
+                    this.checkPageStatus(message.tabId);
+                }
             }
         });
 
@@ -289,32 +583,68 @@ class RussianToolsSidePanel {
         }
     }
 
+    async handleTabActivated(activeInfo) {
+        const token = ++this.tabSwitchToken;
+        // Fire-and-forget: we don't await runExclusive here because tab activation
+        // events should not block the browser. State will be saved/loaded asynchronously.
+        await this.runExclusive(async () => {
+            if (this.currentTabId) {
+                await this.saveTabState(this.currentTabId);
+            }
+
+            this.currentTabId = activeInfo.tabId;
+            this.applyCachedAccessState(activeInfo.tabId);
+            await this.loadTabState(activeInfo.tabId);
+
+            if (!this.isLatestTabSwitch(token)) return;
+
+            this.checkAccess(activeInfo.tabId);
+            await this.syncSelectionStateFromTab(activeInfo.tabId);
+
+            if (this.currentTab === 'reading-tutor') {
+                await this.ensureReadingTutorActive();
+            }
+        });
+    }
+
     /**
      * Checks if the extension has access to the given tab.
      * If not, shows a modal prompting the user to grant access.
      */
     async checkAccess(tabId) {
+        if (!this.isActiveTab(tabId)) return;
         try {
             // Try to ping the content script
             await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+            if (!this.isActiveTab(tabId)) return;
+            this.tabAccessCache.set(tabId, true);
+            this.scheduleTabStateSave();
             this.hideAccessModal();
-            this.checkPageStatus();
+            this.checkPageStatus(tabId);
         } catch (error) {
             // If ping failed, try to inject via background targeting this tab
             try {
                 const response = await chrome.runtime.sendMessage({ action: 'inject_content_script', tabId });
+                if (!this.isActiveTab(tabId)) return;
                 if (response && response.success) {
+                    this.tabAccessCache.set(tabId, true);
+                    this.scheduleTabStateSave();
                     this.hideAccessModal();
-                    this.checkPageStatus();
+                    this.checkPageStatus(tabId);
                 } else {
                     // Check if it's a restricted page (chrome:// etc)
                     // If so, maybe we shouldn't show the modal or show a different one?
                     // For now, just show the modal as "Access Required" implies we can't access it.
                     // But if it's chrome://, clicking the icon won't help.
                     // However, the user asked to "gray out the sidebar with a modal".
+                    this.tabAccessCache.set(tabId, false);
+                    this.scheduleTabStateSave();
                     this.showAccessModal();
                 }
             } catch (injectError) {
+                if (!this.isActiveTab(tabId)) return;
+                this.tabAccessCache.set(tabId, false);
+                this.scheduleTabStateSave();
                 this.showAccessModal();
             }
         }
@@ -330,12 +660,33 @@ class RussianToolsSidePanel {
         if (modal) modal.style.display = 'none';
     }
 
+    isActiveTab(tabId) {
+        if (!tabId) return false;
+        if (this.debugTabId) return tabId === this.debugTabId;
+        if (!this.currentTabId) return false;
+        return tabId === this.currentTabId;
+    }
+
+    applyCachedAccessState(tabId) {
+        const cached = this.tabAccessCache.get(tabId);
+        if (cached === true) {
+            this.hideAccessModal();
+        } else if (cached === false) {
+            this.showAccessModal();
+        } else {
+            // Clear stale modal state until we confirm access for this tab.
+            this.hideAccessModal();
+        }
+    }
+
     /**
      * Checks if the current page is already enhanced and updates UI accordingly.
      */
-    async checkPageStatus() {
+    async checkPageStatus(tabId = null) {
         try {
-            const response = await chrome.runtime.sendMessage({ action: 'get_status' });
+            const targetTabId = tabId || await this.getTargetTabId();
+            if (!targetTabId) return;
+            const response = await chrome.runtime.sendMessage({ action: 'get_status', tabId: targetTabId });
             const isEnhanced = response && response.success && (response.isEnhanced || (response.data && response.data.isEnhanced));
             if (isEnhanced) {
                 this.setCompletedState();
@@ -352,7 +703,7 @@ class RussianToolsSidePanel {
         document.querySelectorAll('.tab-button').forEach(button => {
             button.addEventListener('click', (e) => {
                 this.userHasInteracted = true;
-                this.switchTab(e.target.dataset.tab);
+                this.switchTab(e.target.dataset.tab, { persist: true });
             });
         });
 
@@ -360,7 +711,7 @@ class RussianToolsSidePanel {
         document.querySelectorAll('.sub-tab-button').forEach(button => {
             button.addEventListener('click', (e) => {
                 this.userHasInteracted = true;
-                this.switchSubTab(e.target.dataset.subtab);
+                this.switchSubTab(e.target.dataset.subtab, { persist: true });
             });
         });
 
@@ -371,6 +722,8 @@ class RussianToolsSidePanel {
         if (ignoreAmbiguityCheckbox) {
             ignoreAmbiguityCheckbox.addEventListener('change', () => {
                 this.updateGrammarHighlighterHighlighting();
+                this.syncGrammarHighlighterStateFromUI();
+                this.saveTabState();
             });
         }
 
@@ -441,6 +794,16 @@ class RussianToolsSidePanel {
             dismissButton.addEventListener('click', () => {
                 const instructions = document.getElementById('reading-tutor-instructions');
                 if (instructions) instructions.style.display = 'none';
+                this.readingTutorInstructionsDismissed = true;
+                this.saveTabState();
+            });
+        }
+
+        const refreshButton = document.getElementById('reading-tutor-refresh');
+        if (refreshButton) {
+            refreshButton.addEventListener('click', async () => {
+                refreshButton.style.display = 'none';
+                await this.activateReadingTutor();
             });
         }
     }
@@ -451,12 +814,23 @@ class RussianToolsSidePanel {
      */
     async enhancePage() {
         await this.runExclusive(async () => {
-            if (this.isProcessing) return;
+            if (this.isProcessing) {
+                if (this.processingContext === 'reading-tutor' && this.currentTab !== 'reading-tutor') {
+                    this.isProcessing = false;
+                    this.processingContext = null;
+                } else {
+                    return;
+                }
+            }
 
-            await this.syncSelectionStateFromTab();
+            const targetTabId = await this.getTargetTabId();
+            if (!targetTabId) return;
+
+            await this.syncSelectionStateFromTab(targetTabId);
             const selectionOnly = this.hasSelection;
 
             this.isProcessing = true;
+            this.processingContext = 'enhance';
             this.setProcessingState(true);
 
         const selections = {
@@ -465,13 +839,19 @@ class RussianToolsSidePanel {
             activity: document.getElementById('activity-menu').value,
         };
 
-        // Get debugTabId if present
-        const urlParams = new URLSearchParams(window.location.search);
-        const debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
-
+        const shouldSkip = !selectionOnly && await this.shouldSkipEnhancement({
+            tabId: targetTabId,
+            selections,
+            lastEnhancement: this.lastEnhancement
+        });
         try {
+            if (shouldSkip) {
+                this.setCompletedState();
+                return;
+            }
+
             // Always restore first
-            await chrome.runtime.sendMessage({ action: 'restore', tabId: debugTabId });
+            await chrome.runtime.sendMessage({ action: 'restore', tabId: targetTabId });
 
             // Store selections
             await this.saveTabState();
@@ -481,7 +861,7 @@ class RussianToolsSidePanel {
                 action: 'enhance',
                 selections: selections,
                 selectionOnly: selectionOnly,
-                tabId: debugTabId
+                tabId: targetTabId
             });
 
             if (!response.success) {
@@ -489,7 +869,14 @@ class RussianToolsSidePanel {
             }
 
             // Enhancement completed successfully
+            const currentHash = selectionOnly ? null : await this.fetchTextHash(targetTabId);
+            this.lastEnhancement = {
+                selections: selections,
+                selectionOnly: selectionOnly,
+                textHash: currentHash
+            };
             this.setCompletedState();
+            this.saveTabState();
 
         } catch (error) {
             let errorMessage = (error && error.message) ? error.message : String(error);
@@ -498,7 +885,6 @@ class RussianToolsSidePanel {
                 // Try to request permission dynamically
                 try {
                     // Prefer the debug tab we were asked to enhance; fall back to the active tab.
-                    const targetTabId = debugTabId || (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id;
                     if (targetTabId) {
                         const targetTab = await chrome.tabs.get(targetTabId);
                         if (targetTab?.url) {
@@ -528,6 +914,7 @@ ${errorMessage}`);
             this.setInitialState();
         } finally {
             this.isProcessing = false;
+            this.processingContext = null;
             // Ensure loading is hidden if it wasn't handled by state changes
             document.getElementById('loading').style.display = 'none';
         }
@@ -536,12 +923,14 @@ ${errorMessage}`);
 
     async restorePage() {
         try {
-            const targetTabId = this.debugTabId || await this.getActiveTabId();
+            const targetTabId = await this.getTargetTabId();
             await chrome.runtime.sendMessage({ action: 'restore', tabId: targetTabId });
         } catch (error) {
             console.error('Error restoring:', error);
         }
+        this.lastEnhancement = null;
         this.setInitialState();
+        this.saveTabState();
     }
 
     setProcessingState(processing) {
@@ -589,9 +978,83 @@ ${errorMessage}`);
         this.pageEnhanced = false;
     }
 
+    async fetchTextHash(tabId) {
+        try {
+            if (!tabId) return null;
+            const response = await chrome.runtime.sendMessage({ action: 'get_text_hash', tabId });
+            if (response && response.success) return response.hash || null;
+        } catch (e) {
+            // ignore
+        }
+        return null;
+    }
+
+    async shouldSkipEnhancement({ tabId, selections, lastEnhancement }) {
+        if (!tabId || !lastEnhancement) return false;
+        if (lastEnhancement.selectionOnly) return false;
+        if (!this.areSelectionsEqual(lastEnhancement.selections, selections)) return false;
+        if (!this.pageEnhanced) return false;
+
+        let isEnhanced = false;
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'get_status', tabId });
+            isEnhanced = !!(response && response.success && (response.isEnhanced || (response.data && response.data.isEnhanced)));
+        } catch (e) {
+            return false;
+        }
+
+        if (!isEnhanced) return false;
+
+        if (!lastEnhancement.textHash) {
+            return true;
+        }
+
+        const currentHash = await this.fetchTextHash(tabId);
+        if (!currentHash || currentHash !== lastEnhancement.textHash) return false;
+
+        return true;
+    }
+
+    areSelectionsEqual(left, right) {
+        if (!left || !right) return false;
+        return left.topic === right.topic && left.filter === right.filter && left.activity === right.activity;
+    }
+
+    async fetchReadingTutorStatus(tabId) {
+        try {
+            if (!tabId) return null;
+            const response = await chrome.runtime.sendMessage({ action: 'get_reading_tutor_status', tabId });
+            if (response && response.success && response.data) {
+                return response.data.count || 0;
+            }
+        } catch (e) {
+            // ignore
+        }
+        return null;
+    }
+
+    async ensureReadingTutorActive() {
+        const targetTabId = await this.getTargetTabId();
+        if (!targetTabId) return;
+
+        const existingCount = await this.fetchReadingTutorStatus(targetTabId);
+        const currentHash = await this.fetchReadingTutorHash();
+
+        if (existingCount && existingCount > 0) {
+            if (!this.readingTutorHash && currentHash) {
+                this.readingTutorHash = currentHash;
+                this.saveTabState();
+            }
+            this.startReadingTutorPolling();
+            return;
+        }
+
+        await this.activateReadingTutor();
+    }
 
 
-    async switchTab(tabName) {
+
+    async switchTab(tabName, { persist = true, restoreOnExit = true } = {}) {
         const previousTab = this.currentTab;
         this.currentTab = tabName;
 
@@ -604,15 +1067,24 @@ ${errorMessage}`);
         });
 
         // Add active class to selected tab and button
-        document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
-        document.getElementById(`${tabName}-tab`).classList.add('active');
+        const activeButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+        if (activeButton) activeButton.classList.add('active');
+        const activeContent = document.getElementById(`${tabName}-tab`);
+        if (activeContent) activeContent.classList.add('active');
 
         // Handle Reading Tutor activation
         if (tabName === 'reading-tutor') {
-            await this.activateReadingTutor();
+            await this.ensureReadingTutorActive();
             // Restore last selected subtab
-            this.switchSubTab(this.lastReadingTutorSubTab);
+            await this.switchSubTab(this.lastReadingTutorSubTab, { persist: false });
         } else {
+            if (this.processingContext === 'reading-tutor') {
+                this.readingTutorActivationToken++;
+                this.isProcessing = false;
+                this.processingContext = null;
+                document.getElementById('loading').style.display = 'none';
+            }
+            this.stopReadingTutorPolling();
             // Hide attribution when leaving reading tutor
             const attribution = document.getElementById('openrussian-attribution');
             if (attribution) {
@@ -620,13 +1092,17 @@ ${errorMessage}`);
             }
 
             // If leaving Reading Tutor or switching to Reading Activities, restore page
-            if (previousTab === 'reading-tutor') {
+            if (restoreOnExit && previousTab === 'reading-tutor') {
                 await this.runExclusive(() => this.restorePage());
             }
         }
+
+        if (persist && !this.isApplyingTabState) {
+            await this.saveTabState();
+        }
     }
 
-    async switchSubTab(subTabName) {
+    async switchSubTab(subTabName, { persist = true } = {}) {
         this.lastReadingTutorSubTab = subTabName;
 
         const attribution = document.getElementById('openrussian-attribution');
@@ -651,7 +1127,12 @@ ${errorMessage}`);
             content.style.display = 'block';
         }
 
-        const tabId = await this.getActiveTabId();
+        const tabId = await this.getTargetTabId();
+        const currentHash = this.readingTutorHash || await this.fetchReadingTutorHash();
+        const readingTutorCount = tabId ? await this.fetchReadingTutorStatus(tabId) : 0;
+        const hasStoredSelection = this.lastReadingTutorSelectionData || (this.lastReadingTutorSelectionIndex !== null && this.lastReadingTutorSelectionIndex !== undefined);
+        const canRestoreSelection = !!(this.lastReadingTutorSelectionHash && currentHash && this.lastReadingTutorSelectionHash === currentHash);
+        const hashMismatch = !!(this.lastReadingTutorSelectionHash && currentHash && this.lastReadingTutorSelectionHash !== currentHash);
 
         if (subTabName === 'grammar-highlighter') {
             this.initializeGrammarHighlighterUI();
@@ -670,19 +1151,30 @@ ${errorMessage}`);
                     css: ''
                 }).catch(() => {});
 
-                // Restore Translations selection
-                if (this.lastReadingTutorSelectionIndex !== undefined && this.lastReadingTutorSelectionIndex !== null) {
-                    chrome.tabs.sendMessage(tabId, {
-                        action: 'restore_reading_tutor_selection',
-                        index: this.lastReadingTutorSelectionIndex
-                    }).catch(() => {});
-                }
+                if (canRestoreSelection || (hasStoredSelection && !hashMismatch && readingTutorCount > 0)) {
+                    // Restore Translations selection
+                    if (this.lastReadingTutorSelectionIndex !== undefined && this.lastReadingTutorSelectionIndex !== null) {
+                        chrome.tabs.sendMessage(tabId, {
+                            action: 'restore_reading_tutor_selection',
+                            index: this.lastReadingTutorSelectionIndex
+                        }).catch(() => {});
+                    }
 
-                // Restore side panel content
-                if (this.lastReadingTutorSelectionData) {
-                    this.handleReadingTutorSelection(this.lastReadingTutorSelectionData);
+                    // Restore side panel content
+                    if (this.lastReadingTutorSelectionData) {
+                        this.handleReadingTutorSelection(this.lastReadingTutorSelectionData);
+                    }
+                } else if (hasStoredSelection && !hashMismatch && !currentHash && readingTutorCount > 0) {
+                    // Attempt to refresh the hash for future restores.
+                    await this.syncReadingTutorHash();
+                } else if (hasStoredSelection && hashMismatch) {
+                    this.clearReadingTutorSelectionState({ tabId, showInstructions: true });
                 }
             }
+        }
+
+        if (persist && !this.isApplyingTabState) {
+            await this.saveTabState();
         }
     }
 
@@ -700,6 +1192,8 @@ ${errorMessage}`);
             button.onclick = () => {
                 button.classList.toggle('active');
                 this.updateGrammarHighlighterHighlighting();
+                this.syncGrammarHighlighterStateFromUI();
+                this.saveTabState();
             };
 
             return button;
@@ -917,24 +1411,43 @@ ${errorMessage}`);
             css = `${fullSelector} { background-color: rgba(255, 255, 0, 0.3); border-bottom: 2px solid #ffc107; }`;
         }
 
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tabs.length > 0) {
-            chrome.tabs.sendMessage(tabs[0].id, {
+        const targetTabId = await this.getTargetTabId();
+        if (targetTabId) {
+            chrome.tabs.sendMessage(targetTabId, {
                 action: 'update_grammar_highlighter_styles',
                 css: css
             });
         }
     }
 
+    isStaleActivation(token) {
+        return token !== this.readingTutorActivationToken || this.currentTab !== 'reading-tutor';
+    }
+
     async activateReadingTutor() {
+        const activationToken = ++this.readingTutorActivationToken;
         // Show instructions
         const instructions = document.getElementById('reading-tutor-instructions');
-        if (instructions) instructions.style.display = 'block';
+        if (instructions) instructions.style.display = this.readingTutorInstructionsDismissed ? 'none' : 'block';
+
+        const targetTabId = await this.getTargetTabId();
+        if (targetTabId) {
+            const existingCount = await this.fetchReadingTutorStatus(targetTabId);
+            const currentHash = await this.fetchReadingTutorHash();
+            if (existingCount && existingCount > 0) {
+                if (!this.readingTutorHash && currentHash) {
+                    this.readingTutorHash = currentHash;
+                    this.saveTabState();
+                }
+                this.startReadingTutorPolling();
+                return;
+            }
+        }
 
         // 1. Restore page to clear any existing activity
         await this.restorePage();
 
-        if (this.currentTab !== 'reading-tutor') return;
+        if (this.currentTab !== 'reading-tutor' || activationToken !== this.readingTutorActivationToken) return;
 
         // 2. Trigger enhancement for Reading Tutor
         // We simulate an enhancement request with specific parameters
@@ -945,6 +1458,7 @@ ${errorMessage}`);
         };
 
         this.isProcessing = true;
+        this.processingContext = 'reading-tutor';
         // Show loading in the results area
         const container = document.getElementById('reading-tutor-results');
         if (container) {
@@ -957,24 +1471,125 @@ ${errorMessage}`);
         }
 
         try {
+            const targetTabId = this.debugTabId || this.currentTabId;
+            if (this.isStaleActivation(activationToken)) {
+                return;
+            }
             const response = await chrome.runtime.sendMessage({
                 action: 'enhance',
                 selections: selections,
-                tabId: this.debugTabId || this.currentTabId
+                tabId: targetTabId
             });
 
             if (!response.success) {
                 throw new Error(response.error);
             }
 
+            if (this.isStaleActivation(activationToken)) {
+                return;
+            }
+
             if (container) container.innerHTML = '<div class="info"></div>';
 
+            // Poll to ensure Reading Tutor content is actually injected.
+            const processed = await this.waitForReadingTutorProcessed(targetTabId, { attempts: 10, delayMs: 500 });
+            if (!processed) {
+                // Retry once if nothing was injected (can happen if the page was still loading).
+                await chrome.runtime.sendMessage({
+                    action: 'enhance',
+                    selections: selections,
+                    tabId: targetTabId
+                });
+                await this.waitForReadingTutorProcessed(targetTabId, { attempts: 10, delayMs: 500 });
+            }
+
+            if (this.isStaleActivation(activationToken)) {
+                return;
+            }
+
+            await this.syncReadingTutorHash();
+            if (this.lastReadingTutorSelectionHash && this.readingTutorHash && this.lastReadingTutorSelectionHash !== this.readingTutorHash) {
+                this.clearReadingTutorSelectionState({ tabId: targetTabId, showInstructions: true });
+            }
+            this.startReadingTutorPolling();
         } catch (error) {
             console.error('Error activating Reading Tutor:', error);
             if (container) container.innerHTML = `<div class="error">Failed to activate: ${error.message}</div>`;
         } finally {
             this.isProcessing = false;
+            if (this.processingContext === 'reading-tutor') {
+                this.processingContext = null;
+            }
         }
+    }
+
+    async waitForReadingTutorProcessed(tabId, { attempts = 10, delayMs = 500 } = {}) {
+        for (let i = 0; i < attempts; i++) {
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    action: 'get_reading_tutor_status',
+                    tabId: tabId
+                });
+                const count = response?.data?.count ?? response?.count ?? 0;
+                if (response && response.success && count > 0) {
+                    return true;
+                }
+            } catch (e) {
+                // ignore and retry
+            }
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+        return false;
+    }
+
+    async fetchReadingTutorHash() {
+        try {
+            const targetTabId = await this.getTargetTabId();
+            if (!targetTabId) return null;
+            const response = await chrome.runtime.sendMessage({
+                action: 'get_text_hash',
+                tabId: targetTabId
+            });
+            if (response && response.success && response.hash) {
+                return response.hash;
+            }
+        } catch (e) {
+            // ignore
+        }
+        return null;
+    }
+
+    async syncReadingTutorHash() {
+        this.readingTutorHash = await this.fetchReadingTutorHash();
+        const refreshButton = document.getElementById('reading-tutor-refresh');
+        if (refreshButton) refreshButton.style.display = 'none';
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
+    startReadingTutorPolling() {
+        this.stopReadingTutorPolling();
+        // Poll every 15 seconds to detect page content changes.
+        // Polling only runs while Reading Tutor tab is active; stopReadingTutorPolling()
+        // is called when switching away from the tab.
+        this.readingTutorPollTimer = setInterval(async () => {
+            const nextHash = await this.fetchReadingTutorHash();
+            if (!nextHash || !this.readingTutorHash) return;
+            if (nextHash !== this.readingTutorHash) {
+                const refreshButton = document.getElementById('reading-tutor-refresh');
+                if (refreshButton) refreshButton.style.display = 'inline-flex';
+            }
+        }, 15000);
+    }
+
+    stopReadingTutorPolling() {
+        if (this.readingTutorPollTimer) {
+            clearInterval(this.readingTutorPollTimer);
+            this.readingTutorPollTimer = null;
+        }
+        const refreshButton = document.getElementById('reading-tutor-refresh');
+        if (refreshButton) refreshButton.style.display = 'none';
     }
 
     setAutoEnhance(enabled) {
@@ -1175,22 +1790,19 @@ ${errorMessage}`);
         });
     }
 
-    async saveTabState() {
+    async saveTabState(tabId = null) {
+        if (this.isApplyingTabState) return;
         try {
-            const tabId = await this.getActiveTabId();
-            if (!tabId) return;
-            const state = {
-                topic: document.getElementById('topic-menu').value,
-                filter: document.getElementById('filter-menu').value,
-                activity: document.getElementById('activity-menu').value
-            };
+            const targetTabId = tabId || await this.getTargetTabId();
+            if (!targetTabId) return;
+            const state = await this.captureTabState();
 
-            // Use session storage if available (preferred for tab-specific data), fallback to local
             const storage = chrome.storage.session || chrome.storage.local;
-            await storage.set({ [`tabState_${tabId}`]: state });
+            await storage.set({ [`tabState_${targetTabId}`]: state });
 
-            // Also save to local for default/fallback
-            await chrome.storage.local.set(state);
+            if (state.selections) {
+                await chrome.storage.local.set(state.selections);
+            }
         } catch (error) {
             console.error('Error saving tab state:', error);
         }
@@ -1203,11 +1815,21 @@ ${errorMessage}`);
             const result = await storage.get(key);
 
             if (result[key]) {
-                const { topic, filter, activity } = result[key];
-                this.applySelections(topic, filter, activity);
+                const stored = result[key];
+                if (!stored.selections && (stored.topic || stored.filter || stored.activity)) {
+                    stored.selections = {
+                        topic: stored.topic,
+                        filter: stored.filter,
+                        activity: stored.activity
+                    };
+                }
+                await this.applyTabState(stored);
             } else {
                 // Fallback to last used global settings or defaults
-                this.loadStoredSettings();
+                await this.loadStoredSettings();
+                await this.applyTabState({});
+                // After applying defaults, save the state so future loads have it
+                await this.saveTabState(tabId);
             }
         } catch (error) {
             console.error('Error loading tab state:', error);
@@ -1243,36 +1865,55 @@ ${errorMessage}`);
         this.updateWordStressNoteVisibility(topic, activity);
     }
 
-    loadStoredSettings() {
+    async loadStoredSettings() {
         try {
-            chrome.storage.local.get(['enabled', 'language', 'topic', 'filter', 'activity'], (items) => {
-                if (chrome.runtime.lastError) {
-                    console.warn('Error loading settings:', chrome.runtime.lastError);
-                    return;
-                }
-
-                const autoEnhanceCheckbox = document.getElementById('auto-enhance');
-                if (items.enabled && autoEnhanceCheckbox) {
-                    autoEnhanceCheckbox.checked = items.enabled;
-                }
-
-                // Apply global settings as default
-                this.applySelections(items.topic, items.filter, items.activity);
+            const items = await new Promise((resolve, reject) => {
+                chrome.storage.local.get(['enabled', 'language', 'topic', 'filter', 'activity'], (result) => {
+                    if (chrome.runtime.lastError) {
+                        reject(chrome.runtime.lastError);
+                        return;
+                    }
+                    resolve(result || {});
+                });
             });
+
+            const autoEnhanceCheckbox = document.getElementById('auto-enhance');
+            if (items.enabled && autoEnhanceCheckbox) {
+                autoEnhanceCheckbox.checked = items.enabled;
+            }
+
+            // Apply global settings as default
+            this.applySelections(items.topic, items.filter, items.activity);
         } catch (error) {
             console.error('Error accessing storage:', error);
         }
     }
 
+    clearReadingTutorSelectionState({ tabId, showInstructions = true } = {}) {
+        this.lastReadingTutorSelectionIndex = null;
+        this.lastReadingTutorSelectionData = null;
+        this.lastReadingTutorSelectionHash = null;
+
+        const container = document.getElementById('reading-tutor-results');
+        if (container) container.innerHTML = '';
+
+        const instructions = document.getElementById('reading-tutor-instructions');
+        if (instructions && showInstructions && !this.readingTutorInstructionsDismissed) {
+            instructions.style.display = 'block';
+        }
+
+        if (tabId) {
+            chrome.tabs.sendMessage(tabId, { action: 'clear_reading_tutor_selection' }).catch(() => {});
+        }
+
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
     async handleReadingTutorSelection(data) {
         if (data.text === null && data.cohort === null) {
-            this.lastReadingTutorSelectionIndex = null;
-            this.lastReadingTutorSelectionData = null;
-            const container = document.getElementById('reading-tutor-results');
-            if (container) container.innerHTML = '';
-            // Show instructions again?
-            const instructions = document.getElementById('reading-tutor-instructions');
-            if (instructions) instructions.style.display = 'block';
+            this.clearReadingTutorSelectionState({ showInstructions: true });
             return;
         }
 
@@ -1280,8 +1921,18 @@ ${errorMessage}`);
             this.lastReadingTutorSelectionIndex = data.index;
         }
 
+        let currentHash = this.readingTutorHash || await this.fetchReadingTutorHash();
+        if (!currentHash) {
+            await this.syncReadingTutorHash();
+            currentHash = this.readingTutorHash || null;
+        }
+        this.lastReadingTutorSelectionHash = currentHash || null;
+
         // Store the data for restoration
         this.lastReadingTutorSelectionData = data;
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
 
         const container = document.getElementById('reading-tutor-results');
         container.innerHTML = '<div class="loading">Analyzing...</div>';
@@ -2096,12 +2747,28 @@ ${errorMessage}`);
         if (analyzeButton) {
             analyzeButton.addEventListener('click', () => this.analyzeWriting());
         }
+
+        const textarea = document.getElementById('writing-input');
+        if (textarea) {
+            textarea.addEventListener('input', () => {
+                this.lastWritingInput = textarea.value;
+                this.scheduleTabStateSave();
+            });
+        }
     }
 
     async analyzeWriting() {
         const textarea = document.getElementById('writing-input');
-        const text = textarea.value.trim();
-        if (!text) return;
+        const rawText = textarea.value;
+        const text = rawText.trim();
+        this.lastWritingInput = rawText;
+        if (!text) {
+            this.lastWritingTokens = null;
+            this.lastWritingSelectedErrorIndex = null;
+            this.applyWritingState({ input: rawText, tokens: null, selectedErrorIndex: null });
+            this.saveTabState();
+            return;
+        }
 
         const analyzeButton = document.getElementById('writing-analyze-button');
         analyzeButton.disabled = true;
@@ -2122,32 +2789,42 @@ ${errorMessage}`);
             });
 
             if (response && response.success) {
-                this.displayWritingResults(response.data);
+                this.displayWritingResults(response.data, { skipSave: true });
+                this.lastWritingTokens = response.data || null;
+                this.lastWritingSelectedErrorIndex = null;
                 writingContainer.style.display = 'flex';
             } else {
                 resultsContainer.innerHTML = '<p class="error">Analysis failed. Please try again.</p>';
                 writingContainer.style.display = 'flex';
+                this.lastWritingTokens = null;
+                this.lastWritingSelectedErrorIndex = null;
             }
         } catch (error) {
             console.error('Analysis error:', error);
             resultsContainer.innerHTML = '<p class="error">An error occurred.</p>';
             writingContainer.style.display = 'flex';
+            this.lastWritingTokens = null;
+            this.lastWritingSelectedErrorIndex = null;
         } finally {
             analyzeButton.disabled = false;
             analyzeButton.textContent = 'Analyze';
+            this.saveTabState();
         }
     }
 
-    displayWritingResults(tokens) {
+    displayWritingResults(tokens, { selectedIndex = null, skipSave = false } = {}) {
         const resultsContainer = document.getElementById('writing-results');
         let html = '';
+
+        this.lastWritingTokens = tokens;
+        this.lastWritingSelectedErrorIndex = selectedIndex ?? null;
 
         tokens.forEach((token, index) => {
             let tokenHtml = '';
             if (token.isError) {
                 // Store error data in a data attribute (JSON stringified)
                 const errData = JSON.stringify(token.errorData).replace(/"/g, '&quot;');
-                tokenHtml = `<a class="err" data-err="${errData}">${token.text}</a>`;
+                tokenHtml = `<a class="err" data-err="${errData}" data-index="${index}">${token.text}</a>`;
             } else {
                 tokenHtml = token.text;
             }
@@ -2171,12 +2848,26 @@ ${errorMessage}`);
                 e.target.classList.add('selected');
 
                 const errData = JSON.parse(e.target.dataset.err);
-                this.showErrorDetails(errData, e.target.innerText);
+                const index = Number(e.target.dataset.index);
+                this.showErrorDetails(errData, e.target.innerText, index);
             });
         });
+
+        if (selectedIndex !== null && selectedIndex !== undefined) {
+            const selectedToken = tokens[selectedIndex];
+            const selectedEl = resultsContainer.querySelector(`.err[data-index="${selectedIndex}"]`);
+            if (selectedEl && selectedToken && selectedToken.isError) {
+                selectedEl.classList.add('selected');
+                this.showErrorDetails(selectedToken.errorData, selectedToken.text, selectedIndex, { skipSave: true });
+            }
+        }
+
+        if (!skipSave) {
+            this.saveTabState();
+        }
     }
 
-    showErrorDetails(errorData, word) {
+    showErrorDetails(errorData, word, index = null, { skipSave = false } = {}) {
         const detailsContainer = document.getElementById('writing-details');
 
         const l10n = {
@@ -2233,6 +2924,14 @@ ${errorMessage}`);
 
         detailsContainer.innerHTML = html;
         detailsContainer.style.display = 'block';
+
+        if (index !== null && index !== undefined) {
+            this.lastWritingSelectedErrorIndex = index;
+        }
+
+        if (!skipSave) {
+            this.saveTabState();
+        }
 
         // Add event listeners for error tags
         detailsContainer.querySelectorAll('.L2_err_tag').forEach(tagEl => {

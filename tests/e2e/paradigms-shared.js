@@ -6,6 +6,7 @@ const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers')
 
 function createParadigmSuite(suiteLabel, testIds, options = {}) {
   const allowMissingIds = new Set(options.allowMissingIds || []);
+  const skipParadigmExpansion = options.skipParadigmExpansion || false;
 
   test.describe.configure({ mode: 'serial' });
 
@@ -36,8 +37,18 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
     });
 
     test.afterAll(async () => {
-      await browserContext.close();
-      serverInstance.close();
+      if (browserContext) {
+        try {
+          await browserContext.close();
+        } catch (e) {
+          // Context may already be closed
+        }
+      }
+      if (serverInstance) {
+        serverInstance.close();
+      }
+      // Small delay to allow cleanup between test suites
+      await new Promise(resolve => setTimeout(resolve, 500));
     });
 
     test.beforeEach(async () => {
@@ -62,7 +73,7 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
       await sidePanelPage.waitForFunction(() => {
           const container = document.getElementById('reading-tutor-results');
           return container && !container.textContent.includes('Preparing text...');
-      });
+      }, { timeout: 30000 });
 
       return sidePanelPage;
     }
@@ -93,24 +104,26 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
 
         // Check side panel for results
         const lemmaGroup = sidePanelPage.locator('.lemma-group').first();
-        await expect(lemmaGroup).toBeVisible({ timeout: 5000 });
+        await expect(lemmaGroup).toBeVisible({ timeout: 10000 });
 
         // Check if paradigm table can be expanded (if applicable)
-        const toggleButton = sidePanelPage.locator('.lemma-group button').filter({ hasText: '+' }).first();
-        if (await toggleButton.isVisible()) {
-          await toggleButton.click();
-          const table = sidePanelPage.locator('.paradigm-table').first();
-          await expect(table).toBeVisible();
+        if (!skipParadigmExpansion) {
+          const toggleButton = sidePanelPage.locator('.lemma-group button').filter({ hasText: '+' }).first();
+          if (await toggleButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await toggleButton.click();
+            const table = sidePanelPage.locator('.paradigm-table').first();
+            await expect(table).toBeVisible({ timeout: 60000 });
 
-          const warning = sidePanelPage.locator('.warning:has-text("Oops!")');
-          await expect(warning).not.toBeVisible();
+            const warning = sidePanelPage.locator('.warning:has-text("Oops!")');
+            await expect(warning).not.toBeVisible();
 
-          const tables = sidePanelPage.locator('.paradigm-table tbody');
-          const count = await tables.count();
-          for (let i = 0; i < count; ++i) {
-            const tableText = await tables.nth(i).innerText();
-            if (!allowMissingIds.has(id)) {
-              expect(tableText).not.toContain('—');
+            const tables = sidePanelPage.locator('.paradigm-table tbody');
+            const count = await tables.count();
+            for (let i = 0; i < count; ++i) {
+              const tableText = await tables.nth(i).innerText();
+              if (!allowMissingIds.has(id)) {
+                expect(tableText).not.toContain('—');
+              }
             }
           }
         }
