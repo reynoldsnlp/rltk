@@ -64,6 +64,30 @@ class RussianToolsSidePanel {
         }
     }
 
+    /**
+     * Returns a user-friendly error message if the error is from the language processing pipeline,
+     * otherwise returns null.
+     */
+    getLanguageProcessingErrorMessage(errorMessage) {
+        const processingErrorPatterns = [
+            'Processing failed',
+            'WASM',
+            'memory',
+            'tokenization',
+            'disambiguation',
+            'vislcg3',
+            'cgConv',
+            'Morphological analysis failed'
+        ];
+        const isProcessingError = processingErrorPatterns.some(pattern =>
+            errorMessage.toLowerCase().includes(pattern.toLowerCase())
+        );
+        if (isProcessingError) {
+            return 'The language analysis failed because of a technical error. If this problem persists, and especially if it affects multiple web pages,please contact robert_reynolds@byu.edu';
+        }
+        return null;
+    }
+
     registerTabState(key, { capture, apply, defaultValue, order = 100 }) {
         this.tabStateHandlers.push({ key, capture, apply, defaultValue, order });
         this.tabStateHandlers.sort((a, b) => a.order - b.order);
@@ -569,6 +593,10 @@ class RussianToolsSidePanel {
                 if (!message.tabId || this.isActiveTab(message.tabId)) {
                     this.hideAccessModal();
                     this.checkPageStatus(message.tabId);
+                    // Activate Reading Tutor if we're on that tab and just got access
+                    if (this.currentTab === 'reading-tutor') {
+                        this.ensureReadingTutorActive();
+                    }
                 }
             }
         });
@@ -598,10 +626,13 @@ class RussianToolsSidePanel {
 
             if (!this.isLatestTabSwitch(token)) return;
 
-            this.checkAccess(activeInfo.tabId);
+            // Wait for access check to complete before activating Reading Tutor
+            await this.checkAccess(activeInfo.tabId);
             await this.syncSelectionStateFromTab(activeInfo.tabId);
 
-            if (this.currentTab === 'reading-tutor') {
+            if (!this.isLatestTabSwitch(token)) return;
+
+            if (this.currentTab === 'reading-tutor' && this.tabAccessCache.get(activeInfo.tabId) === true) {
                 await this.ensureReadingTutorActive();
             }
         });
@@ -908,9 +939,15 @@ class RussianToolsSidePanel {
                 errorMessage = "Please click the extension icon in the toolbar to re-activate the extension for this page.";
             }
 
-            alert(`Cannot enhance this page.
+            // Check if this is a language processing error and show a friendly message
+            const friendlyMessage = this.getLanguageProcessingErrorMessage(errorMessage);
+            if (friendlyMessage) {
+                alert(friendlyMessage);
+            } else {
+                alert(`Cannot enhance this page.
 
 ${errorMessage}`);
+            }
             this.setInitialState();
         } finally {
             this.isProcessing = false;
@@ -1036,6 +1073,10 @@ ${errorMessage}`);
     async ensureReadingTutorActive() {
         const targetTabId = await this.getTargetTabId();
         if (!targetTabId) return;
+
+        // Don't try to activate if we don't have access to the tab
+        const hasAccess = this.tabAccessCache.get(targetTabId);
+        if (hasAccess === false) return;
 
         const existingCount = await this.fetchReadingTutorStatus(targetTabId);
         const currentHash = await this.fetchReadingTutorHash();
@@ -1514,7 +1555,10 @@ ${errorMessage}`);
             this.startReadingTutorPolling();
         } catch (error) {
             console.error('Error activating Reading Tutor:', error);
-            if (container) container.innerHTML = `<div class="error">Failed to activate: ${error.message}</div>`;
+            const errorMessage = (error && error.message) ? error.message : String(error);
+            const friendlyMessage = this.getLanguageProcessingErrorMessage(errorMessage);
+            const displayMessage = friendlyMessage || `Failed to activate: ${errorMessage}`;
+            if (container) container.innerHTML = `<div class="error">${displayMessage}</div>`;
         } finally {
             this.isProcessing = false;
             if (this.processingContext === 'reading-tutor') {

@@ -137,11 +137,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         (async () => {
             try {
                 await createOffscreenDocument();
-                // Forward the request to the offscreen document
+                // Forward the request to the offscreen document with source context
                 const response = await chrome.runtime.sendMessage({
                     target: 'offscreen',
                     action: 'morph_analysis',
-                    text: request.text
+                    text: request.text,
+                    sourceUrl: request.sourceUrl || sender?.tab?.url || 'unknown'
                 });
 
                 sendResponse(response);
@@ -245,7 +246,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 // Forward the message to content script
                 const response = await chrome.tabs.sendMessage(tabId, request);
-                sendResponse({ success: true, data: response });
+
+                // Propagate error responses from content script
+                if (response && response.success === false) {
+                    sendResponse({ success: false, error: response.error || 'Content script operation failed' });
+                } else {
+                    sendResponse({ success: true, data: response });
+                }
             } catch (error) {
                 console.error('BACKGROUND: Error forwarding message:', error.message);
                 sendResponse({ success: false, error: error.message });

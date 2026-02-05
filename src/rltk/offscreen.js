@@ -22,6 +22,36 @@ let l2Analyser = null;
 let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
 
+/**
+ * Creates a detailed error object with context for WASM failures.
+ * Logs full context to console while returning a user-friendly message.
+ */
+function createWasmError(operation, error, context = {}) {
+    const inputPreview = context.input
+        ? (context.input.length > 200 ? context.input.substring(0, 200) + '...' : context.input)
+        : 'N/A';
+    const fullInput = context.input || 'N/A';
+
+    // Log detailed info to console for developers
+    console.error(`WASM Error during ${operation}:`, {
+        error: error.message || error,
+        stack: error.stack,
+        sourceUrl: context.sourceUrl || 'unknown',
+        inputLength: context.input ? context.input.length : 0,
+        inputPreview: inputPreview,
+        fullInput: fullInput,
+        timestamp: new Date().toISOString()
+    });
+
+    // Return a user-friendly error that hints at where to look
+    const isMemoryError = error.message && error.message.includes('memory');
+    const userMessage = isMemoryError
+        ? `Processing failed: WASM memory error during ${operation}. The text may be too long or contain problematic content. Check the offscreen console (chrome-extension://[id]/rltk/offscreen.html) for details.`
+        : `Processing failed during ${operation}: ${error.message || error}. Check the offscreen console for details.`;
+
+    return new Error(userMessage);
+}
+
 const models = {
     imperfectiveToPerfectiveVerbMap: null,
     perfectiveToImperfectiveVerbMap: null,
@@ -377,24 +407,48 @@ async function loadTokenizer(tokPath) {
     }
 }
 
-async function handleMorphAnalysisRequest(text) {
+async function handleMorphAnalysisRequest(text, context = {}) {
     if (!tokenizer) {
         throw new Error('Tokenizer/analyzer not initialized');
     }
 
+    const requestContext = { ...context, input: text };
+
     try {
-        const ambigOutput = tokenizer.tokenize(text, tokenizeSettings);
-        const ambigJsonl = await cgConv(ambigOutput, {
-            input_format: 'cg',
-            output_format: 'jsonl'
-        });
+        let ambigOutput;
+        try {
+            ambigOutput = tokenizer.tokenize(text, tokenizeSettings);
+        } catch (error) {
+            throw createWasmError('tokenization (HFST)', error, requestContext);
+        }
+
+        let ambigJsonl;
+        try {
+            ambigJsonl = await cgConv(ambigOutput, {
+                input_format: 'cg',
+                output_format: 'jsonl'
+            });
+        } catch (error) {
+            throw createWasmError('format conversion (ambiguous)', error, { ...requestContext, input: ambigOutput });
+        }
         const ambigArray = await jsonlToJsonArray(ambigJsonl);
 
-        const disambigOutput = await vislcg3(ambigOutput);
-        const disambigJsonl = await cgConv(disambigOutput, {
-            input_format: 'cg',
-            output_format: 'jsonl'
-        });
+        let disambigOutput;
+        try {
+            disambigOutput = await vislcg3(ambigOutput);
+        } catch (error) {
+            throw createWasmError('disambiguation (CG3)', error, { ...requestContext, input: ambigOutput });
+        }
+
+        let disambigJsonl;
+        try {
+            disambigJsonl = await cgConv(disambigOutput, {
+                input_format: 'cg',
+                output_format: 'jsonl'
+            });
+        } catch (error) {
+            throw createWasmError('format conversion (disambiguated)', error, { ...requestContext, input: disambigOutput });
+        }
         const disambigArray = await jsonlToJsonArray(disambigJsonl);
 
         return {
@@ -402,8 +456,12 @@ async function handleMorphAnalysisRequest(text) {
             "disambigArray": disambigArray
         };
     } catch (error) {
+        // Re-throw if already a processed WASM error, otherwise wrap it
+        if (error.message && error.message.includes('Check the offscreen console')) {
+            throw error;
+        }
         console.error('Error in tokenization/morphological analysis:', error);
-        throw error;
+        throw createWasmError('morphological analysis', error, requestContext);
     }
 }
 
@@ -640,7 +698,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         (async () => {
             try {
                 await initWasmTools();
-                const result = await handleMorphAnalysisRequest(request.text);
+                const context = { sourceUrl: request.sourceUrl || 'unknown' };
+                const result = await handleMorphAnalysisRequest(request.text, context);
                 sendResponse({ success: true, data: result });
             } catch (error) {
                 sendResponse({ success: false, error: error.message });
@@ -654,7 +713,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 const result = await analyzeL2(request.text);
                 sendResponse({ success: true, data: result });
             } catch (error) {
-                sendResponse({ success: false, error: error.message });
+                const context = { sourceUrl: request.sourceUrl || 'unknown', input: request.text };
+                const wrappedError = createWasmError('L2 analysis', error, context);
+                sendResponse({ success: false, error: wrappedError.message });
             }
         })();
         return true;
@@ -667,7 +728,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 const result = await handleGenerateRequest(request.input, mode);
                 sendResponse({ success: true, data: result });
             } catch (error) {
-                sendResponse({ success: false, error: error.message });
+                const context = { sourceUrl: request.sourceUrl || 'unknown', input: request.input };
+                const wrappedError = createWasmError('generation', error, context);
+                sendResponse({ success: false, error: wrappedError.message });
             }
         })();
         return true; // Keep the message channel open for async response

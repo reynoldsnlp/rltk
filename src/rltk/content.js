@@ -563,7 +563,8 @@
 
                     chrome.runtime.sendMessage({
                         action: 'morph_analysis',
-                        text: bodyText
+                        text: bodyText,
+                        sourceUrl: window.location.href
                     }).then(async response => {
                         if (response.success) {
                             const { selections } = request;
