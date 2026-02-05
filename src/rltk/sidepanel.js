@@ -2663,6 +2663,8 @@ ${errorMessage}`);
                               'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc',
                               // Animacy tags (for participles)
                               'Anim', 'Inan', 'AnIn',
+                              // Short/predicative form tags (for participles)
+                              'Pred', 'Short',
                               // Lexicalized marker and other special tags
                               'Lxc', 'Lxc-tentative'];
             const baseTagsList = tags.filter(t => !varyTags.includes(t));
