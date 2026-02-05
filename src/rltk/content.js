@@ -95,6 +95,65 @@
     }
 
     /**
+     * Regex to match Cyrillic characters (Russian and extended Cyrillic)
+     */
+    const CYRILLIC_REGEX = /[\u0400-\u04FF]/;
+
+    /**
+     * Find the lowest common ancestor (LCA) of all text nodes containing Cyrillic characters.
+     * This optimizes text extraction by focusing only on the relevant portion of the DOM.
+     *
+     * @param {Element} root - The root element to search within
+     * @returns {Element} - The LCA element, or root if no Cyrillic text found
+     */
+    function findCyrillicLCA(root) {
+        // Collect all text nodes containing Cyrillic characters
+        const cyrillicTextNodes = [];
+        const walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode(node) {
+                    if (shouldSkipNode(node)) return NodeFilter.FILTER_REJECT;
+                    if (CYRILLIC_REGEX.test(node.nodeValue)) return NodeFilter.FILTER_ACCEPT;
+                    return NodeFilter.FILTER_SKIP;
+                }
+            }
+        );
+
+        while (walker.nextNode()) {
+            cyrillicTextNodes.push(walker.currentNode);
+        }
+
+        // No Cyrillic text found - return root as fallback
+        if (cyrillicTextNodes.length === 0) {
+            return root;
+        }
+
+        // Single text node - return its parent element
+        if (cyrillicTextNodes.length === 1) {
+            return cyrillicTextNodes[0].parentElement || root;
+        }
+
+        // Find LCA of all Cyrillic text nodes
+        // Start with the parent of the first text node as the candidate LCA
+        let lca = cyrillicTextNodes[0].parentElement;
+        if (!lca) return root;
+
+        for (let i = 1; i < cyrillicTextNodes.length; i++) {
+            const node = cyrillicTextNodes[i];
+            // Walk up from node until we find an ancestor that contains the current LCA
+            // or walk up from LCA until it contains the node
+            while (lca && !lca.contains(node)) {
+                lca = lca.parentElement;
+            }
+            if (!lca) return root;
+        }
+
+        return lca || root;
+    }
+
+    /**
      * Two-phase highlighting implementation with position mapping
      * Phase 1: Extract plain text and build position maps
      * Phase 2: Use morph analysis results with position maps to place spans
@@ -559,7 +618,9 @@
                     const selectionRange = selectionOnly ? getSelectionRangeIfAny() : null;
                     const rangeForUse = selectionOnly ? selectionRange : null;
 
-                    const bodyText = extractPlainText(document.body, rangeForUse);
+                    // Find the lowest common ancestor of all Cyrillic text to reduce processing scope
+                    const cyrillicRoot = rangeForUse ? document.body : findCyrillicLCA(document.body);
+                    const bodyText = extractPlainText(cyrillicRoot, rangeForUse);
 
                     chrome.runtime.sendMessage({
                         action: 'morph_analysis',
@@ -590,8 +651,8 @@
                                 // Initialize any resources needed by the activity
                                 await activity.prepare();
 
-                                // Use the unified highlighting function
-                                highlightTextNodesWithActivity(document.body, response.data, activity, rangeForUse);
+                                // Use the unified highlighting function (use cyrillicRoot for consistency)
+                                highlightTextNodesWithActivity(cyrillicRoot, response.data, activity, rangeForUse);
                                 sendResponse({ success: true });
                             } catch (error) {
                                 console.error('Error creating activity:', error);
