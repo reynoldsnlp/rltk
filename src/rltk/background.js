@@ -178,6 +178,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Keep the message channel open for async response
     }
 
+    // Handle HFST instance status request (forward to offscreen)
+    if (request.action === 'get_hfst_instance_status') {
+        (async () => {
+            try {
+                await createOffscreenDocument();
+                const response = await chrome.runtime.sendMessage({
+                    target: 'offscreen',
+                    action: 'get_hfst_instance_status'
+                });
+                sendResponse(response);
+            } catch (error) {
+                console.error('BACKGROUND: Error:', error.message);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true; // Keep the message channel open for async response
+    }
+
     // Handle model data request (forward to offscreen)
     if (request.action === 'get_model_data') {
         (async () => {

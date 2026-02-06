@@ -19,7 +19,7 @@ fi
 ./scripts/preflight-offscreen-resources.sh
 
 if command -v xvfb-run >/dev/null 2>&1; then
-  xvfb-run npm exec playwright test -- --workers=1 --retries=1
+  xvfb-run -a npm exec playwright test -- --workers=1 --retries=1
 else
   npm exec playwright test -- --workers=1 --retries=1
 fi

@@ -944,11 +944,11 @@ class RussianToolsSidePanel {
             this.processingContext = 'enhance';
             this.setProcessingState(true);
 
-        const selections = {
-            topic: document.getElementById('topic-menu').value,
-            filter: document.getElementById('filter-menu').value,
-            activity: document.getElementById('activity-menu').value,
-        };
+            const selections = {
+                topic: document.getElementById('topic-menu').value,
+                filter: document.getElementById('filter-menu').value,
+                activity: document.getElementById('activity-menu').value,
+            };
 
         const shouldSkip = !selectionOnly && await this.shouldSkipEnhancement({
             tabId: targetTabId,
@@ -2196,12 +2196,15 @@ ${errorMessage}`);
                     lemmaDiv.className = 'lemma-group';
                     lemmaDiv.style.marginLeft = '10px';
 
-                    // Determine POS from the first reading's tags (first element)
-                    const firstReading = readingsByLemma[lemma][0];
+                    const lemmaReadings = readingsByLemma[lemma] || [];
+                    const preferredReading = lemmaReadings.find(r => (r.ts || []).some(t => t === 'Num' || t.startsWith('Num'))) || lemmaReadings[0];
                     // Filter out weights from tags for processing
-                    const tags = (firstReading.ts || []).filter(t => !t.startsWith('<W:'));
-                    const pos = tags.length > 0 ? tags[0] : null;
+                    const tags = (preferredReading && preferredReading.ts ? preferredReading.ts : []).filter(t => !t.startsWith('<W:'));
                     const inflectingPOS = ['N', 'V', 'A', 'Adj', 'Pron', 'Num', 'Det'];
+                    const explicitPos = tags.find(t => inflectingPOS.includes(t));
+                    const hasNumeralTag = tags.some(t => t === 'Num' || t.startsWith('Num'));
+                    const hasCaseTag = tags.some(t => ['Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc', 'Par', 'Loc2'].includes(t));
+                    const pos = explicitPos || ((hasNumeralTag || hasCaseTag) ? 'Num' : (tags.length > 0 ? tags[0] : null));
                     const canInflect = pos && inflectingPOS.includes(pos);
 
                     const headerContainer = document.createElement('div');
@@ -2344,6 +2347,8 @@ ${errorMessage}`);
                     lemmaDiv.appendChild(headerContainer);
 
                     const originalLemma = readingsByLemma[lemma][0].originalLemma;
+                    const numeralReadings = readingsByLemma[lemma].filter(r => (r.ts || []).some(t => t === 'Num' || t.startsWith('Num')));
+                    const paradigmReadings = pos === 'Num' && numeralReadings.length > 0 ? numeralReadings : readingsByLemma[lemma];
 
                     if (canInflect) {
                         paradigmContainer = document.createElement('div');
@@ -2359,7 +2364,7 @@ ${errorMessage}`);
                                 if (!paradigmContainer.hasChildNodes()) {
                                     paradigmContainer.innerHTML = '<div class="loading">Generating...</div>';
                                     try {
-                                        const result = await this.generateParadigm(originalLemma, pos, tags, readingsByLemma[lemma], cohort.form || cohort.w);
+                                        const result = await this.generateParadigm(originalLemma, pos, tags, paradigmReadings, cohort.form || cohort.w);
                                         const html = typeof result === 'string' ? result : result.html;
                                         const hasPassive = typeof result === 'object' ? result.hasPassive : false;
                                         const matchFound = typeof result === 'object' ? result.matchFound : false;
@@ -2380,7 +2385,7 @@ ${errorMessage}`);
                                         }
 
                                         if (hasPassive) {
-                                            const showPassiveByDefault = readingsByLemma[lemma].some(r => (r.ts || []).includes('Pass'));
+                                            const showPassiveByDefault = paradigmReadings.some(r => (r.ts || []).includes('Pass'));
 
                                             const btn = document.createElement('button');
                                             btn.textContent = showPassiveByDefault ? 'Hide Passive Forms' : 'Show Passive Forms';
@@ -2437,6 +2442,13 @@ ${errorMessage}`);
         let hasPassive = false;
         let matchFound = false;
 
+        const posTags = ['N', 'V', 'A', 'Adj', 'Pron', 'Num', 'Det'];
+        const inferredPos = tags.find(t => posTags.includes(t));
+        const hasNumeralTag = tags.some(t => t === 'Num' || t.startsWith('Num'));
+        const hasCaseTag = tags.some(t => ['Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc', 'Par', 'Loc2'].includes(t));
+        const normalizedPos = inferredPos || ((hasNumeralTag || hasCaseTag) ? 'Num' : pos);
+        pos = normalizedPos;
+
         const participleTags = ['PrsAct', 'PstAct', 'PrsPss', 'PstPss'];
         const hasParticipleReading = (currentReadings || []).some(r => (r.ts || []).some(t => participleTags.includes(t)));
 
@@ -2484,6 +2496,9 @@ ${errorMessage}`);
             if (!currentReadings || currentReadings.length === 0) return { isMatch: false };
 
             const tagsToIgnore = ['Ind', 'AnIn'];
+            if (pos !== 'Num') {
+                tagsToIgnore.push('Num');
+            }
             const inputTags = input.split('+').slice(1).filter(t => !tagsToIgnore.includes(t));
 
             const isParticiple = inputTags.some(t => participleTags.includes(t));
@@ -2537,38 +2552,72 @@ ${errorMessage}`);
             let form = input;
             let failed = false;
             try {
+                const sendGenerateRequest = async (requestInput, useStress) => {
+                    const request = chrome.runtime.sendMessage({
+                        action: 'generate',
+                        input: requestInput,
+                        useStress
+                    });
+                    const timeout = new Promise(resolve => {
+                        setTimeout(() => resolve({ success: false, data: [] }), 5000);
+                    });
+                    return Promise.race([request, timeout]);
+                };
+
                 // First attempt
-                let response = await chrome.runtime.sendMessage({
-                    action: 'generate',
-                    input: input,
-                    useStress: true
-                });
+                let response = await sendGenerateRequest(input, true);
 
                 if (response.success && response.data && response.data.length > 0) {
                     form = response.data[0];
                 } else {
-                    // Second attempt with +Fac
-                    let inputAlt = input + '+Fac';
-                    response = await chrome.runtime.sendMessage({
-                        action: 'generate',
-                        input: inputAlt,
-                        useStress: true
-                    });
+                    // Try adjective-like tags for numerals if needed
+                    let altSucceeded = false;
+                    let improbableSucceeded = false;
+                    if (input.includes('+Num')) {
+                        const numFallbacks = [
+                            input.replace('+Num', '+A'),
+                            input.replace('+Num', ''),
+                            input.replace('+Num', '+Adj')
+                        ].filter((val, idx, arr) => val && arr.indexOf(val) === idx);
 
-                    if (!response.success || !response.data || response.data.length === 0) {
-                        // Third attempt with +Prb
-                        inputAlt = input + '+Prb';
-                        response = await chrome.runtime.sendMessage({
-                            action: 'generate',
-                            input: inputAlt,
-                            useStress: true
-                        });
+                        for (const fallbackInput of numFallbacks) {
+                            response = await sendGenerateRequest(fallbackInput, true);
+
+                            if (response.success && response.data && response.data.length > 0) {
+                                form = response.data[0];
+                                altSucceeded = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!altSucceeded) {
+                        // Second attempt with +Fac
+                        let inputAlt = input + '+Fac';
+                        response = await sendGenerateRequest(inputAlt, true);
+
+                        if (!response.success || !response.data || response.data.length === 0) {
+                            // Third attempt with +Prb
+                            inputAlt = input + '+Prb';
+                            response = await sendGenerateRequest(inputAlt, true);
+                        }
+
+                        if (response.success && response.data && response.data.length > 0) {
+                            improbableSucceeded = true;
+                        }
                     }
 
                     if (response.success && response.data && response.data.length > 0) {
-                        form = `<span title="impossible or unlikely" style="text-decoration: line-through;">${response.data[0]}</span>`;
+                        form = improbableSucceeded
+                            ? `<span title="impossible or unlikely" style="text-decoration: line-through;">${response.data[0]}</span>`
+                            : response.data[0];
                     } else {
-                        failed = true;
+                        const fallbackResponse = await sendGenerateRequest(input, false);
+                        if (fallbackResponse.success && fallbackResponse.data && fallbackResponse.data.length > 0) {
+                            form = fallbackResponse.data[0];
+                        } else {
+                            failed = true;
+                        }
                     }
                 }
             } catch (e) {
@@ -2626,9 +2675,14 @@ ${errorMessage}`);
 
         if (pos === 'N') {
             // Noun Paradigm
-            const varyTags = ['Sg', 'Pl', 'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc', 'Par', 'Loc2'];
+            const varyTags = ['Sg', 'Pl', 'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc', 'Par', 'Loc2', 'Leng'];
             const baseTagsList = tags.filter(t => !varyTags.includes(t));
-            const baseTags = baseTagsList.length > 0 ? '+' + baseTagsList.join('+') : '';
+            const hasNumBase = baseTagsList.some(t => t === 'Num' || t.startsWith('Num'));
+            const baseTags = (baseTagsList.length > 0 ? '+' + baseTagsList.join('+') : '') + (hasNumBase ? '' : '+Num');
+            let adjectivalBaseTags = baseTags.replace('+Num', '+A');
+            if (!adjectivalBaseTags.includes('+A')) {
+                adjectivalBaseTags += '+A';
+            }
             const cases = ['Nom', 'Acc', 'Gen', 'Loc', 'Dat', 'Ins'];
 
             html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Singular</th><th>Plural</th></tr></thead><tbody>';
@@ -2665,7 +2719,7 @@ ${errorMessage}`);
 
         } else if (pos === 'A' || pos === 'Adj' || pos === 'Det') {
             // Adjective Paradigm (and Determiners)
-            const varyTags = ['Msc', 'Fem', 'Neu', 'MFN', 'Anim', 'Inan', 'AnIn', 'Sg', 'Pl', 'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Loc2', 'Voc', 'Pred', 'Short', 'Cmp', 'Cmpar', 'Sup'];
+            const varyTags = ['Msc', 'Fem', 'Neu', 'MFN', 'Anim', 'Inan', 'AnIn', 'Sg', 'Pl', 'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Loc2', 'Voc', 'Pred', 'Short', 'Cmp', 'Cmpar', 'Sup', 'Leng'];
             const baseTagsList = tags.filter(t => !varyTags.includes(t));
 
             const baseTags = baseTagsList.length > 0 ? '+' + baseTagsList.join('+') : '';
@@ -2737,6 +2791,170 @@ ${errorMessage}`);
 
             html += '</tbody></table>';
 
+        } else if (pos === 'Num') {
+            const lemmaBase = (lemma || '').replace(/[\u0300\u0301]/g, '').replace(/\d+/g, '');
+            const normalizedLemma = lemmaBase.toLowerCase();
+            const adjectivalLemmas = new Set(['один', 'одна', 'одно', 'одни']);
+            const twoLemmas = new Set(['два', 'две']);
+            const paucalLemmas = new Set(['оба', 'обе']);
+            const isOrdinal = tags.includes('Ord');
+
+            const cases = ['Nom', 'Acc', 'Gen', 'Loc', 'Dat', 'Ins'];
+            const varyTags = ['Msc', 'Fem', 'Neu', 'MFN', 'Anim', 'Inan', 'AnIn', 'Sg', 'Pl',
+                              'Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc', 'Par', 'Loc2',
+                              'Pred', 'Short', 'Cmp', 'Cmpar', 'Sup', 'Leng', 'Fac'];
+            const posTags = new Set(['N', 'V', 'A', 'Adj', 'Det', 'Pron', 'Adv', 'Num']);
+            const baseTagsList = tags.filter(t => !varyTags.includes(t) && !posTags.has(t));
+            const normalizedBaseTags = Array.from(new Set(baseTagsList));
+            const baseTags = '+Num' + (normalizedBaseTags.length > 0 ? '+' + normalizedBaseTags.join('+') : '');
+
+            if (adjectivalLemmas.has(normalizedLemma) || isOrdinal) {
+                html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Masc</th><th>Neut</th><th>Fem</th><th>Plural</th></tr></thead><tbody>';
+
+                for (const c of cases) {
+                    let label = c;
+                    if (c === 'Ins') label = 'Inst';
+                    if (c === 'Loc') label = 'Prep';
+
+                    let forms;
+                    if (c === 'Acc') {
+                        const inputs = [
+                            `${lemmaBase}${baseTags}+Msc+Inan+Sg+Acc`,
+                            `${lemmaBase}${baseTags}+Msc+Anim+Sg+Acc`,
+                            `${lemmaBase}${baseTags}+Neu+AnIn+Sg+Acc`,
+                            `${lemmaBase}${baseTags}+Fem+AnIn+Sg+Acc`,
+                            `${lemmaBase}${baseTags}+MFN+Inan+Pl+Acc`,
+                            `${lemmaBase}${baseTags}+MFN+Anim+Pl+Acc`
+                        ];
+                        const results = await Promise.all(inputs.map(generateForm));
+
+                        const mscForm = (results[0] === results[1]) ? results[0] : `${results[0]} / ${results[1]}`;
+                        const neuForm = results[2];
+                        const femForm = results[3];
+                        const plForm = (results[4] === results[5]) ? results[4] : `${results[4]} / ${results[5]}`;
+
+                        forms = [mscForm, neuForm, femForm, plForm];
+                    } else {
+                        const femCaseTag = c === 'Ins'
+                            ? `${lemmaBase}${baseTags}+Fem+AnIn+Sg+Ins+Fac`
+                            : `${lemmaBase}${baseTags}+Fem+AnIn+Sg+${c}`;
+                        const inputs = [
+                            `${lemmaBase}${baseTags}+Msc+AnIn+Sg+${c}`,
+                            `${lemmaBase}${baseTags}+Neu+AnIn+Sg+${c}`,
+                            femCaseTag,
+                            `${lemmaBase}${baseTags}+MFN+AnIn+Pl+${c}`
+                        ];
+                        forms = await Promise.all(inputs.map(generateForm));
+                    }
+
+                    html += `<tr><td>${label}</td><td>${forms[0]}</td><td>${forms[1]}</td><td>${forms[2]}</td><td>${forms[3]}</td></tr>`;
+                }
+
+                html += '</tbody></table>';
+            } else if (twoLemmas.has(normalizedLemma)) {
+                html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Masc</th><th>Neut</th><th>Fem</th></tr></thead><tbody>';
+
+                for (const c of cases) {
+                    let label = c;
+                    if (c === 'Ins') label = 'Inst';
+                    if (c === 'Loc') label = 'Prep';
+
+                    const mscInputs = c === 'Acc'
+                        ? [`${lemmaBase}${baseTags}+Msc+Inan+Acc`, `${lemmaBase}${baseTags}+Msc+Anim+Acc`]
+                        : c === 'Nom'
+                            ? [`${lemmaBase}${baseTags}+Msc+AnIn+Nom`]
+                            : [`${lemmaBase}${baseTags}+MFN+AnIn+${c}`];
+                    const neuInputs = c === 'Acc'
+                        ? [`${lemmaBase}${baseTags}+Neu+AnIn+Acc`]
+                        : c === 'Nom'
+                            ? [`${lemmaBase}${baseTags}+Neu+AnIn+Nom`]
+                            : [`${lemmaBase}${baseTags}+MFN+AnIn+${c}`];
+                    const femInputs = c === 'Acc'
+                        ? [`${lemmaBase}${baseTags}+Fem+AnIn+Acc`, `${lemmaBase}${baseTags}+Fem+Anim+Acc+Fac`]
+                        : c === 'Nom'
+                            ? [`${lemmaBase}${baseTags}+Fem+AnIn+Nom`]
+                            : [`${lemmaBase}${baseTags}+MFN+AnIn+${c}`];
+
+                    const [mscResults, neuResults, femResults] = await Promise.all([
+                        Promise.all(mscInputs.map(generateForm)),
+                        Promise.all(neuInputs.map(generateForm)),
+                        Promise.all(femInputs.map(generateForm))
+                    ]);
+
+                    const mscForm = mscResults.length === 2 && mscResults[0] !== mscResults[1]
+                        ? `${mscResults[0]} / ${mscResults[1]}`
+                        : mscResults[0];
+                    const neuForm = neuResults.length === 2 && neuResults[0] !== neuResults[1]
+                        ? `${neuResults[0]} / ${neuResults[1]}`
+                        : neuResults[0];
+                    const femForm = femResults.length === 2 && femResults[0] !== femResults[1]
+                        ? `${femResults[0]} / ${femResults[1]}`
+                        : femResults[0];
+
+                    html += `<tr><td>${label}</td><td>${mscForm}</td><td>${neuForm}</td><td>${femForm}</td></tr>`;
+                }
+
+                html += '</tbody></table>';
+            } else if (paucalLemmas.has(normalizedLemma)) {
+                html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Masc</th><th>Neut</th><th>Fem</th></tr></thead><tbody>';
+
+                for (const c of cases) {
+                    let label = c;
+                    if (c === 'Ins') label = 'Inst';
+                    if (c === 'Loc') label = 'Prep';
+
+                    const mscInputs = c === 'Acc'
+                        ? [`${lemmaBase}${baseTags}+Msc+Inan+Acc`, `${lemmaBase}${baseTags}+Msc+Anim+Acc`]
+                        : [`${lemmaBase}${baseTags}+Msc+AnIn+${c}`];
+                    const neuInputs = c === 'Acc'
+                        ? [`${lemmaBase}${baseTags}+Neu+AnIn+Acc`]
+                        : [`${lemmaBase}${baseTags}+Neu+AnIn+${c}`];
+                    const femInputs = c === 'Acc'
+                        ? [`${lemmaBase}${baseTags}+Fem+Inan+Acc`, `${lemmaBase}${baseTags}+Fem+Anim+Acc`]
+                        : [`${lemmaBase}${baseTags}+Fem+AnIn+${c}`];
+
+                    const [mscResults, neuResults, femResults] = await Promise.all([
+                        Promise.all(mscInputs.map(generateForm)),
+                        Promise.all(neuInputs.map(generateForm)),
+                        Promise.all(femInputs.map(generateForm))
+                    ]);
+
+                    const mscForm = mscResults.length === 2 && mscResults[0] !== mscResults[1]
+                        ? `${mscResults[0]} / ${mscResults[1]}`
+                        : mscResults[0];
+                    const neuForm = neuResults.length === 2 && neuResults[0] !== neuResults[1]
+                        ? `${neuResults[0]} / ${neuResults[1]}`
+                        : neuResults[0];
+                    const femForm = femResults.length === 2 && femResults[0] !== femResults[1]
+                        ? `${femResults[0]} / ${femResults[1]}`
+                        : femResults[0];
+
+                    html += `<tr><td>${label}</td><td>${mscForm}</td><td>${neuForm}</td><td>${femForm}</td></tr>`;
+                }
+
+                html += '</tbody></table>';
+            } else {
+                html += '<table class="paradigm-table"><thead><tr><th>Case</th><th>Form</th></tr></thead><tbody>';
+
+                const hasGenderTag = tags.some(t => ['Msc', 'Fem', 'Neu', 'MFN'].includes(t));
+                const hasAnimacyTag = tags.some(t => ['Anim', 'Inan', 'AnIn'].includes(t));
+                const defaultGenderTag = hasGenderTag ? '' : '+MFN';
+                const defaultAnimacyTag = hasAnimacyTag ? '' : '+AnIn';
+
+                for (const c of cases) {
+                    let label = c;
+                    if (c === 'Ins') label = 'Inst';
+                    if (c === 'Loc') label = 'Prep';
+
+                    const input = `${lemmaBase}${baseTags}${defaultGenderTag}${defaultAnimacyTag}+${c}`;
+                    const form = await generateForm(input);
+                    html += `<tr><td>${label}</td><td>${form}</td></tr>`;
+                }
+
+                html += '</tbody></table>';
+            }
+
+
         } else if (pos === 'V') {
             // Verb Paradigm
             // varyTags: tags that vary across the paradigm and should be stripped from baseTags
@@ -2754,7 +2972,7 @@ ${errorMessage}`);
                               // Short/predicative form tags (for participles)
                               'Pred', 'Short',
                               // Lexicalized marker and other special tags
-                              'Lxc', 'Lxc-tentative'];
+                              'Lxc', 'Lxc-tentative', 'Leng'];
             const baseTagsList = tags.filter(t => !varyTags.includes(t));
             const baseTags = baseTagsList.length > 0 ? '+' + baseTagsList.join('+') : '';
 
