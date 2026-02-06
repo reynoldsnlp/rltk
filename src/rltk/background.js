@@ -125,7 +125,9 @@ async function ensureContentScriptLoaded(tabId) {
                 files: CONTENT_SCRIPT_FILES,
             });
         } catch (injectionError) {
-            throw new Error(`Cannot access this page. Script injection failed: ${injectionError.message}`);
+            const message = `Cannot access this page. Script injection failed: ${injectionError.message}`;
+            console.warn(message);
+            throw new Error(message);
         }
     }
 }

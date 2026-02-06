@@ -567,7 +567,7 @@ class RussianToolsSidePanel {
             this.currentTabId = tabId;
             this.connectToBackground(tabId);
             await this.loadTabState(tabId);
-            this.checkAccess(tabId);
+            await this.checkAccess(tabId);
             await this.syncSelectionStateFromTab();
         }
 
@@ -586,18 +586,18 @@ class RussianToolsSidePanel {
         // Listen for access granted message
         chrome.runtime.onMessage.addListener((message) => {
             if (message.action === 'access_granted') {
-                if (message.tabId) {
-                    this.tabAccessCache.set(message.tabId, true);
-                    this.scheduleTabStateSave();
-                }
-                if (!message.tabId || this.isActiveTab(message.tabId)) {
-                    this.hideAccessModal();
-                    this.checkPageStatus(message.tabId);
-                    // Activate Reading Tutor if we're on that tab and just got access
-                    if (this.currentTab === 'reading-tutor') {
-                        this.ensureReadingTutorActive();
+                if (!message.tabId) return;
+                (async () => {
+                    await this.checkAccess(message.tabId);
+                    if (!this.isActiveTab(message.tabId)) return;
+                    const hasAccess = this.tabAccessCache.get(message.tabId);
+                    if (hasAccess === true) {
+                        this.checkPageStatus(message.tabId);
+                        if (this.currentTab === 'reading-tutor') {
+                            await this.ensureReadingTutorActive();
+                        }
                     }
-                }
+                })();
             }
         });
 
@@ -650,6 +650,10 @@ class RussianToolsSidePanel {
                 this.tabAccessCache.set(tabId, 'chrome');
                 this.scheduleTabStateSave();
                 this.showChromeAccessModal();
+                if (this.currentTab === 'reading-tutor') {
+                    this.clearReadingTutorSelectionState({ tabId, showInstructions: true });
+                    this.stopReadingTutorPolling();
+                }
                 return;
             }
 
@@ -673,6 +677,17 @@ class RussianToolsSidePanel {
                     this.hideChromeAccessModal();
                     this.checkPageStatus(tabId);
                 } else {
+                    if (response && typeof response.error === 'string' && response.error.includes('chrome://')) {
+                        this.tabAccessCache.set(tabId, 'chrome');
+                        this.scheduleTabStateSave();
+                        this.showChromeAccessModal();
+                        if (this.currentTab === 'reading-tutor') {
+                            this.clearReadingTutorSelectionState({ tabId, showInstructions: true });
+                            this.stopReadingTutorPolling();
+                        }
+                        return;
+                    }
+
                     const tab = await chrome.tabs.get(tabId);
                     if (this.isChromeRestrictedUrl(tab?.url)) {
                         this.tabAccessCache.set(tabId, 'chrome');
@@ -684,20 +699,42 @@ class RussianToolsSidePanel {
                     this.tabAccessCache.set(tabId, false);
                     this.scheduleTabStateSave();
                     this.showAccessModal();
+                    if (this.currentTab === 'reading-tutor') {
+                        this.clearReadingTutorSelectionState({ tabId, showInstructions: true });
+                        this.stopReadingTutorPolling();
+                    }
                 }
             } catch (injectError) {
                 if (!this.isActiveTab(tabId)) return;
+                if (injectError && typeof injectError.message === 'string' && injectError.message.includes('chrome://')) {
+                    this.tabAccessCache.set(tabId, 'chrome');
+                    this.scheduleTabStateSave();
+                    this.showChromeAccessModal();
+                    if (this.currentTab === 'reading-tutor') {
+                        this.clearReadingTutorSelectionState({ tabId, showInstructions: true });
+                        this.stopReadingTutorPolling();
+                    }
+                    return;
+                }
                 const tab = await chrome.tabs.get(tabId);
                 if (this.isChromeRestrictedUrl(tab?.url)) {
                     this.tabAccessCache.set(tabId, 'chrome');
                     this.scheduleTabStateSave();
                     this.showChromeAccessModal();
+                    if (this.currentTab === 'reading-tutor') {
+                        this.clearReadingTutorSelectionState({ tabId, showInstructions: true });
+                        this.stopReadingTutorPolling();
+                    }
                     return;
                 }
 
                 this.tabAccessCache.set(tabId, false);
                 this.scheduleTabStateSave();
                 this.showAccessModal();
+                if (this.currentTab === 'reading-tutor') {
+                    this.clearReadingTutorSelectionState({ tabId, showInstructions: true });
+                    this.stopReadingTutorPolling();
+                }
             }
         }
     }
@@ -1118,7 +1155,7 @@ ${errorMessage}`);
 
         // Don't try to activate if we don't have access to the tab
         const hasAccess = this.tabAccessCache.get(targetTabId);
-        if (hasAccess === false) return;
+        if (hasAccess !== true) return;
 
         const existingCount = await this.fetchReadingTutorStatus(targetTabId);
         const currentHash = await this.fetchReadingTutorHash();
@@ -1598,6 +1635,14 @@ ${errorMessage}`);
         } catch (error) {
             console.error('Error activating Reading Tutor:', error);
             const errorMessage = (error && error.message) ? error.message : String(error);
+            if (errorMessage.includes('Could not establish connection') || errorMessage.includes('Receiving end does not exist')) {
+                const targetTabId = this.debugTabId || this.currentTabId;
+                if (targetTabId) {
+                    await this.checkAccess(targetTabId);
+                }
+                if (container) container.innerHTML = '<div class="info"></div>';
+                return;
+            }
             const friendlyMessage = this.getLanguageProcessingErrorMessage(errorMessage);
             const displayMessage = friendlyMessage || `Failed to activate: ${errorMessage}`;
             if (container) container.innerHTML = `<div class="error">${displayMessage}</div>`;
