@@ -742,6 +742,7 @@ class RussianToolsSidePanel {
     showAccessModal() {
         const modal = document.getElementById('access-modal');
         if (modal) modal.style.display = 'flex';
+        this.hideChromeAccessModal();
     }
 
     hideAccessModal() {

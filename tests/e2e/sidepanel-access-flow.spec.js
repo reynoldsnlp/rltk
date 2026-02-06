@@ -54,6 +54,13 @@ test.describe('Sidepanel access and reset flow', () => {
         (window.__runtimeMessageListeners || []).forEach((listener) => listener(payload, {}, () => {}));
       };
 
+      window.__tabUpdatedListeners = [];
+      const originalTabUpdatedAdd = chrome.tabs.onUpdated.addListener.bind(chrome.tabs.onUpdated);
+      chrome.tabs.onUpdated.addListener = (listener) => {
+        window.__tabUpdatedListeners.push(listener);
+        return originalTabUpdatedAdd(listener);
+      };
+
       const originalOnMessageAdd = chrome.runtime.onMessage.addListener.bind(chrome.runtime.onMessage);
       chrome.runtime.onMessage.addListener = (listener) => {
         window.__runtimeMessageListeners = window.__runtimeMessageListeners || [];
@@ -203,6 +210,26 @@ test.describe('Sidepanel access and reset flow', () => {
 
     await expect(sidePanelPage.locator('#chrome-access-modal')).toBeVisible();
     await expect(sidePanelPage.locator('#access-modal')).toBeHidden();
+  });
+
+  test('chrome modal clears after navigation to regular URL', async () => {
+    const debugTabId = 5;
+    const sidePanelPage = await openSidepanelWithMocks({
+      debugTabId,
+      tabUrl: 'chrome://newtab',
+      allowAccess: false
+    });
+
+    await expect(sidePanelPage.locator('#chrome-access-modal')).toBeVisible();
+
+    await sidePanelPage.evaluate((tabId) => {
+      chrome.tabs.get = () => Promise.resolve({ id: tabId, url: 'https://example.com' });
+      const listeners = window.__tabUpdatedListeners || [];
+      listeners.forEach((listener) => listener(tabId, { status: 'complete' }, { id: tabId, active: true }));
+    }, debugTabId);
+
+    await expect(sidePanelPage.locator('#chrome-access-modal')).toBeHidden();
+    await expect(sidePanelPage.locator('#access-modal')).toBeVisible();
   });
 
   test('access granted triggers reading tutor processing on the new tab', async () => {
