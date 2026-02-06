@@ -645,12 +645,21 @@ class RussianToolsSidePanel {
     async checkAccess(tabId) {
         if (!this.isActiveTab(tabId)) return;
         try {
+            const tab = await chrome.tabs.get(tabId);
+            if (this.isChromeRestrictedUrl(tab?.url)) {
+                this.tabAccessCache.set(tabId, 'chrome');
+                this.scheduleTabStateSave();
+                this.showChromeAccessModal();
+                return;
+            }
+
             // Try to ping the content script
             await chrome.tabs.sendMessage(tabId, { action: 'ping' });
             if (!this.isActiveTab(tabId)) return;
             this.tabAccessCache.set(tabId, true);
             this.scheduleTabStateSave();
             this.hideAccessModal();
+            this.hideChromeAccessModal();
             this.checkPageStatus(tabId);
         } catch (error) {
             // If ping failed, try to inject via background targeting this tab
@@ -661,19 +670,31 @@ class RussianToolsSidePanel {
                     this.tabAccessCache.set(tabId, true);
                     this.scheduleTabStateSave();
                     this.hideAccessModal();
+                    this.hideChromeAccessModal();
                     this.checkPageStatus(tabId);
                 } else {
-                    // Check if it's a restricted page (chrome:// etc)
-                    // If so, maybe we shouldn't show the modal or show a different one?
-                    // For now, just show the modal as "Access Required" implies we can't access it.
-                    // But if it's chrome://, clicking the icon won't help.
-                    // However, the user asked to "gray out the sidebar with a modal".
+                    const tab = await chrome.tabs.get(tabId);
+                    if (this.isChromeRestrictedUrl(tab?.url)) {
+                        this.tabAccessCache.set(tabId, 'chrome');
+                        this.scheduleTabStateSave();
+                        this.showChromeAccessModal();
+                        return;
+                    }
+
                     this.tabAccessCache.set(tabId, false);
                     this.scheduleTabStateSave();
                     this.showAccessModal();
                 }
             } catch (injectError) {
                 if (!this.isActiveTab(tabId)) return;
+                const tab = await chrome.tabs.get(tabId);
+                if (this.isChromeRestrictedUrl(tab?.url)) {
+                    this.tabAccessCache.set(tabId, 'chrome');
+                    this.scheduleTabStateSave();
+                    this.showChromeAccessModal();
+                    return;
+                }
+
                 this.tabAccessCache.set(tabId, false);
                 this.scheduleTabStateSave();
                 this.showAccessModal();
@@ -691,6 +712,22 @@ class RussianToolsSidePanel {
         if (modal) modal.style.display = 'none';
     }
 
+    showChromeAccessModal() {
+        const modal = document.getElementById('chrome-access-modal');
+        if (modal) modal.style.display = 'flex';
+        this.hideAccessModal();
+    }
+
+    hideChromeAccessModal() {
+        const modal = document.getElementById('chrome-access-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    isChromeRestrictedUrl(url) {
+        if (!url) return false;
+        return url.startsWith('chrome://');
+    }
+
     isActiveTab(tabId) {
         if (!tabId) return false;
         if (this.debugTabId) return tabId === this.debugTabId;
@@ -702,11 +739,16 @@ class RussianToolsSidePanel {
         const cached = this.tabAccessCache.get(tabId);
         if (cached === true) {
             this.hideAccessModal();
+            this.hideChromeAccessModal();
         } else if (cached === false) {
             this.showAccessModal();
+            this.hideChromeAccessModal();
+        } else if (cached === 'chrome') {
+            this.showChromeAccessModal();
         } else {
             // Clear stale modal state until we confirm access for this tab.
             this.hideAccessModal();
+            this.hideChromeAccessModal();
         }
     }
 

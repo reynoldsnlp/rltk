@@ -188,7 +188,7 @@
     /**
      * Extract text in batches based on block element boundaries.
      * Each batch contains text from consecutive block elements up to the threshold.
-     * 
+     *
      * @param {Element} root - The root element to extract from
      * @param {Range|null} selectionRange - Optional selection range to limit extraction
      * @returns {Array<{elements: Element[], text: string, positionMap: Array, textNodes: Array}>}
@@ -331,7 +331,7 @@
     /**
      * Highlight a single batch with pre-extracted position mapping.
      * Used by batch processing to apply highlights incrementally.
-     * 
+     *
      * @param {Object} batch - Batch object with text, positionMap, textNodes
      * @param {Object} cohortArrays - Analysis results from WASM
      * @param {Object} activity - Activity instance for highlighting logic

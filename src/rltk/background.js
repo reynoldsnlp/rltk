@@ -254,7 +254,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse({ success: true, data: response });
                 }
             } catch (error) {
-                console.error('BACKGROUND: Error forwarding message:', error.message);
+                if (!error.message.includes('chrome://')) {
+                    console.error('BACKGROUND: Error forwarding message:', error.message);
+                }
                 sendResponse({ success: false, error: error.message });
             }
         })();
