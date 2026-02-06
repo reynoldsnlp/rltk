@@ -100,6 +100,24 @@
     const CYRILLIC_REGEX = /[\u0400-\u04FF]/;
 
     /**
+     * Maximum text length per batch for WASM processing.
+     * This helps prevent memory errors on very long pages.
+     * Set conservatively to avoid WASM crashes.
+     */
+    const BATCH_TEXT_THRESHOLD = 10000; // ~10KB of text per batch
+
+    /**
+     * Block elements that serve as safe batch boundaries.
+     * CG3 rules virtually never cross these boundaries.
+     */
+    const BATCH_BOUNDARY_TAGS = new Set([
+        'DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+        'ARTICLE', 'SECTION', 'MAIN', 'ASIDE',
+        'BLOCKQUOTE', 'PRE', 'LI', 'TR',
+        'FIGURE', 'FIGCAPTION', 'DETAILS'
+    ]);
+
+    /**
      * Find the lowest common ancestor (LCA) of all text nodes containing Cyrillic characters.
      * This optimizes text extraction by focusing only on the relevant portion of the DOM.
      *
@@ -151,6 +169,236 @@
         }
 
         return lca || root;
+    }
+
+    /**
+     * Find the nearest ancestor that is a batch boundary element.
+     */
+    function findBatchBoundaryAncestor(node) {
+        let current = node.parentElement;
+        while (current && current !== document.body) {
+            if (BATCH_BOUNDARY_TAGS.has(current.tagName)) {
+                return current;
+            }
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    /**
+     * Extract text in batches based on block element boundaries.
+     * Each batch contains text from consecutive block elements up to the threshold.
+     * 
+     * @param {Element} root - The root element to extract from
+     * @param {Range|null} selectionRange - Optional selection range to limit extraction
+     * @returns {Array<{elements: Element[], text: string, positionMap: Array, textNodes: Array}>}
+     */
+    function extractTextInBatches(root, selectionRange) {
+        const batches = [];
+        let currentBatch = {
+            elements: [],
+            text: '',
+            positionMap: [],
+            textNodes: [],
+            plainTextOffset: 0
+        };
+
+        // Walk through all text nodes and group them by batch boundary ancestors
+        const walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+            {
+                acceptNode(node) {
+                    if (shouldSkipNode(node)) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+
+                    if (selectionRange) {
+                        try {
+                            if (!selectionRange.intersectsNode(node)) {
+                                return node.nodeType === Node.TEXT_NODE ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+                            }
+                        } catch (e) {
+                            // If intersectsNode fails, fall back to including the node.
+                        }
+                    }
+
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        return NodeFilter.FILTER_ACCEPT;
+                    } else if (node.nodeType === Node.ELEMENT_NODE && shouldAddNewline(node)) {
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+
+                    return NodeFilter.FILTER_SKIP;
+                }
+            }
+        );
+
+        let lastBoundaryElement = null;
+
+        while (walker.nextNode()) {
+            const currentNode = walker.currentNode;
+
+            if (currentNode.nodeType === Node.TEXT_NODE) {
+                const nodeText = currentNode.nodeValue;
+
+                let sliceStart = 0;
+                let sliceEnd = nodeText.length;
+
+                if (selectionRange) {
+                    if (currentNode === selectionRange.startContainer) {
+                        sliceStart = selectionRange.startOffset;
+                    }
+                    if (currentNode === selectionRange.endContainer) {
+                        sliceEnd = Math.min(sliceEnd, selectionRange.endOffset);
+                    }
+                }
+
+                if (sliceEnd <= sliceStart) continue;
+
+                const clippedText = nodeText.substring(sliceStart, sliceEnd);
+
+                // Check if we should start a new batch
+                const boundaryElement = findBatchBoundaryAncestor(currentNode);
+                const boundaryChanged = boundaryElement && boundaryElement !== lastBoundaryElement;
+                const wouldExceedThreshold = currentBatch.text.length + clippedText.length > BATCH_TEXT_THRESHOLD;
+
+                // Start new batch if we've crossed ANY boundary and have enough content,
+                // OR if we're about to exceed threshold at a boundary
+                const shouldStartNewBatch = currentBatch.text.length > 0 && boundaryChanged && wouldExceedThreshold;
+
+                if (shouldStartNewBatch) {
+                    // Finalize current batch if it has Cyrillic content
+                    if (CYRILLIC_REGEX.test(currentBatch.text)) {
+                        batches.push({
+                            elements: currentBatch.elements,
+                            text: currentBatch.text,
+                            positionMap: currentBatch.positionMap,
+                            textNodes: currentBatch.textNodes
+                        });
+                    }
+
+                    // Start new batch
+                    currentBatch = {
+                        elements: [],
+                        text: '',
+                        positionMap: [],
+                        textNodes: [],
+                        plainTextOffset: 0
+                    };
+                }
+
+                if (boundaryElement && !currentBatch.elements.includes(boundaryElement)) {
+                    currentBatch.elements.push(boundaryElement);
+                }
+                lastBoundaryElement = boundaryElement;
+
+                // Add to current batch
+                currentBatch.textNodes.push(currentNode);
+                currentBatch.positionMap.push({
+                    plainTextStart: currentBatch.plainTextOffset,
+                    plainTextEnd: currentBatch.plainTextOffset + clippedText.length,
+                    node: currentNode,
+                    nodeStart: sliceStart,
+                    nodeEnd: sliceEnd - sliceStart
+                });
+
+                currentBatch.text += clippedText;
+                currentBatch.plainTextOffset += clippedText.length;
+
+            } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+                // Add newline for block elements
+                if (shouldAddNewlineBefore(currentNode, currentBatch.text)) {
+                    currentBatch.text += '\n';
+                    currentBatch.plainTextOffset += 1;
+                }
+            }
+        }
+
+        // Add final batch if it has content
+        if (currentBatch.text.length > 0 && CYRILLIC_REGEX.test(currentBatch.text)) {
+            batches.push({
+                elements: currentBatch.elements,
+                text: currentBatch.text,
+                positionMap: currentBatch.positionMap,
+                textNodes: currentBatch.textNodes
+            });
+        }
+
+        return batches;
+    }
+
+    /**
+     * Highlight a single batch with pre-extracted position mapping.
+     * Used by batch processing to apply highlights incrementally.
+     * 
+     * @param {Object} batch - Batch object with text, positionMap, textNodes
+     * @param {Object} cohortArrays - Analysis results from WASM
+     * @param {Object} activity - Activity instance for highlighting logic
+     * @param {number} cohortIndexOffset - Offset to add to cohort indices for global tracking
+     * @returns {number} - Number of cohorts processed in this batch
+     */
+    function highlightBatch(batch, cohortArrays, activity, cohortIndexOffset = 0) {
+        const { text: plainText, positionMap, textNodes } = batch;
+
+        // Build token positions using the batch's position map
+        const tokenPositions = buildTokenPositionsForBatch(
+            cohortArrays,
+            plainText,
+            positionMap,
+            activity,
+            cohortIndexOffset
+        );
+
+        // Apply highlighting
+        applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity);
+
+        // Return the number of cohorts in this batch for index tracking
+        return cohortArrays.disambigArray ? cohortArrays.disambigArray.length : 0;
+    }
+
+    /**
+     * Build token positions for a batch, similar to buildTokenPositionsWithActivity
+     * but without the allowed-roots logic (batches are pre-filtered).
+     */
+    function buildTokenPositionsForBatch(cohortArrays, plainText, positionMap, activity, cohortIndexOffset) {
+        const tokenPositions = [];
+        let currentOffset = 0;
+
+        const cohortArray = cohortArrays.disambigArray;
+        if (!cohortArray) return tokenPositions;
+
+        for (let i = 0; i < cohortArray.length; i++) {
+            const cohort = cohortArray[i];
+
+            if (cohort.w === undefined) continue;
+
+            const cohortToken = cohort.w;
+            if (cohortToken === '') continue;
+
+            const cohortStart = plainText.indexOf(cohortToken, currentOffset);
+            if (cohortStart === -1) continue;
+
+            currentOffset = cohortStart;
+            const cohortEnd = currentOffset + cohortToken.length;
+
+            // Global cohort index for consistent tracking across batches
+            const globalCohortIndex = cohortIndexOffset + i;
+
+            if (activity.shouldHighlightToken(cohort, globalCohortIndex)) {
+                tokenPositions.push({
+                    start: currentOffset,
+                    end: cohortEnd,
+                    text: cohortToken,
+                    cohortIndex: globalCohortIndex,
+                    cohort: cohort
+                });
+            }
+
+            currentOffset = cohortEnd;
+        }
+
+        return tokenPositions;
     }
 
     /**
@@ -613,64 +861,160 @@
             }
 
             case 'enhance':
-                try {
+                {
                     const selectionOnly = request.selectionOnly === true;
                     const selectionRange = selectionOnly ? getSelectionRangeIfAny() : null;
                     const rangeForUse = selectionOnly ? selectionRange : null;
+                    const { selections } = request;
+
+                    // Validate topic and filter before any processing
+                    if (!window.FilterFuncs || !window.FilterFuncs[selections.topic]) {
+                        alert(`Topic "${selections.topic}" is not implemented yet.`);
+                        sendResponse({ success: false, error: `Topic "${selections.topic}" not implemented` });
+                        return false;
+                    }
+                    if (!window.SubFilterFuncs || !window.SubFilterFuncs[selections.filter]) {
+                        alert(`Filter "${selections.filter}" is not implemented yet.`);
+                        sendResponse({ success: false, error: `Filter "${selections.filter}" not implemented` });
+                        return false;
+                    }
 
                     // Find the lowest common ancestor of all Cyrillic text to reduce processing scope
                     const cyrillicRoot = rangeForUse ? document.body : findCyrillicLCA(document.body);
+
+                    // Extract plain text first to determine if we need batching
                     const bodyText = extractPlainText(cyrillicRoot, rangeForUse);
+                    const isLargePage = bodyText.length > BATCH_TEXT_THRESHOLD;
 
-                    chrome.runtime.sendMessage({
-                        action: 'morph_analysis',
-                        text: bodyText,
-                        sourceUrl: window.location.href
-                    }).then(async response => {
-                        if (response.success) {
-                            const { selections } = request;
+                    if (isLargePage) {
+                        // Send immediate response to avoid message channel timeout, then process in background
+                        sendResponse({ success: true, batching: true });
 
-                            // Check if the requested topic is implemented
-                            if (!window.FilterFuncs || !window.FilterFuncs[selections.topic]) {
-                                alert(`Topic "${selections.topic}" is not implemented yet.`);
-                                sendResponse({ success: false, error: `Topic "${selections.topic}" not implemented` });
-                                return;
-                            }
-
-                            // Check if the requested filter is implemented
-                            if (!window.SubFilterFuncs || !window.SubFilterFuncs[selections.filter]) {
-                                alert(`Filter "${selections.filter}" is not implemented yet.`);
-                                sendResponse({ success: false, error: `Filter "${selections.filter}" not implemented` });
-                                return;
-                            }
-
+                        (async () => {
                             try {
-                                // Create the appropriate activity using the factory
+                                // Create and prepare the activity upfront
                                 const activity = window.ActivityFactory.createActivity(selections);
-
-                                // Initialize any resources needed by the activity
                                 await activity.prepare();
 
-                                // Use the unified highlighting function (use cyrillicRoot for consistency)
+                                if (window.RLTKUtils && window.RLTKUtils.TokenSelector) {
+                                    window.RLTKUtils.TokenSelector.reset();
+                                }
+
+                                const batches = extractTextInBatches(cyrillicRoot, rangeForUse);
+
+                                const updateBatchProgressAttributes = (progress) => {
+                                    if (!document || !document.documentElement) return;
+                                    const root = document.documentElement;
+                                    root.dataset.rltkBatchTotal = String(progress.total ?? 0);
+                                    root.dataset.rltkBatchProcessed = String(progress.processed ?? 0);
+                                    root.dataset.rltkBatchFailed = String(progress.failed ?? 0);
+                                    root.dataset.rltkBatchCompleted = String(!!progress.completed);
+                                };
+
+                                const batchProgress = {
+                                    total: batches.length,
+                                    processed: 0,
+                                    failed: 0,
+                                    completed: false,
+                                    startedAt: Date.now()
+                                };
+                                updateBatchProgressAttributes(batchProgress);
+
+                                // Process batches sequentially with error recovery
+                                let cohortIndexOffset = 0;
+                                let successfulBatches = 0;
+                                let failedBatches = 0;
+
+                                for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                                    const batch = batches[batchIndex];
+
+                                    try {
+                                        const response = await chrome.runtime.sendMessage({
+                                            action: 'morph_analysis',
+                                            text: batch.text,
+                                            sourceUrl: window.location.href
+                                        });
+
+                                        if (response.success) {
+                                            try {
+                                                const cohortsProcessed = highlightBatch(batch, response.data, activity, cohortIndexOffset);
+                                                cohortIndexOffset += cohortsProcessed;
+                                                successfulBatches++;
+                                                batchProgress.processed = successfulBatches;
+                                                updateBatchProgressAttributes(batchProgress);
+                                            } catch (highlightError) {
+                                                console.error(`[RLTK] Batch ${batchIndex + 1}/${batches.length} highlight error:`, highlightError.message);
+                                                failedBatches++;
+                                                batchProgress.failed = failedBatches;
+                                                updateBatchProgressAttributes(batchProgress);
+                                                cohortIndexOffset += Math.floor(batch.text.length / 5);
+                                            }
+                                        } else {
+                                            console.error(`[RLTK] Batch ${batchIndex + 1}/${batches.length} analysis failed:`, response.error);
+                                            failedBatches++;
+                                            batchProgress.failed = failedBatches;
+                                            updateBatchProgressAttributes(batchProgress);
+                                            cohortIndexOffset += Math.floor(batch.text.length / 5);
+                                        }
+                                    } catch (batchError) {
+                                        console.error(`[RLTK] Batch ${batchIndex + 1}/${batches.length} unexpected error:`, batchError.message);
+                                        failedBatches++;
+                                        batchProgress.failed = failedBatches;
+                                        updateBatchProgressAttributes(batchProgress);
+                                        cohortIndexOffset += Math.floor(batch.text.length / 5);
+                                    }
+
+                                }
+
+                                batchProgress.processed = successfulBatches;
+                                batchProgress.failed = failedBatches;
+                                batchProgress.completed = true;
+                                batchProgress.completedAt = Date.now();
+                                updateBatchProgressAttributes(batchProgress);
+                            } catch (error) {
+                                console.error('Batch processing error:', error.message);
+                                const failedProgress = {
+                                    total: 0,
+                                    processed: 0,
+                                    failed: 1,
+                                    completed: true,
+                                    startedAt: Date.now(),
+                                    completedAt: Date.now()
+                                };
+                                updateBatchProgressAttributes(failedProgress);
+                            }
+                        })();
+
+                        return false;
+                    }
+
+                    (async () => {
+                        try {
+                            // Create and prepare the activity upfront
+                            const activity = window.ActivityFactory.createActivity(selections);
+                            await activity.prepare();
+
+                            const response = await chrome.runtime.sendMessage({
+                                action: 'morph_analysis',
+                                text: bodyText,
+                                sourceUrl: window.location.href
+                            });
+
+                            if (response.success) {
                                 highlightTextNodesWithActivity(cyrillicRoot, response.data, activity, rangeForUse);
                                 sendResponse({ success: true });
-                            } catch (error) {
-                                console.error('Error creating activity:', error);
-                                sendResponse({ success: false, error: error.message });
+                            } else {
+                                console.error('Morphological analysis failed:', response.error);
+                                sendResponse({ success: false, error: response.error });
                             }
-                        } else {
-                            console.error('Morphological analysis failed:', response.error);
-                            sendResponse({ success: false, error: response.error });
+                        } catch (error) {
+                            console.error('Error:', error.message);
+                            sendResponse({ success: false, error: error.message });
                         }
-                    }).catch(error => {
-                        console.error('Error:', error.message);
-                        sendResponse({ success: false, error: error.message });
-                    });
-                } catch (error) {
-                    console.error('Error:', error.message);
-                    sendResponse({ success: false, error: error.message });
+                    })();
+
+                    return true; // Keep message channel open for async response
                 }
-                return true; // Keep message channel open for async response
 
             case 'abort':
                 // Handle abort functionality if needed
