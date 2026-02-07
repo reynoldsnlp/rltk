@@ -803,6 +803,10 @@
                 parent.normalize();
             }
         });
+
+        if (window.RootsSummaryUtils && typeof window.RootsSummaryUtils.reset === 'function') {
+            window.RootsSummaryUtils.reset();
+        }
     }
 
     // Check for extension context invalidation (orphan state)
@@ -829,6 +833,17 @@
             return null;
         }
     }
+
+        function sendRootsSummaryIfReady(selections) {
+            if (!selections || selections.topic !== 'roots' || selections.activity !== 'color') return;
+            if (!window.RootsSummaryUtils || typeof window.RootsSummaryUtils.getSummary !== 'function') return;
+            const summary = window.RootsSummaryUtils.getSummary();
+            try {
+                chrome.runtime.sendMessage({ action: 'roots_summary', summary });
+            } catch (e) {
+                // Ignore messaging errors
+            }
+        }
 
     // Listen for messages from side panel or other extension components
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -971,6 +986,7 @@
                                 batchProgress.completed = true;
                                 batchProgress.completedAt = Date.now();
                                 updateBatchProgressAttributes(batchProgress);
+                                sendRootsSummaryIfReady(selections);
                             } catch (error) {
                                 console.error('Batch processing error:', error.message);
                                 const failedProgress = {
@@ -1002,6 +1018,7 @@
 
                             if (response.success) {
                                 highlightTextNodesWithActivity(cyrillicRoot, response.data, activity, rangeForUse);
+                                sendRootsSummaryIfReady(selections);
                                 sendResponse({ success: true });
                             } else {
                                 console.error('Morphological analysis failed:', response.error);

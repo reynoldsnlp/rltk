@@ -38,6 +38,7 @@ class RussianToolsSidePanel {
         this.tabSwitchToken = 0;
         this.processingContext = null;
         this.readingTutorActivationToken = 0;
+        this.lastRootsSummary = null;
 
         const urlParams = new URLSearchParams(window.location.search);
         this.debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
@@ -863,6 +864,7 @@ class RussianToolsSidePanel {
             this.toggleEnhanceButton();
             this.toggleDensitySection();
             this.updateWordStressNoteVisibility();
+            this.updateRootsSummaryVisibility();
             this.saveTabState();
         });
 
@@ -884,6 +886,13 @@ class RussianToolsSidePanel {
             if (message.action === 'reading_tutor_selection') {
                 // Handle both direct cohort data and text selection
                 this.handleReadingTutorSelection(message);
+            }
+        });
+
+        chrome.runtime.onMessage.addListener((message, sender) => {
+            if (message.action === 'roots_summary') {
+                if (!this.shouldHandleSelectionFromTab(sender?.tab?.id || message.tabId)) return;
+                this.renderRootsSummary(message.summary || []);
             }
         });
 
@@ -1048,6 +1057,7 @@ ${errorMessage}`);
         this.lastEnhancement = null;
         this.setInitialState();
         this.saveTabState();
+        this.clearRootsSummary();
     }
 
     setProcessingState(processing) {
@@ -1741,6 +1751,7 @@ ${errorMessage}`);
         this.toggleEnhanceButton();
         this.toggleDensitySection();
         this.updateWordStressNoteVisibility(topic);
+        this.updateRootsSummaryVisibility(topic);
     }
 
     updateWordStressNoteVisibility(topic, activity) {
@@ -1752,6 +1763,53 @@ ${errorMessage}`);
 
         const shouldShow = currentTopic === 'word-stress' && (currentActivity === 'color' || currentActivity === 'hover' || currentActivity === 'click');
         stressNote.style.display = shouldShow ? 'block' : 'none';
+    }
+
+    updateRootsSummaryVisibility(topic, activity) {
+        const section = document.getElementById('roots-summary-section');
+        if (!section) return;
+
+        const currentTopic = topic ?? document.getElementById('topic-menu')?.value;
+        const currentActivity = activity ?? document.getElementById('activity-menu')?.value;
+        const shouldShow = currentTopic === 'roots' && currentActivity === 'color' && Array.isArray(this.lastRootsSummary);
+        section.style.display = shouldShow ? 'block' : 'none';
+    }
+
+    clearRootsSummary() {
+        this.lastRootsSummary = null;
+        const section = document.getElementById('roots-summary-section');
+        if (!section) return;
+        const tbody = section.querySelector('tbody');
+        if (tbody) tbody.innerHTML = '';
+        section.style.display = 'none';
+    }
+
+    renderRootsSummary(summary) {
+        this.lastRootsSummary = Array.isArray(summary) ? summary : [];
+        const section = document.getElementById('roots-summary-section');
+        if (!section) return;
+
+        const tbody = section.querySelector('tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        this.lastRootsSummary.forEach(entry => {
+            const row = document.createElement('tr');
+
+            const rootCell = document.createElement('td');
+            const rootLabel = document.createElement('div');
+            rootLabel.textContent = `${entry.definition} (${entry.count})`;
+            rootCell.appendChild(rootLabel);
+
+            const lemmaCell = document.createElement('td');
+            lemmaCell.textContent = (entry.lemmas || []).join(', ');
+
+            row.appendChild(rootCell);
+            row.appendChild(lemmaCell);
+            tbody.appendChild(row);
+        });
+
+        this.updateRootsSummaryVisibility();
     }
 
     checkForFilters(topic) {
@@ -1874,6 +1932,10 @@ ${errorMessage}`);
                 { val: 'click', text: 'Click to identify' },
                 { val: 'mc', text: 'Multiple Choice' },
                 { val: 'cloze', text: 'Fill in the blanks' }
+            ],
+            'roots': [
+                { val: 'color', text: 'Highlight / Color' },
+                { val: 'mc', text: 'Multiple Choice' }
             ],
             'verb-aspect-pairs': [
                 { val: 'color', text: 'Highlight / Color' },

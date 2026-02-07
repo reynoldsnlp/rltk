@@ -29,6 +29,7 @@ const CONTENT_SCRIPT_FILES = [
     'rltk/topics/phonetics.js',
     'rltk/topics/prepositions.js',
     'rltk/topics/pronouns.js',
+    'rltk/topics/roots.js',
     'rltk/topics/stress.js',
     'rltk/topics/verbs.js',
     'rltk/content.js'
@@ -169,24 +170,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     useStress: request.useStress
                 });
 
-                sendResponse(response);
-            } catch (error) {
-                console.error('BACKGROUND: Error:', error.message);
-                sendResponse({ success: false, error: error.message });
-            }
-        })();
-        return true; // Keep the message channel open for async response
-    }
-
-    // Handle HFST instance status request (forward to offscreen)
-    if (request.action === 'get_hfst_instance_status') {
-        (async () => {
-            try {
-                await createOffscreenDocument();
-                const response = await chrome.runtime.sendMessage({
-                    target: 'offscreen',
-                    action: 'get_hfst_instance_status'
-                });
                 sendResponse(response);
             } catch (error) {
                 console.error('BACKGROUND: Error:', error.message);

@@ -198,6 +198,29 @@ datalist#density-ticks option {
     font-style: italic;
 }
 
+.roots-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.roots-summary-table th,
+.roots-summary-table td {
+    border: 1px solid #e0e0e0;
+    padding: 6px 8px;
+    vertical-align: top;
+}
+
+.roots-summary-table th {
+    background: #f7f7f7;
+    text-align: left;
+    font-weight: 600;
+}
+
+.roots-summary-table td {
+    color: #333;
+}
+
 .panel-section select option[value*="russian"] {
     font-weight: bold;
 }
