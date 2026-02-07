@@ -39,6 +39,7 @@ class RussianToolsSidePanel {
         this.processingContext = null;
         this.readingTutorActivationToken = 0;
         this.lastRootsSummary = null;
+        this.spanClickOverride = false;
 
         const urlParams = new URLSearchParams(window.location.search);
         this.debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
@@ -145,6 +146,16 @@ class RussianToolsSidePanel {
                 this.applySelectionState(value && value.hasSelection);
             },
             defaultValue: { hasSelection: false }
+        });
+
+        this.registerTabState('spanClickOverride', {
+            order: 27,
+            capture: () => ({ enabled: !!this.spanClickOverride }),
+            apply: (value) => {
+                const enabled = !!(value && value.enabled);
+                this.applySpanClickOverrideState(enabled, { persist: false });
+            },
+            defaultValue: { enabled: false }
         });
 
         this.registerTabState('ui', {
@@ -505,6 +516,39 @@ class RussianToolsSidePanel {
         }
     }
 
+    updateSpanClickOverrideButton() {
+        const checkbox = document.getElementById('span-click-override-toggle');
+        if (!checkbox) return;
+        checkbox.checked = this.spanClickOverride;
+    }
+
+    async pushSpanClickOverrideToContent(enabled, tabId = null) {
+        try {
+            const targetTabId = tabId || await this.getTargetTabId();
+            if (targetTabId) {
+                await chrome.tabs.sendMessage(targetTabId, {
+                    action: 'set_span_click_override',
+                    enabled: !!enabled
+                });
+            }
+        } catch (e) {
+            // Ignore if the content script is not ready.
+        }
+    }
+
+    applySpanClickOverrideState(enabled, options = {}) {
+        this.spanClickOverride = !!enabled;
+        this.updateSpanClickOverrideButton();
+
+        if (options.push !== false) {
+            this.pushSpanClickOverrideToContent(this.spanClickOverride, options.tabId);
+        }
+
+        if (options.persist !== false && !this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
     async onDensityChange(value) {
         const minDistance = Math.max(0, Math.min(10, Math.round(Number(value) || 0)));
         this.updateDensityDisplay(minDistance);
@@ -676,6 +720,7 @@ class RussianToolsSidePanel {
             this.hideAccessModal();
             this.hideChromeAccessModal();
             this.checkPageStatus(tabId);
+            this.pushSpanClickOverrideToContent(this.spanClickOverride, tabId);
         } catch (error) {
             // If ping failed, try to inject via background targeting this tab
             try {
@@ -687,6 +732,7 @@ class RussianToolsSidePanel {
                     this.hideAccessModal();
                     this.hideChromeAccessModal();
                     this.checkPageStatus(tabId);
+                    this.pushSpanClickOverrideToContent(this.spanClickOverride, tabId);
                 } else {
                     if (response && typeof response.error === 'string' && response.error.includes('chrome://')) {
                         this.tabAccessCache.set(tabId, 'chrome');
@@ -857,6 +903,13 @@ class RussianToolsSidePanel {
             });
         }
 
+        const spanClickOverrideButton = document.getElementById('span-click-override-toggle');
+        if (spanClickOverrideButton) {
+            spanClickOverrideButton.addEventListener('click', () => {
+                this.applySpanClickOverrideState(!this.spanClickOverride);
+            });
+        }
+
         // Topic selection
         document.getElementById('topic-menu').addEventListener('change', (e) => {
             this.onTopicChange(e.target.value);
@@ -934,6 +987,28 @@ class RussianToolsSidePanel {
             refreshButton.addEventListener('click', async () => {
                 refreshButton.style.display = 'none';
                 await this.activateReadingTutor();
+            });
+        }
+
+        const spanClickOverrideToggle = document.getElementById('span-click-override-toggle');
+        if (spanClickOverrideToggle) {
+            spanClickOverrideToggle.addEventListener('change', (e) => {
+                this.applySpanClickOverrideState(e.target.checked);
+            });
+        }
+
+        const spanClickOverrideHelp = document.getElementById('span-click-override-help');
+        const spanClickOverrideTooltip = document.getElementById('span-click-override-tooltip');
+        if (spanClickOverrideHelp && spanClickOverrideTooltip) {
+            spanClickOverrideHelp.addEventListener('click', (e) => {
+                e.stopPropagation();
+                spanClickOverrideTooltip.classList.toggle('is-visible');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!spanClickOverrideTooltip.classList.contains('is-visible')) return;
+                if (spanClickOverrideTooltip.contains(e.target) || spanClickOverrideHelp.contains(e.target)) return;
+                spanClickOverrideTooltip.classList.remove('is-visible');
             });
         }
     }

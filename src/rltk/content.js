@@ -202,7 +202,6 @@
             textNodes: [],
             plainTextOffset: 0
         };
-
         // Walk through all text nodes and group them by batch boundary ancestors
         const walker = document.createTreeWalker(
             root,
@@ -1082,6 +1081,17 @@
                 }
                 break;
 
+            case 'set_span_click_override':
+                forceSpanClickOverride = !!request.enabled;
+                applySpanClickGuards(document);
+                if (forceSpanClickOverride) {
+                    applySpanClickOverrideStyles(document);
+                } else {
+                    resetAllSpanClickOverrides(document);
+                }
+                sendResponse({ success: true });
+                break;
+
             // case 'set_grammar_explorer_active':
             //     isGrammarExplorerActive = request.active;
             //     sendResponse({ success: true });
@@ -1131,5 +1141,170 @@
         clearTimeout(selectionDebounceTimer);
         selectionDebounceTimer = setTimeout(notifySelectionState, 150);
     });
+
+    let forceSpanClickOverride = false;
+
+    function getInteractiveAncestor(span) {
+        if (!(span instanceof Element)) return null;
+        return span.closest('a, button, [role="button"], [role="link"]');
+    }
+
+    function applySpanClickOverride(span) {
+        const ancestor = getInteractiveAncestor(span);
+        if (!ancestor) return;
+
+        if (!ancestor.__rltkOverrideCount) {
+            ancestor.__rltkOverrideCount = 0;
+            ancestor.__rltkPointerEventsBackup = ancestor.style.pointerEvents;
+        }
+
+        ancestor.__rltkOverrideCount += 1;
+        ancestor.style.pointerEvents = 'none';
+        span.style.pointerEvents = 'auto';
+        span.__rltkOverrideApplied = true;
+    }
+
+    function removeSpanClickOverride(span) {
+        if (!span.__rltkOverrideApplied) return;
+        const ancestor = getInteractiveAncestor(span);
+        if (ancestor && ancestor.__rltkOverrideCount) {
+            ancestor.__rltkOverrideCount -= 1;
+            if (ancestor.__rltkOverrideCount <= 0) {
+                ancestor.style.pointerEvents = ancestor.__rltkPointerEventsBackup || '';
+                ancestor.__rltkOverrideCount = 0;
+            }
+        }
+        span.style.pointerEvents = '';
+        span.__rltkOverrideApplied = false;
+    }
+
+    function shouldGuardSpanClick(span) {
+        return forceSpanClickOverride || !!span.__rltkTranscriptSpanGuard;
+    }
+
+    function attachSpanClickGuard(span) {
+        if (!(span instanceof Element)) return;
+        if (span.__rltkSpanClickGuardInstalled) return;
+        span.__rltkSpanClickGuardInstalled = true;
+        span.addEventListener('click', (event) => {
+            if (shouldGuardSpanClick(span)) {
+                event.stopPropagation();
+                if (forceSpanClickOverride) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+            }
+        });
+    }
+
+    function applySpanClickGuards(root = document) {
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+        root.querySelectorAll('.ʁ').forEach(attachSpanClickGuard);
+    }
+
+    function applySpanClickOverrideStyles(root = document) {
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+        root.querySelectorAll('.ʁ').forEach(span => {
+            if (!(span instanceof Element)) return;
+            if (forceSpanClickOverride) {
+                applySpanClickOverride(span);
+            } else {
+                removeSpanClickOverride(span);
+            }
+        });
+    }
+
+    function resetAllSpanClickOverrides(root = document) {
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+        const nodes = root.querySelectorAll('*');
+        nodes.forEach(node => {
+            if (!(node instanceof Element)) return;
+            if (node.__rltkOverrideCount) {
+                node.style.pointerEvents = node.__rltkPointerEventsBackup || '';
+                node.__rltkOverrideCount = 0;
+            }
+        });
+        root.querySelectorAll('.ʁ').forEach(span => {
+            if (!(span instanceof Element)) return;
+            span.style.pointerEvents = '';
+            span.__rltkOverrideApplied = false;
+        });
+    }
+
+    function installSpanClickGuardObserver() {
+        if (document.__rltkSpanGuardObserver) return;
+        applySpanClickGuards(document);
+
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                mutation.addedNodes.forEach((node) => {
+                    if (!(node instanceof Element)) return;
+                    if (node.classList && node.classList.contains('ʁ')) {
+                        attachSpanClickGuard(node);
+                        if (forceSpanClickOverride) {
+                            applySpanClickOverride(node);
+                        }
+                        return;
+                    }
+                    applySpanClickGuards(node);
+                    if (forceSpanClickOverride) {
+                        applySpanClickOverrideStyles(node);
+                    }
+                });
+            }
+        });
+
+        document.__rltkSpanGuardObserver = observer;
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    function findYouTubeTranscriptRoot() {
+        return document.querySelector('ytd-transcript-renderer');
+    }
+
+    function installYouTubeTranscriptGuards() {
+        const root = findYouTubeTranscriptRoot();
+        if (!root) {
+            if (!document.__rltkTranscriptRootObserver) {
+                const observer = new MutationObserver(() => {
+                    const found = findYouTubeTranscriptRoot();
+                    if (found) {
+                        observer.disconnect();
+                        document.__rltkTranscriptRootObserver = null;
+                        installYouTubeTranscriptGuards();
+                    }
+                });
+                document.__rltkTranscriptRootObserver = observer;
+                observer.observe(document.documentElement, { childList: true, subtree: true });
+            }
+            return;
+        }
+
+        if (root.__rltkTranscriptGuardInstalled) return;
+
+        root.__rltkTranscriptGuardInstalled = true;
+
+        const markTranscriptSpans = () => {
+            const spans = root.querySelectorAll('.ʁ');
+            spans.forEach(span => {
+                if (!(span instanceof Element)) return;
+                span.__rltkTranscriptSpanGuard = true;
+                attachSpanClickGuard(span);
+            });
+        };
+
+        markTranscriptSpans();
+
+        const observer = new MutationObserver(() => markTranscriptSpans());
+        observer.observe(root, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', installSpanClickGuardObserver, { once: true });
+        document.addEventListener('DOMContentLoaded', installYouTubeTranscriptGuards, { once: true });
+    } else {
+        installSpanClickGuardObserver();
+        installYouTubeTranscriptGuards();
+    }
 
 })();

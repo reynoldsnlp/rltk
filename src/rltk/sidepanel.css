@@ -354,8 +354,62 @@ datalist#density-ticks option {
 /* Reading Tutor Styles */
 .reading-tutor-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 6px;
+}
+
+.reading-tutor-toggle-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+}
+
+.reading-tutor-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #666;
+}
+
+.reading-tutor-toggle input {
+    margin: 0;
+}
+
+.reading-tutor-help {
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: #e6e6e6;
+    color: #555;
+    border-radius: 50%;
+    font-size: 12px;
+    line-height: 18px;
+    padding: 0;
+    cursor: pointer;
+}
+
+.reading-tutor-tooltip {
+    position: absolute;
+    top: 24px;
+    left: 0;
+    width: 240px;
+    background: #fff;
+    color: #444;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    display: none;
+    z-index: 2;
+}
+
+.reading-tutor-tooltip.is-visible {
+    display: block;
 }
 
 .reading-tutor-refresh {
