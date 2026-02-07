@@ -2610,9 +2610,21 @@ ${errorMessage}`);
 
             return { isMatch: false };
         };
-        const generateForm = async (input) => {
+        const generateForm = async (input, options = {}) => {
             let form = input;
             let failed = false;
+            const suppressSurfaceVariant = options.suppressSurfaceVariant === true;
+            const requireSurfaceMatch = options.requireSurfaceMatch === true;
+            const addTooltip = (html, tooltip) => {
+                if (!html) return html;
+                const titleMatch = html.match(/title="([^"]*)"/);
+                if (titleMatch) {
+                    const existing = titleMatch[1];
+                    const updated = existing.includes(tooltip) ? existing : `${existing}\n${tooltip}`;
+                    return html.replace(/title="[^"]*"/, `title="${updated}"`);
+                }
+                return `<span title="${tooltip}">${html}</span>`;
+            };
             try {
                 const sendGenerateRequest = async (requestInput, useStress) => {
                     const request = chrome.runtime.sendMessage({
@@ -2691,13 +2703,22 @@ ${errorMessage}`);
                 return `<span title="${input}">—</span>`;
             }
 
+            if (input.includes('+Fac') && !form.includes('impossible or unlikely')) {
+                form = `<span title="impossible or unlikely" style="text-decoration: line-through;">${form}</span>`;
+            }
+
+            form = addTooltip(form, input);
+
             // Strip HTML tags from form for comparison if it was wrapped
             const cleanForm = form.replace(/<[^>]*>/g, '');
             const matchResult = checkMatch(input, cleanForm);
 
             if (matchResult.isMatch) {
                 matchFound = true;
-                if (matchResult.showSurface) {
+                if (requireSurfaceMatch && matchResult.showSurface) {
+                    return form;
+                }
+                if (matchResult.showSurface && !suppressSurfaceVariant) {
                     return `${form}<br><span class="surface-variant" style="font-size: 0.8em; color: #666; background-color: #fff3cd; border-bottom: 2px solid #ffc107;">(${surfaceFormForDisplay})</span>`;
                 }
                 return `<span style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">${form}</span>`;
@@ -2807,7 +2828,7 @@ ${errorMessage}`);
                         `${lemma}${baseTags}+MFN+Inan+Pl+Acc`,
                         `${lemma}${baseTags}+MFN+Anim+Pl+Acc`
                     ];
-                    const results = await Promise.all(inputs.map(generateForm));
+                    const results = await Promise.all(inputs.map(input => generateForm(input, { suppressSurfaceVariant: true, requireSurfaceMatch: true })));
 
                     const mscForm = (results[0] === results[1]) ? results[0] : `${results[0]} / ${results[1]}`;
                     const neuForm = results[2];
@@ -2888,7 +2909,7 @@ ${errorMessage}`);
                             `${lemmaBase}${baseTags}+MFN+Inan+Pl+Acc`,
                             `${lemmaBase}${baseTags}+MFN+Anim+Pl+Acc`
                         ];
-                        const results = await Promise.all(inputs.map(generateForm));
+                        const results = await Promise.all(inputs.map(input => generateForm(input, { suppressSurfaceVariant: true })));
 
                         const mscForm = (results[0] === results[1]) ? results[0] : `${results[0]} / ${results[1]}`;
                         const neuForm = results[2];
@@ -2938,9 +2959,9 @@ ${errorMessage}`);
                             : [`${lemmaBase}${baseTags}+MFN+AnIn+${c}`];
 
                     const [mscResults, neuResults, femResults] = await Promise.all([
-                        Promise.all(mscInputs.map(generateForm)),
-                        Promise.all(neuInputs.map(generateForm)),
-                        Promise.all(femInputs.map(generateForm))
+                        Promise.all(mscInputs.map(input => generateForm(input, { suppressSurfaceVariant: mscInputs.length > 1, requireSurfaceMatch: mscInputs.length > 1 }))),
+                        Promise.all(neuInputs.map(input => generateForm(input, { suppressSurfaceVariant: neuInputs.length > 1, requireSurfaceMatch: neuInputs.length > 1 }))),
+                        Promise.all(femInputs.map(input => generateForm(input, { suppressSurfaceVariant: femInputs.length > 1, requireSurfaceMatch: femInputs.length > 1 })))
                     ]);
 
                     const mscForm = mscResults.length === 2 && mscResults[0] !== mscResults[1]
@@ -2976,9 +2997,9 @@ ${errorMessage}`);
                         : [`${lemmaBase}${baseTags}+Fem+AnIn+${c}`];
 
                     const [mscResults, neuResults, femResults] = await Promise.all([
-                        Promise.all(mscInputs.map(generateForm)),
-                        Promise.all(neuInputs.map(generateForm)),
-                        Promise.all(femInputs.map(generateForm))
+                        Promise.all(mscInputs.map(input => generateForm(input, { suppressSurfaceVariant: mscInputs.length > 1, requireSurfaceMatch: mscInputs.length > 1 }))),
+                        Promise.all(neuInputs.map(input => generateForm(input, { suppressSurfaceVariant: neuInputs.length > 1, requireSurfaceMatch: neuInputs.length > 1 }))),
+                        Promise.all(femInputs.map(input => generateForm(input, { suppressSurfaceVariant: femInputs.length > 1, requireSurfaceMatch: femInputs.length > 1 })))
                     ]);
 
                     const mscForm = mscResults.length === 2 && mscResults[0] !== mscResults[1]
