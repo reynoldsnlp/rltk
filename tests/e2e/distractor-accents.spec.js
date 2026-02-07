@@ -1,7 +1,4 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const server = require('./server');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 // Follow the same serial pattern as the other e2e tests
@@ -10,45 +7,20 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Distractor Accent Handling', () => {
   test.setTimeout(60000);
 
-  let browserContext;
-  let extensionId;
-  let serverInstance;
-  let port;
-
-  test.beforeAll(async () => {
-    await new Promise(resolve => {
-      serverInstance = server.listen(0, resolve);
-    });
-    port = serverInstance.address().port;
-
-    const pathToExtension = path.resolve(__dirname, '../../src/');
-    const userDataDir = `/tmp/test-user-data-dir-${Math.random()}`;
-
-    browserContext = await launchPersistentContext(userDataDir, {
-      extensionPath: pathToExtension,
-    });
-
-    const extension = await ensureExtensionReady(browserContext);
-    extensionId = extension.extensionId;
-  });
-
-  test.afterAll(async () => {
-    await browserContext.close();
-    serverInstance.close();
-  });
-
-  test.beforeEach(async () => {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+  test.beforeEach(async ({ serviceWorker, browserContext }) => {
     await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
-
     await closeNonKeepAlivePages(browserContext);
   });
 
-  test('Nouns MC strips accents from originally stressed tokens', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/nouns.html`;
+  test.afterEach(async ({ browserContext }) => {
+    await closeNonKeepAlivePages(browserContext);
+  });
+
+  test('Nouns MC strips accents from originally stressed tokens', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/nouns.html`;
 
     // Open the fixture and keep it frontmost
-    const page = await browserContext.newPage();
     await page.goto(fixtureUrl);
     await page.bringToFront();
     await page.bringToFront();

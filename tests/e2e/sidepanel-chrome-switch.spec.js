@@ -1,35 +1,14 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForSidePanelReady } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Sidepanel chrome:// switch modal', () => {
-  let browserContext;
-  let extensionId;
-
-  test.beforeAll(async () => {
-    const pathToExtension = path.resolve(__dirname, '../../src/');
-    const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
-
-    browserContext = await launchPersistentContext(userDataDir, {
-      extensionPath: pathToExtension,
-    });
-
-    const extension = await ensureExtensionReady(browserContext);
-    extensionId = extension.extensionId;
-  });
-
-  test.afterAll(async () => {
-    await browserContext.close();
-  });
-
-  test.afterEach(async () => {
+  test.afterEach(async ({ browserContext }) => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  test('switching to chrome:// tab shows chrome modal', async () => {
+  test('switching to chrome:// tab shows chrome modal', async ({ browserContext, extensionId }) => {
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.addInitScript(() => {
       window.__sidepanelListenerStore = [];

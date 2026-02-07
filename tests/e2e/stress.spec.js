@@ -1,56 +1,20 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const server = require('./server');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 // Run serially to share a single fixture server.
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Word Stress Activity', () => {
-  let browserContext;
-  let page;
-  let extensionId;
-  let serverInstance;
-  let port;
-
-  test.beforeAll(async () => {
-    // Start local server on an available port
-    await new Promise(resolve => {
-      serverInstance = server.listen(0, resolve);
-    });
-    port = serverInstance.address().port;
-
-    const pathToExtension = path.resolve(__dirname, '../../src/');
-    const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
-
-    browserContext = await launchPersistentContext(userDataDir, {
-      extensionPath: pathToExtension,
-    });
-
-    const extension = await ensureExtensionReady(browserContext);
-    extensionId = extension.extensionId;
-  });
-
-  test.afterAll(async () => {
-    await browserContext.close();
-    serverInstance.close();
-  });
-
-  test.beforeEach(async () => {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+  test.beforeEach(async ({ serviceWorker, browserContext }) => {
     await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
-
-    await closeNonKeepAlivePages(browserContext);
-
-    page = await browserContext.newPage();
-  });
-
-  test.afterEach(async () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function openSidePanelForActivity(tabId, activityValue, options = {}) {
+  test.afterEach(async ({ browserContext }) => {
+    await closeNonKeepAlivePages(browserContext);
+  });
+
+  async function openSidePanelForActivity(browserContext, extensionId, tabId, activityValue, options = {}) {
     const { clickEnhance = true } = options;
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
@@ -69,14 +33,15 @@ test.describe('Word Stress Activity', () => {
     return sidePanelPage;
   }
 
-  test('word stress legend shows for click activity', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('word stress legend shows for click activity', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    const sidePanelPage = await openSidePanelForActivity(tabId, 'click', { clickEnhance: false });
+    const sidePanelPage = await openSidePanelForActivity(browserContext, extensionId, tabId, 'click', { clickEnhance: false });
 
     const note = sidePanelPage.locator('#word-stress-note');
     await expect(note).toBeVisible({ timeout: 5000 });
@@ -84,8 +49,9 @@ test.describe('Word Stress Activity', () => {
     expect(noteText).toContain('cursor legend');
   });
 
-  test('can open fixture page and read expected text', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('can open fixture page and read expected text', async ({ page }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     // Basic reachability: heading and known labels from the fixture
@@ -99,8 +65,9 @@ test.describe('Word Stress Activity', () => {
     expect(bodyHtml.includes('\u0301')).toBe(false);
   });
 
-  test('enhance injects RLTK spans on fixture page', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('enhance injects RLTK spans on fixture page', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     // Baseline: no accent marks or injected spans
@@ -111,7 +78,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(tabId, 'color');
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'color');
 
     await page.waitForFunction(() => document.documentElement.innerHTML.includes('\u0301'), { timeout: 8000 });
 
@@ -120,14 +87,15 @@ test.describe('Word Stress Activity', () => {
     await expect(stressSpan).toBeVisible({ timeout: 5000 });
   });
 
-  test('color activity sets cursors by stress status', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('color activity sets cursors by stress status', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(tabId, 'color');
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'color');
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress').length >= 5, { timeout: 8000 });
 
@@ -171,14 +139,15 @@ test.describe('Word Stress Activity', () => {
     expect(helpSeen).toBe(true);
   });
 
-  test('click activity marks stressed vowel on selection', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('click activity marks stressed vowel on selection', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(tabId, 'click');
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'click');
 
     const firstLetter = page.locator('.ʁ-stress-click .letter').first();
     await expect(firstLetter).toBeVisible({ timeout: 8000 });
@@ -186,14 +155,15 @@ test.describe('Word Stress Activity', () => {
     expect(letterCount).toBeGreaterThan(0);
   });
 
-  test('click activity wraps only vowels', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('click activity wraps only vowels', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(tabId, 'click');
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'click');
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-click').length >= 5, { timeout: 8000 });
 
@@ -254,14 +224,15 @@ test.describe('Word Stress Activity', () => {
     expect(vowelWrapCheck.ok).toBe(true);
   });
 
-  test('click activity sets cursors by stress status', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('click activity sets cursors by stress status', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(tabId, 'click');
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'click');
 
     await page.waitForFunction(() => {
       const letters = document.querySelectorAll('.ʁ-stress-click .letter');
@@ -311,14 +282,15 @@ test.describe('Word Stress Activity', () => {
     }
   });
 
-  test('multiple choice replaces token after correct selection', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('multiple choice replaces token after correct selection', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(tabId, 'mc');
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'mc');
 
     const mcSelect = page.locator('.ʁ-stress-mc select').first();
     await expect(mcSelect).toBeVisible({ timeout: 12000 });
@@ -346,14 +318,15 @@ test.describe('Word Stress Activity', () => {
     await expect(correctSpan).toContainText('\u0301');
   });
 
-  test('hover activity reveals stress on mouseover', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('hover activity reveals stress on mouseover', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(tabId, 'hover');
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'hover');
 
     await page.waitForFunction(() => {
       const spans = Array.from(document.querySelectorAll('.ʁ-stress-hover'));
@@ -369,14 +342,15 @@ test.describe('Word Stress Activity', () => {
     }, { timeout: 8000 });
   });
 
-  test('hover activity sets cursors by stress status', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/stress.html`;
+  test('hover activity sets cursors by stress status', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(tabId, 'hover');
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'hover');
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-hover').length >= 5, { timeout: 8000 });
 

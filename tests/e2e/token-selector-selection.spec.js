@@ -1,7 +1,4 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const server = require('./server');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 // Run serially so we can share the fixture server.
@@ -10,47 +7,18 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Token selector respects layout heuristics and selection override', () => {
   test.setTimeout(20000);
 
-  let browserContext;
-  let extensionId;
-  let serverInstance;
-  let port;
-
-  test.beforeAll(async () => {
-    await new Promise(resolve => {
-      serverInstance = server.listen(0, resolve);
-    });
-    port = serverInstance.address().port;
-
-    const pathToExtension = path.resolve(__dirname, '../../src/');
-    const userDataDir = `/tmp/test-user-data-dir-${Math.random()}`;
-
-    browserContext = await launchPersistentContext(userDataDir, {
-      extensionPath: pathToExtension,
-    });
-
-    const extension = await ensureExtensionReady(browserContext);
-    extensionId = extension.extensionId;
-  });
-
-  test.afterAll(async () => {
-    await browserContext.close();
-    serverInstance.close();
-  });
-
-  test.beforeEach(async () => {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+  test.beforeEach(async ({ serviceWorker, browserContext }) => {
     await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
-
     await closeNonKeepAlivePages(browserContext);
   });
 
-  test.afterEach(async () => {
+  test.afterEach(async ({ browserContext }) => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  test('skips header/footer/nav unless user selection overrides', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/selection-targeting.html`;
-    const page = await browserContext.newPage();
+  test('skips header/footer/nav unless user selection overrides', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/selection-targeting.html`;
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
@@ -121,9 +89,9 @@ test.describe('Token selector respects layout heuristics and selection override'
     expect(mainCountAfter).toBe(0);
   });
 
-  test('falls back outside main/article when main/article yields almost nothing', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/selection-targeting-fallback.html`;
-    const page = await browserContext.newPage();
+  test('falls back outside main/article when main/article yields almost nothing', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/selection-targeting-fallback.html`;
     await page.goto(fixtureUrl);
     await page.bringToFront();
 
@@ -167,9 +135,9 @@ test.describe('Token selector respects layout heuristics and selection override'
   // Reading Tutor intentionally processes the ENTIRE page (including header/nav/footer)
   // so users can click on any word to see translations and grammar tables.
   // This is different from Reading Activities which focus on main content.
-  test('reading tutor annotates across the full page when main/article is insufficient', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/selection-targeting-fallback.html`;
-    const page = await browserContext.newPage();
+  test('reading tutor annotates across the full page when main/article is insufficient', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/selection-targeting-fallback.html`;
     await page.goto(fixtureUrl);
     await page.bringToFront();
 

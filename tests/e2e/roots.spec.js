@@ -1,47 +1,12 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const server = require('./server');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 test.describe('Roots Activities', () => {
-  let browserContext;
-  let page;
-  let extensionId;
-  let serverInstance;
-  let port;
-
-  test.beforeAll(async () => {
-    await new Promise(resolve => {
-      serverInstance = server.listen(0, resolve);
-    });
-    port = serverInstance.address().port;
-
-    const pathToExtension = path.resolve(__dirname, '../../src/');
-    const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
-
-    browserContext = await launchPersistentContext(userDataDir, {
-      extensionPath: pathToExtension,
-    });
-
-    const extension = await ensureExtensionReady(browserContext);
-    extensionId = extension.extensionId;
-  });
-
-  test.afterAll(async () => {
-    await browserContext?.close();
-    serverInstance?.close();
-  });
-
-  test.beforeEach(async () => {
-    page = await browserContext.newPage();
-  });
-
-  test.afterEach(async () => {
+  test.afterEach(async ({ browserContext }) => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function openSidePanel(tabId) {
+  async function openSidePanel(browserContext, extensionId, tabId) {
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
     await waitForSidePanelReady(sidePanelPage);
@@ -52,12 +17,13 @@ test.describe('Roots Activities', () => {
     return sidePanelPage;
   }
 
-  test('roots highlight shows summary and tooltip', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/roots.html`;
+  test('roots highlight shows summary and tooltip', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/roots.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
-    const sidePanelPage = await openSidePanel(tabId);
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
 
     await sidePanelPage.selectOption('#topic-menu', 'roots');
     await sidePanelPage.selectOption('#activity-menu', 'color');
@@ -81,12 +47,13 @@ test.describe('Roots Activities', () => {
     await expect(firstRow).toContainText('братец');
   });
 
-  test('roots multiple choice uses root definitions', async () => {
-    const fixtureUrl = `http://localhost:${port}/tests/fixtures/roots-mc.html`;
+  test('roots multiple choice uses root definitions', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/roots-mc.html`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
-    const sidePanelPage = await openSidePanel(tabId);
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
 
     await sidePanelPage.selectOption('#topic-menu', 'roots');
     await sidePanelPage.selectOption('#activity-menu', 'mc');

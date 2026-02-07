@@ -1,46 +1,20 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForSidePanelReady } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Sidepanel access modal', () => {
-  let browserContext;
-  let extensionId;
-  let page;
-
-  test.beforeAll(async () => {
-    const pathToExtension = path.resolve(__dirname, '../../src/');
-    const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
-
-    browserContext = await launchPersistentContext(userDataDir, {
-      extensionPath: pathToExtension,
-    });
-
-    const extension = await ensureExtensionReady(browserContext);
-    extensionId = extension.extensionId;
-  });
-
-  test.afterAll(async () => {
-    await browserContext.close();
-  });
-
-  test.beforeEach(async () => {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+  test.beforeEach(async ({ serviceWorker, browserContext }) => {
     await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
-
-    await closeNonKeepAlivePages(browserContext);
-    page = await browserContext.newPage();
-  });
-
-  test.afterEach(async () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  test('shows Access Required modal for regular pages without access', async () => {
+  test.afterEach(async ({ browserContext }) => {
+    await closeNonKeepAlivePages(browserContext);
+  });
+
+  test('shows Access Required modal for regular pages without access', async ({ page, browserContext, extensionId, serviceWorker }) => {
     await page.goto('https://example.com');
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
     await expect.poll(async () => {
       return serviceWorker.evaluate(() => {
         return chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => (tabs[0] ? tabs[0].id : null));

@@ -1,7 +1,4 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const server = require('./server');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 function createParadigmSuite(suiteLabel, testIds, options = {}) {
@@ -14,53 +11,11 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
   test.describe(`Paradigm Generation - ${suiteLabel}`, () => {
     test.setTimeout(options.timeout ?? 90000);
 
-    let browserContext;
-    let page;
-    let extensionId;
-    let serverInstance;
-    let port;
-
-    test.beforeAll(async () => {
-      await new Promise(resolve => {
-        serverInstance = server.listen(0, resolve);
-      });
-      port = serverInstance.address().port;
-
-      const pathToExtension = path.resolve(__dirname, '../../src/');
-      const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
-
-      browserContext = await launchPersistentContext(userDataDir, {
-        extensionPath: pathToExtension,
-      });
-
-      const extension = await ensureExtensionReady(browserContext);
-      extensionId = extension.extensionId;
-    });
-
-    test.afterAll(async () => {
-      if (browserContext) {
-        try {
-          await browserContext.close();
-        } catch (e) {
-          // Context may already be closed
-        }
-      }
-      if (serverInstance) {
-        serverInstance.close();
-      }
-      // Small delay to allow cleanup between test suites
-      await new Promise(resolve => setTimeout(resolve, 500));
-    });
-
-    test.beforeEach(async () => {
-      page = await browserContext.newPage();
-    });
-
-    test.afterEach(async () => {
+    test.afterEach(async ({ browserContext }) => {
       await closeNonKeepAlivePages(browserContext);
     });
 
-    async function openSidePanelAndActivateReadingTutor(tabId) {
+    async function openSidePanelAndActivateReadingTutor({ browserContext, extensionId, tabId }) {
       const sidePanelPage = await browserContext.newPage();
       await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
       await waitForSidePanelReady(sidePanelPage);
@@ -87,16 +42,14 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
       return sidePanelPage;
     }
 
-    async function runPosTest(ids) {
-      const fixtureUrl = `http://localhost:${port}/tests/fixtures/comprehensive-pos.html`;
+    async function runPosTest({ ids, page, browserContext, extensionId, serviceWorker, baseURL }) {
+      const fixtureUrl = `${baseURL}/tests/fixtures/comprehensive-pos.html`;
       await page.goto(fixtureUrl);
-
-      const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
 
       const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
       expect(tabId).not.toBeNull();
 
-      const sidePanelPage = await openSidePanelAndActivateReadingTutor(tabId);
+      const sidePanelPage = await openSidePanelAndActivateReadingTutor({ browserContext, extensionId, tabId });
 
       // Verify page loaded
       await expect(page.locator('h1')).toHaveText('Comprehensive POS Test Page');
@@ -201,8 +154,16 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
       }
     }
 
-    test(`${suiteLabel.toLowerCase()} paradigms`, async () => {
-      await runPosTest(testIds);
+    test(`${suiteLabel.toLowerCase()} paradigms`, async ({ page, browserContext, extensionId, serviceWorker }, testInfo) => {
+      const baseURL = testInfo.project.use.baseURL;
+      await runPosTest({
+        ids: testIds,
+        page,
+        browserContext,
+        extensionId,
+        serviceWorker,
+        baseURL
+      });
     });
   });
 }

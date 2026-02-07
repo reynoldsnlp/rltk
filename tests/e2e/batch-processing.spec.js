@@ -1,8 +1,5 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const server = require('./server');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
 // Run serially to share a single fixture server.
@@ -14,53 +11,16 @@ test.describe.configure({ mode: 'serial', timeout: 180000 });
  * which exceeds the 50KB threshold and triggers multi-batch processing.
  */
 test.describe('Batch Processing for Long Pages', () => {
-    /** @type {import('@playwright/test').BrowserContext} */
-    let browserContext;
-    /** @type {import('@playwright/test').Page} */
-    let page;
-    /** @type {string} */
-    let extensionId;
-    /** @type {import('http').Server} */
-    let serverInstance;
-    /** @type {number} */
-    let port;
-
-    test.beforeAll(async () => {
-        // Start local server on an available port
-        await new Promise(resolve => {
-            serverInstance = server.listen(0, resolve);
-        });
-        port = serverInstance.address().port;
-
-        const pathToExtension = path.resolve(__dirname, '../../src/');
-        const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
-
-        browserContext = await launchPersistentContext(userDataDir, {
-            extensionPath: pathToExtension,
-        });
-
-        const extension = await ensureExtensionReady(browserContext);
-        extensionId = extension.extensionId;
-    });
-
-    test.afterAll(async () => {
-        await browserContext?.close();
-        serverInstance?.close();
-    });
-
-    test.beforeEach(async () => {
-        const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+    test.beforeEach(async ({ serviceWorker, browserContext }) => {
         await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
-
-        await closeNonKeepAlivePages(browserContext);
-        page = await browserContext.newPage();
-    });
-
-    test.afterEach(async () => {
         await closeNonKeepAlivePages(browserContext);
     });
 
-    async function openSidePanelForActivity(tabId, activityValue) {
+    test.afterEach(async ({ browserContext }) => {
+        await closeNonKeepAlivePages(browserContext);
+    });
+
+    async function openSidePanelForActivity(browserContext, extensionId, tabId, activityValue) {
         const sidePanelPage = await browserContext.newPage();
         await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
         await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
@@ -111,8 +71,9 @@ test.describe('Batch Processing for Long Pages', () => {
         return progress;
     }
 
-    test('can load long fixture page', async () => {
-        const fixtureUrl = `http://localhost:${port}/tests/fixtures/batch-processing.html`;
+    test('can load long fixture page', async ({ page }, testInfo) => {
+        const baseURL = testInfo.project.use.baseURL;
+        const fixtureUrl = `${baseURL}/tests/fixtures/batch-processing.html`;
         await page.goto(fixtureUrl);
 
         await seedLongStressContent(page);
@@ -127,8 +88,9 @@ test.describe('Batch Processing for Long Pages', () => {
         expect(mainContent.length).toBeGreaterThan(20000);
     });
 
-    test('enhances long page without crashing', async () => {
-        const fixtureUrl = `http://localhost:${port}/tests/fixtures/batch-processing.html`;
+    test('enhances long page without crashing', async ({ page, browserContext, extensionId }, testInfo) => {
+        const baseURL = testInfo.project.use.baseURL;
+        const fixtureUrl = `${baseURL}/tests/fixtures/batch-processing.html`;
         await page.goto(fixtureUrl);
 
         await seedLongStressContent(page);
@@ -141,7 +103,7 @@ test.describe('Batch Processing for Long Pages', () => {
         expect(textLength).toBeGreaterThan(20000);
 
         // This is the main test - ensure batch processing starts and progresses
-        await openSidePanelForActivity(tabId, 'color');
+        await openSidePanelForActivity(browserContext, extensionId, tabId, 'color');
 
         await waitForBatchProgress(page, { timeout: 150000 });
     });

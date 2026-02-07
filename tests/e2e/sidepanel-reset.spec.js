@@ -1,35 +1,14 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForSidePanelReady } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Sidepanel tab reset states', () => {
-  let browserContext;
-  let extensionId;
-
-  test.beforeAll(async () => {
-    const pathToExtension = path.resolve(__dirname, '../../src/');
-    const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
-
-    browserContext = await launchPersistentContext(userDataDir, {
-      extensionPath: pathToExtension,
-    });
-
-    const extension = await ensureExtensionReady(browserContext);
-    extensionId = extension.extensionId;
-  });
-
-  test.afterAll(async () => {
-    await browserContext.close();
-  });
-
-  test.afterEach(async () => {
+  test.afterEach(async ({ browserContext }) => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function openSidepanelWithMocks({ debugTabId, tabUrl, sessionState = {}, localState = {}, allowAccess = false } = {}) {
+  async function openSidepanelWithMocks(browserContext, extensionId, { debugTabId, tabUrl, sessionState = {}, localState = {}, allowAccess = false } = {}) {
     const sidePanelPage = await browserContext.newPage();
     await sidePanelPage.addInitScript((args) => {
       const { debugTabId, tabUrl, sessionState, localState, allowAccess } = args;
@@ -112,8 +91,8 @@ test.describe('Sidepanel tab reset states', () => {
     return sidePanelPage;
   }
 
-  test('shows access required modal for no-access tabs', async () => {
-    const sidePanelPage = await openSidepanelWithMocks({
+  test('shows access required modal for no-access tabs', async ({ browserContext, extensionId }) => {
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId: 1,
       tabUrl: 'https://example.com',
       allowAccess: false
@@ -123,8 +102,8 @@ test.describe('Sidepanel tab reset states', () => {
     await expect(sidePanelPage.locator('#chrome-access-modal')).toBeHidden();
   });
 
-  test('shows chrome modal for chrome:// tabs', async () => {
-    const sidePanelPage = await openSidepanelWithMocks({
+  test('shows chrome modal for chrome:// tabs', async ({ browserContext, extensionId }) => {
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId: 2,
       tabUrl: 'chrome://version',
       allowAccess: true
@@ -134,10 +113,10 @@ test.describe('Sidepanel tab reset states', () => {
     await expect(sidePanelPage.locator('#access-modal')).toBeHidden();
   });
 
-  test('loads previous tab state when present', async () => {
+  test('loads previous tab state when present', async ({ browserContext, extensionId }) => {
     const tabId = 3;
     const stateKey = `tabState_${tabId}`;
-    const sidePanelPage = await openSidepanelWithMocks({
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId: tabId,
       tabUrl: 'https://example.com',
       allowAccess: true,
@@ -166,8 +145,8 @@ test.describe('Sidepanel tab reset states', () => {
     await expect(sidePanelPage.locator('#activity-menu')).toHaveValue('color');
   });
 
-  test('starts a new tab session from stored defaults', async () => {
-    const sidePanelPage = await openSidepanelWithMocks({
+  test('starts a new tab session from stored defaults', async ({ browserContext, extensionId }) => {
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId: 4,
       tabUrl: 'https://example.com',
       allowAccess: true,

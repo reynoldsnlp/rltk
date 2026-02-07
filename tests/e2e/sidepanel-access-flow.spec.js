@@ -1,35 +1,14 @@
-const { test, expect } = require('@playwright/test');
-const path = require('path');
-const { launchPersistentContext, ensureExtensionReady, closeNonKeepAlivePages } = require('./launch-context');
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForSidePanelReady } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Sidepanel access and reset flow', () => {
-  let browserContext;
-  let extensionId;
-
-  test.beforeAll(async () => {
-    const pathToExtension = path.resolve(__dirname, '../../src/');
-    const userDataDir = '/tmp/test-user-data-dir-' + Math.random();
-
-    browserContext = await launchPersistentContext(userDataDir, {
-      extensionPath: pathToExtension,
-    });
-
-    const extension = await ensureExtensionReady(browserContext);
-    extensionId = extension.extensionId;
-  });
-
-  test.afterAll(async () => {
-    await browserContext.close();
-  });
-
-  test.afterEach(async () => {
+  test.afterEach(async ({ browserContext }) => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function openSidepanelWithMocks({
+  async function openSidepanelWithMocks(browserContext, extensionId, {
     debugTabId,
     tabUrl,
     allowAccess = false,
@@ -159,8 +138,8 @@ test.describe('Sidepanel access and reset flow', () => {
     return sidePanelPage;
   }
 
-  test('denied access clears reading tutor UI and shows Access Required modal', async () => {
-    const sidePanelPage = await openSidepanelWithMocks({
+  test('denied access clears reading tutor UI and shows Access Required modal', async ({ browserContext, extensionId }) => {
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId: 1,
       tabUrl: 'https://example.com',
       allowAccess: false
@@ -177,8 +156,8 @@ test.describe('Sidepanel access and reset flow', () => {
     await expect(readingTutorInstructions).toBeVisible();
   });
 
-  test('chrome pages show chrome modal', async () => {
-    const sidePanelPage = await openSidepanelWithMocks({
+  test('chrome pages show chrome modal', async ({ browserContext, extensionId }) => {
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId: 2,
       tabUrl: 'chrome://version',
       allowAccess: true
@@ -188,8 +167,8 @@ test.describe('Sidepanel access and reset flow', () => {
     await expect(sidePanelPage.locator('#access-modal')).toBeHidden();
   });
 
-  test('chrome injection errors show chrome modal', async () => {
-    const sidePanelPage = await openSidepanelWithMocks({
+  test('chrome injection errors show chrome modal', async ({ browserContext, extensionId }) => {
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId: 4,
       tabUrl: 'chrome://extensions',
       allowAccess: false
@@ -212,9 +191,9 @@ test.describe('Sidepanel access and reset flow', () => {
     await expect(sidePanelPage.locator('#access-modal')).toBeHidden();
   });
 
-  test('chrome modal clears after navigation to regular URL', async () => {
+  test('chrome modal clears after navigation to regular URL', async ({ browserContext, extensionId }) => {
     const debugTabId = 5;
-    const sidePanelPage = await openSidepanelWithMocks({
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId,
       tabUrl: 'chrome://newtab',
       allowAccess: false
@@ -232,9 +211,9 @@ test.describe('Sidepanel access and reset flow', () => {
     await expect(sidePanelPage.locator('#access-modal')).toBeVisible();
   });
 
-  test('access granted triggers reading tutor processing on the new tab', async () => {
+  test('access granted triggers reading tutor processing on the new tab', async ({ browserContext, extensionId }) => {
     const debugTabId = 3;
-    const sidePanelPage = await openSidepanelWithMocks({
+    const sidePanelPage = await openSidepanelWithMocks(browserContext, extensionId, {
       debugTabId,
       tabUrl: 'https://example.com',
       allowAccess: false,
