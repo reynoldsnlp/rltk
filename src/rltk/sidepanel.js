@@ -580,7 +580,17 @@ class RussianToolsSidePanel {
         // Listen for tab updates (navigation)
         chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             if (changeInfo.status === 'complete' && tab.active) {
-                this.checkAccess(tabId);
+                (async () => {
+                    await this.checkAccess(tabId);
+                    if (!this.isActiveTab(tabId)) return;
+                    if (this.currentTab === 'reading-tutor') {
+                        await this.activateReadingTutor();
+                        return;
+                    }
+                    if (this.currentTab === 'reading-activities') {
+                        await this.restorePage();
+                    }
+                })();
             }
         });
 
