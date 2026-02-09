@@ -13,6 +13,87 @@
     // Reading Tutor State
     let isReadingTutorActive = false;
     let selectionDebounceTimer = null;
+    let enhanceAbortToken = 0;
+    let readingTutorBatchState = {
+        cohortCounts: [],
+        totalBatches: 0
+    };
+    let analysisIssueToken = 0;
+    let analysisIssueSent = false;
+
+    function isEnhanceAborted(token) {
+        return token !== enhanceAbortToken;
+    }
+
+    function getCohortArray(cohortArrays) {
+        if (!cohortArrays) return [];
+        const normalizeArray = (arr) => arr.map((cohort) => {
+            if (cohort && cohort.rs === undefined) {
+                if (Array.isArray(cohort.r)) {
+                    cohort.rs = cohort.r;
+                } else if (Array.isArray(cohort.readings)) {
+                    cohort.rs = cohort.readings;
+                }
+            }
+            if (cohort && cohort.w === undefined) {
+                if (typeof cohort.t === 'string') {
+                    cohort.w = cohort.t;
+                } else if (typeof cohort.word === 'string') {
+                    cohort.w = cohort.word;
+                }
+            }
+            return cohort;
+        });
+
+        if (Array.isArray(cohortArrays.disambigArray) && cohortArrays.disambigArray.length > 0) {
+            return normalizeArray(cohortArrays.disambigArray);
+        }
+        if (Array.isArray(cohortArrays.ambigArray) && cohortArrays.ambigArray.length > 0) {
+            return normalizeArray(cohortArrays.ambigArray);
+        }
+        if (Array.isArray(cohortArrays)) {
+            return normalizeArray(cohortArrays);
+        }
+        return [];
+    }
+
+    function resetAnalysisIssueState() {
+        analysisIssueToken = Date.now();
+        analysisIssueSent = false;
+        return analysisIssueToken;
+    }
+
+    function inferAnalysisIssueType(message) {
+        if (!message) return 'unknown';
+        const lower = String(message).toLowerCase();
+        if (lower.includes('cg3') || lower.includes('disambiguation')) return 'cg3';
+        if (lower.includes('hfst') || lower.includes('tokenization')) return 'hfst';
+        return 'pipeline';
+    }
+
+    function notifyAnalysisIssue(details, token = analysisIssueToken) {
+        if (!chrome.runtime?.id) return;
+        if (analysisIssueSent && token === analysisIssueToken) return;
+        analysisIssueSent = true;
+
+        const payload = {
+            action: 'analysis_error',
+            details: {
+                sourceUrl: details.sourceUrl || window.location.href || 'unknown',
+                errorType: details.errorType || details.type || inferAnalysisIssueType(details.message || details.errorMessage),
+                stage: details.stage || 'morphological analysis',
+                message: details.message || details.errorMessage || 'Analysis failed',
+                errorMessage: details.errorMessage || details.message || 'Analysis failed',
+                timestamp: details.timestamp || new Date().toISOString()
+            }
+        };
+
+        try {
+            chrome.runtime.sendMessage(payload).catch(() => {});
+        } catch (e) {
+            // Ignore messaging errors
+        }
+    }
 
     function hasNonEmptySelection() {
         try {
@@ -340,6 +421,8 @@
     function highlightBatch(batch, cohortArrays, activity, cohortIndexOffset = 0) {
         const { text: plainText, positionMap, textNodes } = batch;
 
+        const cohortArray = getCohortArray(cohortArrays);
+
         // Build token positions using the batch's position map
         const tokenPositions = buildTokenPositionsForBatch(
             cohortArrays,
@@ -353,7 +436,7 @@
         applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity);
 
         // Return the number of cohorts in this batch for index tracking
-        return cohortArrays.disambigArray ? cohortArrays.disambigArray.length : 0;
+        return cohortArray.length;
     }
 
     /**
@@ -364,8 +447,8 @@
         const tokenPositions = [];
         let currentOffset = 0;
 
-        const cohortArray = cohortArrays.disambigArray;
-        if (!cohortArray) return tokenPositions;
+        const cohortArray = getCohortArray(cohortArrays);
+        if (!cohortArray.length) return tokenPositions;
 
         for (let i = 0; i < cohortArray.length; i++) {
             const cohort = cohortArray[i];
@@ -647,9 +730,8 @@
             // Reset TokenSelector so selection starts fresh for this run
             window.RLTKUtils.TokenSelector.reset();
 
-            // In the future, some activities may use ambigArray, but for now
-            // we assume disambigArray
-            const cohortArray = cohortArrays.disambigArray;
+            const cohortArray = getCohortArray(cohortArrays);
+            if (!cohortArray.length) return tokenPositions;
 
             for (let i = 0; i < cohortArray.length; i++) {
                 const cohort = cohortArray[i];
@@ -876,10 +958,27 @@
 
             case 'enhance':
                 {
+                    const abortToken = enhanceAbortToken;
+                    const analysisIssueId = resetAnalysisIssueState();
+                    const { selections } = request;
+                    window.RLTKAnalysisContext = window.RLTKAnalysisContext || {};
+                    window.RLTKAnalysisContext.cg3Failed = false;
+                    const testWarningType = document.documentElement?.dataset?.rltkTestAnalysisWarning;
+                    if (testWarningType) {
+                        if (testWarningType === 'cg3') {
+                            window.RLTKAnalysisContext.cg3Failed = true;
+                        }
+                        notifyAnalysisIssue({
+                            type: testWarningType,
+                            stage: 'diagnostic warning',
+                            message: document.documentElement?.dataset?.rltkTestAnalysisWarningMessage || 'Diagnostic warning injected for tests.',
+                            sourceUrl: window.location.href,
+                            errorType: testWarningType
+                        }, analysisIssueId);
+                    }
                     const selectionOnly = request.selectionOnly === true;
                     const selectionRange = selectionOnly ? getSelectionRangeIfAny() : null;
                     const rangeForUse = selectionOnly ? selectionRange : null;
-                    const { selections } = request;
 
                     // Validate topic and filter before any processing
                     if (!window.FilterFuncs || !window.FilterFuncs[selections.topic]) {
@@ -906,15 +1005,33 @@
 
                         (async () => {
                             try {
+                                if (isEnhanceAborted(abortToken)) return;
                                 // Create and prepare the activity upfront
                                 const activity = window.ActivityFactory.createActivity(selections);
                                 await activity.prepare();
+
+                                if (isEnhanceAborted(abortToken)) return;
 
                                 if (window.RLTKUtils && window.RLTKUtils.TokenSelector) {
                                     window.RLTKUtils.TokenSelector.reset();
                                 }
 
                                 const batches = extractTextInBatches(cyrillicRoot, rangeForUse);
+                                const isReadingTutor = selections && selections.topic === 'reading-tutor';
+                                let resumeFromBatch = Number(request.resumeFromBatch || 0);
+                                if (!isReadingTutor || !resumeFromBatch) {
+                                    readingTutorBatchState = {
+                                        cohortCounts: [],
+                                        totalBatches: batches.length
+                                    };
+                                    resumeFromBatch = 0;
+                                } else if (readingTutorBatchState.totalBatches !== batches.length) {
+                                    readingTutorBatchState = {
+                                        cohortCounts: [],
+                                        totalBatches: batches.length
+                                    };
+                                    resumeFromBatch = 0;
+                                }
 
                                 const updateBatchProgressAttributes = (progress) => {
                                     if (!document || !document.documentElement) return;
@@ -923,11 +1040,18 @@
                                     root.dataset.rltkBatchProcessed = String(progress.processed ?? 0);
                                     root.dataset.rltkBatchFailed = String(progress.failed ?? 0);
                                     root.dataset.rltkBatchCompleted = String(!!progress.completed);
+                                    notifyReadingTutorBatchProgress({
+                                        total: progress.total ?? 0,
+                                        processed: progress.processed ?? 0,
+                                        failed: progress.failed ?? 0,
+                                        completed: !!progress.completed,
+                                        aborted: !!progress.aborted
+                                    });
                                 };
 
                                 const batchProgress = {
                                     total: batches.length,
-                                    processed: 0,
+                                    processed: resumeFromBatch,
                                     failed: 0,
                                     completed: false,
                                     startedAt: Date.now()
@@ -936,10 +1060,18 @@
 
                                 // Process batches sequentially with error recovery
                                 let cohortIndexOffset = 0;
+                                const cohortCounts = Array.isArray(readingTutorBatchState.cohortCounts)
+                                    ? readingTutorBatchState.cohortCounts
+                                    : [];
+                                if (resumeFromBatch > 0 && cohortCounts.length >= resumeFromBatch) {
+                                    cohortIndexOffset = cohortCounts.slice(0, resumeFromBatch)
+                                        .reduce((sum, count) => sum + Number(count || 0), 0);
+                                }
                                 let successfulBatches = 0;
                                 let failedBatches = 0;
 
-                                for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                                for (let batchIndex = resumeFromBatch; batchIndex < batches.length; batchIndex++) {
+                                    if (isEnhanceAborted(abortToken)) break;
                                     const batch = batches[batchIndex];
 
                                     try {
@@ -949,24 +1081,49 @@
                                             sourceUrl: window.location.href
                                         });
 
+                                        if (isEnhanceAborted(abortToken)) break;
+
                                         if (response.success) {
+                                            if (response.data && Array.isArray(response.data.warnings) && response.data.warnings.length > 0) {
+                                                const warning = response.data.warnings[0];
+                                                if (warning.type === 'cg3') {
+                                                    window.RLTKAnalysisContext.cg3Failed = true;
+                                                }
+                                                notifyAnalysisIssue({
+                                                    ...warning,
+                                                    sourceUrl: window.location.href,
+                                                    errorType: warning.type || 'cg3'
+                                                }, analysisIssueId);
+                                            }
                                             try {
+                                                if (isEnhanceAborted(abortToken)) break;
                                                 const cohortsProcessed = highlightBatch(batch, response.data, activity, cohortIndexOffset);
                                                 cohortIndexOffset += cohortsProcessed;
+                                                if (isReadingTutor) {
+                                                    cohortCounts[batchIndex] = cohortsProcessed;
+                                                }
                                                 successfulBatches++;
-                                                batchProgress.processed = successfulBatches;
+                                                batchProgress.processed = resumeFromBatch + successfulBatches + failedBatches;
                                                 updateBatchProgressAttributes(batchProgress);
                                             } catch (highlightError) {
                                                 console.error(`[RLTK] Batch ${batchIndex + 1}/${batches.length} highlight error:`, highlightError.message);
                                                 failedBatches++;
                                                 batchProgress.failed = failedBatches;
+                                                batchProgress.processed = resumeFromBatch + successfulBatches + failedBatches;
                                                 updateBatchProgressAttributes(batchProgress);
                                                 cohortIndexOffset += Math.floor(batch.text.length / 5);
                                             }
                                         } else {
                                             console.error(`[RLTK] Batch ${batchIndex + 1}/${batches.length} analysis failed:`, response.error);
+                                            notifyAnalysisIssue({
+                                                errorMessage: response.error,
+                                                message: response.error,
+                                                sourceUrl: window.location.href,
+                                                errorType: inferAnalysisIssueType(response.error)
+                                            }, analysisIssueId);
                                             failedBatches++;
                                             batchProgress.failed = failedBatches;
+                                            batchProgress.processed = resumeFromBatch + successfulBatches + failedBatches;
                                             updateBatchProgressAttributes(batchProgress);
                                             cohortIndexOffset += Math.floor(batch.text.length / 5);
                                         }
@@ -974,15 +1131,24 @@
                                         console.error(`[RLTK] Batch ${batchIndex + 1}/${batches.length} unexpected error:`, batchError.message);
                                         failedBatches++;
                                         batchProgress.failed = failedBatches;
+                                        batchProgress.processed = resumeFromBatch + successfulBatches + failedBatches;
                                         updateBatchProgressAttributes(batchProgress);
                                         cohortIndexOffset += Math.floor(batch.text.length / 5);
                                     }
 
                                 }
 
-                                batchProgress.processed = successfulBatches;
+                                const wasAborted = isEnhanceAborted(abortToken);
+
+                                if (isReadingTutor) {
+                                    readingTutorBatchState.cohortCounts = cohortCounts;
+                                    readingTutorBatchState.totalBatches = batches.length;
+                                }
+
+                                batchProgress.processed = resumeFromBatch + successfulBatches + failedBatches;
                                 batchProgress.failed = failedBatches;
                                 batchProgress.completed = true;
+                                batchProgress.aborted = wasAborted;
                                 batchProgress.completedAt = Date.now();
                                 updateBatchProgressAttributes(batchProgress);
                                 sendRootsSummaryIfReady(selections);
@@ -1005,9 +1171,22 @@
 
                     (async () => {
                         try {
+                            if (isEnhanceAborted(abortToken)) {
+                                sendResponse({ success: false, error: 'aborted' });
+                                return;
+                            }
+                            const slowEnhanceMs = Number(document.documentElement?.dataset?.rltkTestSlowEnhance || 0);
+                            if (slowEnhanceMs > 0) {
+                                await new Promise(resolve => setTimeout(resolve, slowEnhanceMs));
+                            }
                             // Create and prepare the activity upfront
                             const activity = window.ActivityFactory.createActivity(selections);
                             await activity.prepare();
+
+                            if (isEnhanceAborted(abortToken)) {
+                                sendResponse({ success: false, error: 'aborted' });
+                                return;
+                            }
 
                             const response = await chrome.runtime.sendMessage({
                                 action: 'morph_analysis',
@@ -1015,16 +1194,44 @@
                                 sourceUrl: window.location.href
                             });
 
+                            if (isEnhanceAborted(abortToken)) {
+                                sendResponse({ success: false, error: 'aborted' });
+                                return;
+                            }
+
                             if (response.success) {
+                                if (response.data && Array.isArray(response.data.warnings) && response.data.warnings.length > 0) {
+                                    const warning = response.data.warnings[0];
+                                    if (warning.type === 'cg3') {
+                                        window.RLTKAnalysisContext.cg3Failed = true;
+                                    }
+                                    notifyAnalysisIssue({
+                                        ...warning,
+                                        sourceUrl: window.location.href,
+                                        errorType: warning.type || 'cg3'
+                                    }, analysisIssueId);
+                                }
                                 highlightTextNodesWithActivity(cyrillicRoot, response.data, activity, rangeForUse);
                                 sendRootsSummaryIfReady(selections);
                                 sendResponse({ success: true });
                             } else {
                                 console.error('Morphological analysis failed:', response.error);
+                                notifyAnalysisIssue({
+                                    errorMessage: response.error,
+                                    message: response.error,
+                                    sourceUrl: window.location.href,
+                                    errorType: inferAnalysisIssueType(response.error)
+                                }, analysisIssueId);
                                 sendResponse({ success: false, error: response.error });
                             }
                         } catch (error) {
                             console.error('Error:', error.message);
+                            notifyAnalysisIssue({
+                                errorMessage: error.message,
+                                message: error.message,
+                                sourceUrl: window.location.href,
+                                errorType: inferAnalysisIssueType(error.message)
+                            }, analysisIssueId);
                             sendResponse({ success: false, error: error.message });
                         }
                     })();
@@ -1033,7 +1240,7 @@
                 }
 
             case 'abort':
-                // Handle abort functionality if needed
+                enhanceAbortToken += 1;
                 sendResponse({ success: true });
                 break;
 
@@ -1092,6 +1299,20 @@
                 sendResponse({ success: true });
                 break;
 
+            case 'reading_tutor_watch':
+                if (request.enabled) {
+                    startReadingTutorObserver();
+                } else {
+                    stopReadingTutorObserver();
+                }
+                sendResponse({ success: true });
+                break;
+
+            case 'reading_tutor_ack_refresh':
+                readingTutorLastHash = computeReadingTutorHash();
+                sendResponse({ success: true });
+                break;
+
             // case 'set_grammar_explorer_active':
             //     isGrammarExplorerActive = request.active;
             //     sendResponse({ success: true });
@@ -1141,6 +1362,182 @@
         clearTimeout(selectionDebounceTimer);
         selectionDebounceTimer = setTimeout(notifySelectionState, 150);
     });
+
+    let readingTutorObserver = null;
+    let readingTutorObserverEnabled = false;
+    let readingTutorMutationTimer = null;
+    let readingTutorLastHash = null;
+    let readingTutorForceDirty = false;
+
+    function isRltkElement(node) {
+        if (!(node instanceof Element)) return false;
+        if (node.id && node.id.startsWith('rltk-')) return true;
+        if (node.classList.contains('ʁ')) return true;
+        for (const className of node.classList) {
+            if (className.startsWith('rltk-') || className.startsWith('ʁ-')) {
+                return true;
+            }
+        }
+        if (node.closest('.ʁ')) return true;
+        if (node.closest('[id^="rltk-"]')) return true;
+        return false;
+    }
+
+    function isRltkNode(node) {
+        if (!node) return false;
+        if (node.nodeType === Node.TEXT_NODE) {
+            return isRltkElement(node.parentElement);
+        }
+        return isRltkElement(node);
+    }
+
+    function isRltkMutation(mutation) {
+        if (!mutation) return false;
+        if (mutation.type === 'attributes' || mutation.type === 'characterData') {
+            return isRltkNode(mutation.target);
+        }
+        if (mutation.type === 'childList') {
+            if (isRltkNode(mutation.target)) return true;
+            const nodes = [...mutation.addedNodes, ...mutation.removedNodes];
+            if (nodes.length === 0) return false;
+            return nodes.every(node => isRltkNode(node));
+        }
+        return false;
+    }
+
+    function hasUnanalyzedCyrillicText(node) {
+        if (!node) return false;
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (isRltkNode(node)) return false;
+            return CYRILLIC_REGEX.test(node.nodeValue || '');
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return false;
+        if (isRltkElement(node)) return false;
+        const walker = document.createTreeWalker(
+            node,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode(textNode) {
+                    if (shouldSkipNode(textNode)) return NodeFilter.FILTER_REJECT;
+                    const parent = textNode.parentElement;
+                    if (parent && (isRltkElement(parent) || parent.closest('.ʁ'))) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    if (CYRILLIC_REGEX.test(textNode.nodeValue || '')) {
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_SKIP;
+                }
+            }
+        );
+        return !!walker.nextNode();
+    }
+
+    function mutationAffectsUnanalyzedCyrillic(mutation) {
+        if (!mutation) return false;
+        if (mutation.type === 'characterData' || mutation.type === 'attributes') {
+            return hasUnanalyzedCyrillicText(mutation.target);
+        }
+        if (mutation.type === 'childList') {
+            const nodes = [...mutation.addedNodes, ...mutation.removedNodes];
+            if (nodes.some(node => hasUnanalyzedCyrillicText(node))) return true;
+            return hasUnanalyzedCyrillicText(mutation.target);
+        }
+        return false;
+    }
+
+    function computeReadingTutorHash() {
+        const text = document.body ? (document.body.textContent || '') : '';
+        const normalized = text.replace(/\s+/g, ' ').trim();
+        return computeTextHash(normalized);
+    }
+
+    function notifyReadingTutorDirty(hash) {
+        if (!chrome.runtime?.id) return;
+        try {
+            chrome.runtime.sendMessage({ action: 'reading_tutor_dirty', hash }).catch(() => {});
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    function notifyReadingTutorBatchProgress(progress) {
+        if (!chrome.runtime?.id) return;
+        try {
+            chrome.runtime.sendMessage({ action: 'reading_tutor_batch_progress', progress }).catch(() => {});
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    function scheduleReadingTutorDirtyCheck() {
+        if (!readingTutorObserverEnabled) return;
+        if (readingTutorMutationTimer) {
+            clearTimeout(readingTutorMutationTimer);
+        }
+        readingTutorMutationTimer = setTimeout(() => {
+            if (!readingTutorObserverEnabled) return;
+            const nextHash = computeReadingTutorHash();
+            if (!readingTutorLastHash) {
+                readingTutorLastHash = nextHash;
+                readingTutorForceDirty = false;
+                return;
+            }
+            if (readingTutorForceDirty) {
+                readingTutorLastHash = nextHash;
+                readingTutorForceDirty = false;
+                notifyReadingTutorDirty(nextHash);
+                return;
+            }
+            if (nextHash && nextHash !== readingTutorLastHash) {
+                readingTutorLastHash = nextHash;
+                notifyReadingTutorDirty(nextHash);
+            }
+        }, 600);
+    }
+
+    function startReadingTutorObserver() {
+        if (readingTutorObserver) return;
+        readingTutorObserverEnabled = true;
+        readingTutorLastHash = computeReadingTutorHash();
+        readingTutorObserver = new MutationObserver((mutations) => {
+            let hasRelevantMutation = false;
+            for (const mutation of mutations) {
+                if (isRltkMutation(mutation)) {
+                    continue;
+                }
+                if (!mutationAffectsUnanalyzedCyrillic(mutation)) {
+                    continue;
+                }
+                hasRelevantMutation = true;
+                if (mutation.type === 'attributes') {
+                    readingTutorForceDirty = true;
+                }
+            }
+            if (hasRelevantMutation) {
+                scheduleReadingTutorDirtyCheck();
+            }
+        });
+        readingTutorObserver.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: ['class', 'style', 'hidden', 'aria-expanded']
+        });
+    }
+
+    function stopReadingTutorObserver() {
+        readingTutorObserverEnabled = false;
+        if (readingTutorObserver) {
+            readingTutorObserver.disconnect();
+            readingTutorObserver = null;
+        }
+        if (readingTutorMutationTimer) {
+            clearTimeout(readingTutorMutationTimer);
+            readingTutorMutationTimer = null;
+        }
+    }
 
     let forceSpanClickOverride = false;
 

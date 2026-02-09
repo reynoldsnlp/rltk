@@ -351,6 +351,15 @@ datalist#density-ticks option {
     line-height: 1.5;
 }
 
+#analysis-error-close {
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #333;
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
 /* Reading Tutor Styles */
 .reading-tutor-actions {
     display: flex;
@@ -412,21 +421,114 @@ datalist#density-ticks option {
     display: block;
 }
 
+.reading-tutor-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
 .reading-tutor-refresh {
     border: 1px solid #ccc;
     background: #fff;
     color: #333;
     border-radius: 14px;
-    width: 28px;
-    height: 28px;
-    line-height: 24px;
-    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
     cursor: pointer;
     box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reading-tutor-refresh-icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
+.reading-tutor-refresh[data-dirty] {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.25);
 }
 
 .reading-tutor-refresh:hover {
     background: #f6f6f6;
+}
+
+.reading-tutor-analysis-warning {
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin-left: 2px;
+    cursor: pointer;
+    display: none;
+    align-self: flex-start;
+}
+
+.analysis-warning-icon {
+    color: #f28c28;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+    border: 2px solid #f28c28;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reading-tutor-spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    border-top-color: rgba(44, 90, 160, 0.95);
+    box-sizing: border-box;
+    animation: spin 0.85s linear infinite;
+    display: none;
+}
+
+.reading-tutor-batch-progress {
+    font-size: 12px;
+    color: #555;
+    min-width: 32px;
+    text-align: right;
+    display: none;
+}
+
+.reading-tutor-pause,
+.reading-tutor-resume {
+    border: none;
+    background: #fff;
+    color: #333;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.reading-tutor-pause:hover {
+    color: #2c5aa0;
+}
+
+.reading-tutor-resume {
+    color: #2e7d32;
+}
+
+.reading-tutor-pause-icon {
+    width: 14px;
+    height: 14px;
+    display: block;
 }
 
 #reading-tutor-results {
@@ -541,6 +643,8 @@ datalist#density-ticks option {
 /* Sub-tab navigation */
 .sub-tab-navigation {
     display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 16px;
     border-bottom: 1px solid #ddd;
 }

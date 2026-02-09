@@ -22,6 +22,17 @@ let l2Analyser = null;
 let tokenizeSettings;
 let initializationPromise = null; // Track initialization state
 
+function normalizeCohortArray(cohorts) {
+    if (!Array.isArray(cohorts)) return [];
+    return cohorts.map((cohort) => {
+        if (!cohort || typeof cohort !== 'object') return cohort;
+        if (!cohort.rs && Array.isArray(cohort.r)) {
+            return { ...cohort, rs: cohort.r };
+        }
+        return cohort;
+    });
+}
+
 /**
  * Creates a detailed error object with context for WASM failures.
  * Logs full context to console while returning a user-friendly message.
@@ -413,6 +424,7 @@ async function handleMorphAnalysisRequest(text, context = {}) {
     }
 
     const requestContext = { ...context, input: text };
+    const warnings = [];
 
     try {
         let ambigOutput;
@@ -431,29 +443,32 @@ async function handleMorphAnalysisRequest(text, context = {}) {
         } catch (error) {
             throw createWasmError('format conversion (ambiguous)', error, { ...requestContext, input: ambigOutput });
         }
-        const ambigArray = await jsonlToJsonArray(ambigJsonl);
+        const ambigArray = normalizeCohortArray(await jsonlToJsonArray(ambigJsonl));
 
-        let disambigOutput;
+        let disambigArray = ambigArray;
         try {
-            disambigOutput = await vislcg3(ambigOutput);
-        } catch (error) {
-            throw createWasmError('disambiguation (CG3)', error, { ...requestContext, input: ambigOutput });
-        }
-
-        let disambigJsonl;
-        try {
-            disambigJsonl = await cgConv(disambigOutput, {
+            const disambigOutput = await vislcg3(ambigOutput);
+            const disambigJsonl = await cgConv(disambigOutput, {
                 input_format: 'cg',
                 output_format: 'jsonl'
             });
+            disambigArray = normalizeCohortArray(await jsonlToJsonArray(disambigJsonl));
         } catch (error) {
-            throw createWasmError('format conversion (disambiguated)', error, { ...requestContext, input: disambigOutput });
+            const cg3Error = createWasmError('disambiguation (CG3)', error, { ...requestContext, input: ambigOutput });
+            warnings.push({
+                type: 'cg3',
+                stage: 'disambiguation (CG3)',
+                message: cg3Error.message,
+                sourceUrl: requestContext.sourceUrl || 'unknown',
+                inputLength: ambigOutput.length
+            });
+
         }
-        const disambigArray = await jsonlToJsonArray(disambigJsonl);
 
         return {
             "ambigArray": ambigArray,
-            "disambigArray": disambigArray
+            "disambigArray": disambigArray,
+            ...(warnings.length ? { warnings } : {})
         };
     } catch (error) {
         // Re-throw if already a processed WASM error, otherwise wrap it

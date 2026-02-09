@@ -40,6 +40,13 @@ class RussianToolsSidePanel {
         this.readingTutorActivationToken = 0;
         this.lastRootsSummary = null;
         this.spanClickOverride = false;
+        this.readingTutorDirty = false;
+        this.readingTutorProcessing = false;
+        this.readingTutorPaused = false;
+        this.readingTutorAutoRefreshTimer = null;
+        this.readingTutorBatchInProgress = false;
+        this.readingTutorBatchProgress = null;
+        this.analysisWarning = null;
 
         const urlParams = new URLSearchParams(window.location.search);
         this.debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
@@ -88,6 +95,105 @@ class RussianToolsSidePanel {
             return 'The language analysis failed because of a technical error. If this problem persists, and especially if it affects multiple web pages,please contact robert_reynolds@byu.edu';
         }
         return null;
+    }
+
+    inferAnalysisWarningType(message, explicitType) {
+        if (explicitType) return explicitType;
+        const lower = String(message || '').toLowerCase();
+        if (lower.includes('cg3') || lower.includes('disambiguation')) return 'cg3';
+        if (lower.includes('hfst') || lower.includes('tokenization')) return 'hfst';
+        return 'pipeline';
+    }
+
+    normalizeAnalysisWarning(details = {}, sender) {
+        const message = details.message || details.errorMessage || 'Analysis failed.';
+        const type = this.inferAnalysisWarningType(message, details.errorType || details.type);
+        return {
+            errorType: type,
+            stage: details.stage || 'morphological analysis',
+            message,
+            sourceUrl: details.sourceUrl || sender?.tab?.url || 'unknown',
+            timestamp: details.timestamp || new Date().toISOString()
+        };
+    }
+
+    buildAnalysisWarningSummary(details) {
+        if (details.errorType === 'cg3') {
+            return 'We couldn’t finish disambiguating the text. Some words may show all possible readings for parts of the page.';
+        }
+        return 'We couldn’t finish analyzing the text. Some features may be missing.';
+    }
+
+    buildAnalysisWarningDetail(details) {
+        const parts = [];
+        if (details.stage) parts.push(`Stage: ${details.stage}`);
+        if (details.message) parts.push(`Error: ${details.message}`);
+        return parts.join(' ');
+    }
+
+    buildAnalysisWarningMailto(details) {
+        const subject = 'RLTK analysis error';
+        const bodyLines = [
+            'RLTK analysis error report',
+            '',
+            `URL: ${details.sourceUrl || 'unknown'}`,
+            `Error type: ${details.errorType || 'unknown'}`,
+            `Stage: ${details.stage || 'unknown'}`,
+            `Error message: ${details.message || 'unknown'}`,
+            `Time: ${details.timestamp || new Date().toISOString()}`,
+            '',
+            'Notes:'
+        ];
+        const body = bodyLines.join('\n');
+        return `mailto:robert_reynolds@byu.edu?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
+
+    updateAnalysisWarningUI() {
+        const warningButton = document.getElementById('reading-tutor-analysis-warning');
+        if (!warningButton) return;
+
+        if (this.analysisWarning) {
+            warningButton.style.display = 'inline-flex';
+        } else {
+            warningButton.style.display = 'none';
+        }
+
+        const summary = document.getElementById('analysis-error-summary');
+        const detail = document.getElementById('analysis-error-detail');
+        const email = document.getElementById('analysis-error-email');
+
+        if (this.analysisWarning) {
+            if (summary) summary.textContent = this.buildAnalysisWarningSummary(this.analysisWarning);
+            if (detail) detail.textContent = this.buildAnalysisWarningDetail(this.analysisWarning);
+            if (email) email.href = this.buildAnalysisWarningMailto(this.analysisWarning);
+        }
+    }
+
+    setAnalysisWarning(details, sender) {
+        this.analysisWarning = this.normalizeAnalysisWarning(details, sender);
+        this.updateAnalysisWarningUI();
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
+    clearAnalysisWarning() {
+        if (!this.analysisWarning) return;
+        this.analysisWarning = null;
+        this.updateAnalysisWarningUI();
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
+    showAnalysisWarningModal() {
+        const modal = document.getElementById('analysis-error-modal');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    hideAnalysisWarningModal() {
+        const modal = document.getElementById('analysis-error-modal');
+        if (modal) modal.style.display = 'none';
     }
 
     registerTabState(key, { capture, apply, defaultValue, order = 100 }) {
@@ -139,6 +245,20 @@ class RussianToolsSidePanel {
             defaultValue: null
         });
 
+        this.registerTabState('analysisWarning', {
+            order: 18,
+            capture: () => this.analysisWarning || null,
+            apply: (value) => {
+                if (value) {
+                    this.analysisWarning = value;
+                } else {
+                    this.analysisWarning = null;
+                }
+                this.updateAnalysisWarningUI();
+            },
+            defaultValue: null
+        });
+
         this.registerTabState('selectionState', {
             order: 25,
             capture: () => ({ hasSelection: !!this.hasSelection }),
@@ -148,8 +268,42 @@ class RussianToolsSidePanel {
             defaultValue: { hasSelection: false }
         });
 
-        this.registerTabState('spanClickOverride', {
+        this.registerTabState('readingTutorDirty', {
+            order: 26,
+            capture: () => ({ dirty: !!this.readingTutorDirty }),
+            apply: (value) => {
+                this.setReadingTutorDirty(value && value.dirty);
+            },
+            defaultValue: { dirty: false }
+        });
+
+        this.registerTabState('readingTutorBatch', {
             order: 27,
+            capture: () => ({
+                paused: !!this.readingTutorPaused,
+                batchInProgress: !!this.readingTutorBatchInProgress,
+                progress: this.readingTutorBatchProgress || null
+            }),
+            apply: (value) => {
+                const next = value || {};
+                this.readingTutorPaused = !!next.paused;
+                this.readingTutorBatchInProgress = !!next.batchInProgress;
+                this.readingTutorBatchProgress = next.progress || null;
+                this.updateReadingTutorBatchProgress(this.readingTutorBatchProgress);
+                if (this.readingTutorPaused) {
+                    this.readingTutorProcessing = false;
+                    this.setReadingTutorPaused(true);
+                } else if (this.readingTutorBatchInProgress) {
+                    this.setReadingTutorProcessing(true);
+                } else {
+                    this.setReadingTutorPaused(false);
+                }
+            },
+            defaultValue: { paused: false, batchInProgress: false, progress: null }
+        });
+
+        this.registerTabState('spanClickOverride', {
+            order: 28,
             capture: () => ({ enabled: !!this.spanClickOverride }),
             apply: (value) => {
                 const enabled = !!(value && value.enabled);
@@ -157,7 +311,6 @@ class RussianToolsSidePanel {
             },
             defaultValue: { enabled: false }
         });
-
         this.registerTabState('ui', {
             order: 20,
             capture: () => ({
@@ -549,6 +702,158 @@ class RussianToolsSidePanel {
         }
     }
 
+    setReadingTutorDirty(isDirty) {
+        this.readingTutorDirty = !!isDirty;
+        const refreshButton = document.getElementById('reading-tutor-refresh');
+        if (refreshButton) {
+            if (this.readingTutorDirty) {
+                refreshButton.setAttribute('data-dirty', 'true');
+            } else {
+                refreshButton.removeAttribute('data-dirty');
+            }
+        }
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
+    setReadingTutorProcessing(isProcessing) {
+        this.readingTutorProcessing = !!isProcessing;
+        const refreshButton = document.getElementById('reading-tutor-refresh');
+        const spinner = document.getElementById('reading-tutor-spinner');
+        const pauseButton = document.getElementById('reading-tutor-pause');
+        const resumeButton = document.getElementById('reading-tutor-resume');
+        const progressLabel = document.getElementById('reading-tutor-batch-progress');
+
+        if (!isProcessing && this.readingTutorPaused) {
+            return;
+        }
+
+        if (refreshButton) refreshButton.style.display = isProcessing ? 'none' : 'inline-flex';
+        if (spinner) spinner.style.display = isProcessing ? 'inline-flex' : 'none';
+        if (pauseButton) pauseButton.style.display = isProcessing ? 'inline-flex' : 'none';
+        if (resumeButton) resumeButton.style.display = 'none';
+        if (progressLabel) {
+            progressLabel.style.display = this.readingTutorBatchInProgress ? 'inline-flex' : 'none';
+        }
+        this.updateAnalysisWarningUI();
+    }
+
+    setReadingTutorPaused(isPaused) {
+        this.readingTutorPaused = !!isPaused;
+        const refreshButton = document.getElementById('reading-tutor-refresh');
+        const spinner = document.getElementById('reading-tutor-spinner');
+        const pauseButton = document.getElementById('reading-tutor-pause');
+        const resumeButton = document.getElementById('reading-tutor-resume');
+        const progressLabel = document.getElementById('reading-tutor-batch-progress');
+
+        if (isPaused) {
+            if (spinner) spinner.style.display = 'none';
+            if (pauseButton) pauseButton.style.display = 'none';
+            if (resumeButton) resumeButton.style.display = 'inline-flex';
+            if (refreshButton) refreshButton.style.display = 'none';
+            if (progressLabel) {
+                progressLabel.style.display = this.readingTutorBatchInProgress ? 'inline-flex' : 'none';
+            }
+            return;
+        }
+
+        if (resumeButton) resumeButton.style.display = 'none';
+        if (this.readingTutorProcessing) {
+            if (refreshButton) refreshButton.style.display = 'none';
+            if (spinner) spinner.style.display = 'inline-flex';
+            if (pauseButton) pauseButton.style.display = 'inline-flex';
+            if (progressLabel) {
+                progressLabel.style.display = this.readingTutorBatchInProgress ? 'inline-flex' : 'none';
+            }
+        } else {
+            if (refreshButton) refreshButton.style.display = 'inline-flex';
+            if (spinner) spinner.style.display = 'none';
+            if (pauseButton) pauseButton.style.display = 'none';
+            if (progressLabel) progressLabel.style.display = 'none';
+        }
+
+        this.updateAnalysisWarningUI();
+
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
+    updateReadingTutorBatchProgress(progress) {
+        const progressLabel = document.getElementById('reading-tutor-batch-progress');
+        if (!progressLabel) return;
+
+        if (!progress || !progress.total || progress.total <= 1) {
+            progressLabel.textContent = '';
+            progressLabel.style.display = 'none';
+            return;
+        }
+
+        const total = Number(progress.total || 0);
+        const processed = Number(progress.processed || 0);
+        const current = Math.min(total, Math.max(1, processed + 1));
+        progressLabel.textContent = `${current}/${total}`;
+        progressLabel.style.display = 'inline-flex';
+    }
+
+    scheduleReadingTutorAutoRefresh() {
+        if (this.readingTutorAutoRefreshTimer) {
+            clearTimeout(this.readingTutorAutoRefreshTimer);
+        }
+        this.readingTutorAutoRefreshTimer = setTimeout(async () => {
+            if (this.currentTab !== 'reading-tutor') return;
+            if (this.readingTutorPaused) return;
+            if (this.readingTutorProcessing) {
+                this.scheduleReadingTutorAutoRefresh();
+                return;
+            }
+            await this.activateReadingTutor({ force: true, auto: true });
+        }, 800);
+    }
+
+    async pauseReadingTutorProcessing() {
+        const targetTabId = await this.getTargetTabId();
+        if (targetTabId) {
+            try {
+                await chrome.tabs.sendMessage(targetTabId, { action: 'abort' });
+            } catch (e) {
+                // ignore
+            }
+        }
+        this.readingTutorActivationToken++;
+        this.readingTutorProcessing = false;
+        this.isProcessing = false;
+        this.processingContext = null;
+        this.setReadingTutorPaused(true);
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
+    async sendReadingTutorWatch(enabled, tabId = null) {
+        try {
+            const targetTabId = tabId || await this.getTargetTabId();
+            if (!targetTabId) return;
+            await chrome.tabs.sendMessage(targetTabId, {
+                action: 'reading_tutor_watch',
+                enabled: !!enabled
+            });
+        } catch (e) {
+            // ignore if content script not ready
+        }
+    }
+
+    async ackReadingTutorRefresh(tabId = null) {
+        try {
+            const targetTabId = tabId || await this.getTargetTabId();
+            if (!targetTabId) return;
+            await chrome.tabs.sendMessage(targetTabId, { action: 'reading_tutor_ack_refresh' });
+        } catch (e) {
+            // ignore
+        }
+    }
+
     async onDensityChange(value) {
         const minDistance = Math.max(0, Math.min(10, Math.round(Number(value) || 0)));
         this.updateDensityDisplay(minDistance);
@@ -577,6 +882,17 @@ class RussianToolsSidePanel {
         if (this.debugTabId) return this.debugTabId;
         if (this.currentTabId) return this.currentTabId;
         return this.getActiveTabId();
+    }
+
+    async getCurrentTabUrl(tabId = null) {
+        try {
+            const targetTabId = tabId || await this.getTargetTabId();
+            if (!targetTabId) return 'unknown';
+            const tab = await chrome.tabs.get(targetTabId);
+            return tab?.url || 'unknown';
+        } catch (e) {
+            return 'unknown';
+        }
     }
 
     isLatestTabSwitch(token) {
@@ -967,6 +1283,66 @@ class RussianToolsSidePanel {
             }
         });
 
+        chrome.runtime.onMessage.addListener((message, sender) => {
+            if (message.action === 'reading_tutor_dirty') {
+                if (!this.shouldHandleSelectionFromTab(sender?.tab?.id || message.tabId)) return;
+                if (this.currentTab !== 'reading-tutor') return;
+                this.setReadingTutorDirty(true);
+                this.scheduleReadingTutorAutoRefresh();
+            }
+        });
+
+        chrome.runtime.onMessage.addListener((message, sender) => {
+            if (message.action === 'analysis_error') {
+                if (!this.shouldHandleSelectionFromTab(sender?.tab?.id || message.tabId)) return;
+                this.setAnalysisWarning(message.details || {}, sender);
+            }
+        });
+
+        chrome.runtime.onMessage.addListener((message, sender) => {
+            if (message.action === 'reading_tutor_batch_progress') {
+                if (!this.shouldHandleSelectionFromTab(sender?.tab?.id || message.tabId)) return;
+                if (this.currentTab !== 'reading-tutor') return;
+
+                const progress = message.progress || message.data || null;
+                this.readingTutorBatchProgress = progress;
+                const total = Number(progress?.total || 0);
+                const completed = !!progress?.completed;
+                const aborted = !!progress?.aborted;
+
+                if (!this.isApplyingTabState) {
+                    this.saveTabState();
+                }
+
+                if (this.readingTutorPaused) {
+                    this.updateReadingTutorBatchProgress(progress);
+                    return;
+                }
+
+                if (total > 1 && !completed) {
+                    this.readingTutorBatchInProgress = true;
+                    this.setReadingTutorProcessing(true);
+                    this.updateReadingTutorBatchProgress(progress);
+                } else if (completed && !aborted) {
+                    this.readingTutorBatchInProgress = false;
+                    this.updateReadingTutorBatchProgress(null);
+                    this.isProcessing = false;
+                    if (this.processingContext === 'reading-tutor') {
+                        this.processingContext = null;
+                    }
+                    this.readingTutorPaused = false;
+                    this.setReadingTutorProcessing(false);
+                    const tabId = sender?.tab?.id || message.tabId || this.currentTabId;
+                    if (tabId) {
+                        this.ackReadingTutorRefresh(tabId);
+                        this.sendReadingTutorWatch(true, tabId);
+                    }
+                } else if (aborted) {
+                    this.updateReadingTutorBatchProgress(progress);
+                }
+            }
+        });
+
         document.getElementById('restore-button').addEventListener('click', () => {
             this.restorePage();
         });
@@ -985,8 +1361,54 @@ class RussianToolsSidePanel {
         const refreshButton = document.getElementById('reading-tutor-refresh');
         if (refreshButton) {
             refreshButton.addEventListener('click', async () => {
-                refreshButton.style.display = 'none';
-                await this.activateReadingTutor();
+                this.setReadingTutorProcessing(true);
+                this.setReadingTutorDirty(false);
+                this.clearAnalysisWarning();
+                await this.ackReadingTutorRefresh();
+                this.setReadingTutorPaused(false);
+                this.readingTutorBatchInProgress = false;
+                this.readingTutorBatchProgress = null;
+                this.updateReadingTutorBatchProgress(null);
+                await this.activateReadingTutor({ force: true });
+            });
+        }
+
+        const analysisWarningButton = document.getElementById('reading-tutor-analysis-warning');
+        if (analysisWarningButton) {
+            analysisWarningButton.addEventListener('click', () => {
+                if (!this.analysisWarning) return;
+                this.updateAnalysisWarningUI();
+                this.showAnalysisWarningModal();
+            });
+        }
+
+        const analysisWarningClose = document.getElementById('analysis-error-close');
+        if (analysisWarningClose) {
+            analysisWarningClose.addEventListener('click', () => this.hideAnalysisWarningModal());
+        }
+
+        const analysisWarningModal = document.getElementById('analysis-error-modal');
+        if (analysisWarningModal) {
+            analysisWarningModal.addEventListener('click', (event) => {
+                if (event.target === analysisWarningModal) {
+                    this.hideAnalysisWarningModal();
+                }
+            });
+        }
+
+        const pauseButton = document.getElementById('reading-tutor-pause');
+        if (pauseButton) {
+            pauseButton.addEventListener('click', async () => {
+                await this.pauseReadingTutorProcessing();
+            });
+        }
+
+        const resumeButton = document.getElementById('reading-tutor-resume');
+        if (resumeButton) {
+            resumeButton.addEventListener('click', async () => {
+                this.setReadingTutorProcessing(true);
+                this.setReadingTutorPaused(false);
+                await this.activateReadingTutor({ force: true, resume: true });
             });
         }
 
@@ -1037,6 +1459,7 @@ class RussianToolsSidePanel {
             this.isProcessing = true;
             this.processingContext = 'enhance';
             this.setProcessingState(true);
+            this.clearAnalysisWarning();
 
             const selections = {
                 topic: document.getElementById('topic-menu').value,
@@ -1254,14 +1677,11 @@ ${errorMessage}`);
         if (hasAccess !== true) return;
 
         const existingCount = await this.fetchReadingTutorStatus(targetTabId);
-        const currentHash = await this.fetchReadingTutorHash();
 
         if (existingCount && existingCount > 0) {
-            if (!this.readingTutorHash && currentHash) {
-                this.readingTutorHash = currentHash;
-                this.saveTabState();
-            }
-            this.startReadingTutorPolling();
+            this.setReadingTutorDirty(false);
+            await this.ackReadingTutorRefresh(targetTabId);
+            await this.sendReadingTutorWatch(true, targetTabId);
             return;
         }
 
@@ -1301,6 +1721,12 @@ ${errorMessage}`);
                 document.getElementById('loading').style.display = 'none';
             }
             this.stopReadingTutorPolling();
+            this.setReadingTutorDirty(false);
+            this.setReadingTutorPaused(false);
+            this.setReadingTutorProcessing(false);
+            this.readingTutorBatchInProgress = false;
+            this.readingTutorBatchProgress = null;
+            this.updateReadingTutorBatchProgress(null);
             // Hide attribution when leaving reading tutor
             const attribution = document.getElementById('openrussian-attribution');
             if (attribution) {
@@ -1640,8 +2066,18 @@ ${errorMessage}`);
         return token !== this.readingTutorActivationToken || this.currentTab !== 'reading-tutor';
     }
 
-    async activateReadingTutor() {
+    async activateReadingTutor(options = {}) {
+        const force = !!options.force;
+        const resume = !!options.resume;
         const activationToken = ++this.readingTutorActivationToken;
+        if (!resume) {
+            this.readingTutorBatchInProgress = false;
+            this.readingTutorBatchProgress = null;
+            this.updateReadingTutorBatchProgress(null);
+        }
+        this.setReadingTutorProcessing(true);
+        this.setReadingTutorPaused(false);
+        this.clearAnalysisWarning();
         // Show instructions
         const instructions = document.getElementById('reading-tutor-instructions');
         if (instructions) instructions.style.display = this.readingTutorInstructionsDismissed ? 'none' : 'block';
@@ -1649,19 +2085,19 @@ ${errorMessage}`);
         const targetTabId = await this.getTargetTabId();
         if (targetTabId) {
             const existingCount = await this.fetchReadingTutorStatus(targetTabId);
-            const currentHash = await this.fetchReadingTutorHash();
-            if (existingCount && existingCount > 0) {
-                if (!this.readingTutorHash && currentHash) {
-                    this.readingTutorHash = currentHash;
-                    this.saveTabState();
-                }
-                this.startReadingTutorPolling();
+            if (!force && existingCount && existingCount > 0) {
+                this.setReadingTutorDirty(false);
+                await this.ackReadingTutorRefresh(targetTabId);
+                await this.sendReadingTutorWatch(true, targetTabId);
+                this.setReadingTutorProcessing(false);
                 return;
             }
         }
 
         // 1. Restore page to clear any existing activity
-        await this.restorePage();
+        if (!resume) {
+            await this.restorePage();
+        }
 
         if (this.currentTab !== 'reading-tutor' || activationToken !== this.readingTutorActivationToken) return;
 
@@ -1675,30 +2111,34 @@ ${errorMessage}`);
 
         this.isProcessing = true;
         this.processingContext = 'reading-tutor';
-        // Show loading in the results area
         const container = document.getElementById('reading-tutor-results');
-        if (container) {
-            container.innerHTML = `
-                <div class="loading">
-                    <div class="loading-text">Preparing text...</div>
-                    <div class="spinner" aria-hidden="true"></div>
-                </div>
-            `;
-        }
 
+        let keepProcessingForBatches = false;
         try {
             const targetTabId = this.debugTabId || this.currentTabId;
             if (this.isStaleActivation(activationToken)) {
                 return;
             }
+            const resumeFromBatch = resume ? Number(this.readingTutorBatchProgress?.processed || 0) : 0;
             const response = await chrome.runtime.sendMessage({
                 action: 'enhance',
                 selections: selections,
-                tabId: targetTabId
+                tabId: targetTabId,
+                resumeFromBatch: resume ? resumeFromBatch : undefined
             });
 
             if (!response.success) {
                 throw new Error(response.error);
+            }
+
+            if (response.batching) {
+                keepProcessingForBatches = true;
+                this.readingTutorBatchInProgress = true;
+                this.setReadingTutorProcessing(true);
+                if (resume) {
+                    this.updateReadingTutorBatchProgress(this.readingTutorBatchProgress);
+                }
+                return;
             }
 
             if (this.isStaleActivation(activationToken)) {
@@ -1723,11 +2163,9 @@ ${errorMessage}`);
                 return;
             }
 
-            await this.syncReadingTutorHash();
-            if (this.lastReadingTutorSelectionHash && this.readingTutorHash && this.lastReadingTutorSelectionHash !== this.readingTutorHash) {
-                this.clearReadingTutorSelectionState({ tabId: targetTabId, showInstructions: true });
-            }
-            this.startReadingTutorPolling();
+            this.setReadingTutorDirty(false);
+            await this.ackReadingTutorRefresh(targetTabId);
+            await this.sendReadingTutorWatch(true, targetTabId);
         } catch (error) {
             console.error('Error activating Reading Tutor:', error);
             const errorMessage = (error && error.message) ? error.message : String(error);
@@ -1743,9 +2181,12 @@ ${errorMessage}`);
             const displayMessage = friendlyMessage || `Failed to activate: ${errorMessage}`;
             if (container) container.innerHTML = `<div class="error">${displayMessage}</div>`;
         } finally {
-            this.isProcessing = false;
-            if (this.processingContext === 'reading-tutor') {
-                this.processingContext = null;
+            if (!keepProcessingForBatches && !this.readingTutorBatchInProgress) {
+                this.isProcessing = false;
+                if (this.processingContext === 'reading-tutor') {
+                    this.processingContext = null;
+                }
+                this.setReadingTutorProcessing(false);
             }
         }
     }
@@ -1788,35 +2229,17 @@ ${errorMessage}`);
 
     async syncReadingTutorHash() {
         this.readingTutorHash = await this.fetchReadingTutorHash();
-        const refreshButton = document.getElementById('reading-tutor-refresh');
-        if (refreshButton) refreshButton.style.display = 'none';
         if (!this.isApplyingTabState) {
             this.saveTabState();
         }
     }
 
     startReadingTutorPolling() {
-        this.stopReadingTutorPolling();
-        // Poll every 15 seconds to detect page content changes.
-        // Polling only runs while Reading Tutor tab is active; stopReadingTutorPolling()
-        // is called when switching away from the tab.
-        this.readingTutorPollTimer = setInterval(async () => {
-            const nextHash = await this.fetchReadingTutorHash();
-            if (!nextHash || !this.readingTutorHash) return;
-            if (nextHash !== this.readingTutorHash) {
-                const refreshButton = document.getElementById('reading-tutor-refresh');
-                if (refreshButton) refreshButton.style.display = 'inline-flex';
-            }
-        }, 15000);
+        this.sendReadingTutorWatch(true);
     }
 
     stopReadingTutorPolling() {
-        if (this.readingTutorPollTimer) {
-            clearInterval(this.readingTutorPollTimer);
-            this.readingTutorPollTimer = null;
-        }
-        const refreshButton = document.getElementById('reading-tutor-refresh');
-        if (refreshButton) refreshButton.style.display = 'none';
+        this.sendReadingTutorWatch(false);
     }
 
     setAutoEnhance(enabled) {
@@ -2236,10 +2659,39 @@ ${errorMessage}`);
                 });
 
                 if (!analysisResponse.success) {
+                    const sourceUrl = await this.getCurrentTabUrl();
+                    this.setAnalysisWarning({
+                        message: analysisResponse.error,
+                        errorMessage: analysisResponse.error,
+                        sourceUrl
+                    });
                     container.innerHTML = `<div class="error">Analysis failed: ${analysisResponse.error}</div>`;
                     return;
                 }
-                cohorts = analysisResponse.data;
+                const warnings = analysisResponse.data && Array.isArray(analysisResponse.data.warnings)
+                    ? analysisResponse.data.warnings
+                    : [];
+                if (warnings.length > 0) {
+                    this.setAnalysisWarning(warnings[0]);
+                } else {
+                    this.clearAnalysisWarning();
+                }
+                if (analysisResponse.data && Array.isArray(analysisResponse.data.disambigArray) && analysisResponse.data.disambigArray.length > 0) {
+                    cohorts = analysisResponse.data.disambigArray;
+                } else if (analysisResponse.data && Array.isArray(analysisResponse.data.ambigArray) && analysisResponse.data.ambigArray.length > 0) {
+                    cohorts = analysisResponse.data.ambigArray;
+                } else {
+                    cohorts = analysisResponse.data;
+                }
+            }
+
+            if (Array.isArray(cohorts)) {
+                cohorts = cohorts.map((cohort) => {
+                    if (cohort && cohort.rs === undefined && Array.isArray(cohort.r)) {
+                        cohort.rs = cohort.r;
+                    }
+                    return cohort;
+                });
             }
 
             if (!cohorts || cohorts.length === 0) {

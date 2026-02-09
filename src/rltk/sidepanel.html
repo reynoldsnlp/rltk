@@ -22,6 +22,20 @@
             <div class="sub-tab-navigation">
                 <button class="sub-tab-button active" data-subtab="translations-and-tables">Translations and tables</button>
                 <button class="sub-tab-button" data-subtab="grammar-highlighter">Grammar highlighter</button>
+                <div id="reading-tutor-controls" class="reading-tutor-controls">
+                    <button id="reading-tutor-refresh" class="reading-tutor-refresh" title="Force re-analysis of page" aria-label="Force re-analysis of page">
+                        <img class="reading-tutor-refresh-icon" src="resources/img/refresh.svg" alt="" aria-hidden="true" />
+                    </button>
+                    <button id="reading-tutor-analysis-warning" class="reading-tutor-analysis-warning" title="Analysis issue detected" aria-label="Analysis issue detected" style="display: none;">
+                        <sup class="analysis-warning-icon" aria-hidden="true">!</sup>
+                    </button>
+                    <span id="reading-tutor-batch-progress" class="reading-tutor-batch-progress" aria-hidden="true"></span>
+                    <div id="reading-tutor-spinner" class="reading-tutor-spinner" aria-hidden="true"></div>
+                    <button id="reading-tutor-pause" class="reading-tutor-pause" title="Pause analysis" aria-label="Pause analysis">
+                        <img class="reading-tutor-pause-icon" src="resources/img/pause.svg" alt="" aria-hidden="true" />
+                    </button>
+                    <button id="reading-tutor-resume" class="reading-tutor-resume" title="Resume analysis" aria-label="Resume analysis">▶</button>
+                </div>
             </div>
 
             <div id="translations-and-tables-subtab" class="sub-tab-content active">
@@ -36,7 +50,6 @@
                             Sometimes the text you want to analyze is inside buttons, links, menus, or other interactive elements. Check this box to prioritize RLTK analysis. NOTE: While checked, this may temporarily break some website functionality.
                         </div>
                     </div>
-                    <button id="reading-tutor-refresh" class="reading-tutor-refresh" title="Refresh analysis (page changes detected)" aria-label="Refresh analysis (page changes detected)" style="display: none;">⟳</button>
                 </div>
                 <div class="panel-section" id="reading-tutor-instructions" style="position: relative;">
                     <button id="dismiss-instructions" style="position: absolute; top: 5px; right: 5px; border: none; background: none; cursor: pointer; font-size: 16px; color: #666;">&times;</button>
@@ -182,6 +195,18 @@
             <h3>Chrome Pages Cannot Be Highlighted</h3>
             <p>Chrome internal pages (chrome://) do not allow extensions to highlight text.</p>
             <p>Please navigate to a regular webpage to use RLTK features.</p>
+        </div>
+    </div>
+
+    <div id="analysis-error-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3>Analysis issue detected</h3>
+            <p id="analysis-error-summary"></p>
+            <p id="analysis-error-detail"></p>
+            <p>
+                <a id="analysis-error-email" href="#">Send an error report</a>
+            </p>
+            <button id="analysis-error-close" type="button">Close</button>
         </div>
     </div>
 

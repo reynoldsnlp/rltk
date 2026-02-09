@@ -1,0 +1,186 @@
+const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
+const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+
+test.describe('Reading Tutor refresh observer', () => {
+  test.beforeEach(async ({ serviceWorker }) => {
+    await serviceWorker.evaluate(() => new Promise(resolve => chrome.storage.local.clear(resolve)));
+  });
+
+  test.afterEach(async ({ browserContext }) => {
+    await closeNonKeepAlivePages(browserContext);
+  });
+
+  test('auto reanalysis runs when content changes', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;
+
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage);
+
+    const refreshButton = sidePanelPage.locator('#reading-tutor-refresh');
+    await expect(refreshButton).toBeVisible({ timeout: 20000 });
+    await expect(refreshButton).toHaveAttribute('title', 'Force re-analysis of page');
+
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    await expect(refreshButton).not.toHaveAttribute('data-dirty');
+
+    await page.evaluate(() => {
+      const target = document.getElementById('target');
+      if (target) target.textContent = 'Это обновленный текст.';
+    });
+
+    await expect(refreshButton).toHaveAttribute('data-dirty', 'true', { timeout: 20000 });
+    await expect(refreshButton).not.toHaveAttribute('data-dirty', { timeout: 60000 });
+
+    await page.waitForFunction(() => {
+      return Array.from(document.querySelectorAll('.ʁ-reading-tutor'))
+        .some((el) => (el.textContent || '').includes('обновленный'));
+    }, { timeout: 60000 });
+  });
+
+  test('pause shows resume during analysis', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;
+
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    await page.evaluate(() => {
+      document.documentElement.dataset.rltkTestSlowEnhance = '2000';
+      const target = document.getElementById('target');
+      if (!target) return;
+      target.textContent = 'Это тестовый текст. '.repeat(800);
+    });
+
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage);
+
+    const pauseButton = sidePanelPage.locator('#reading-tutor-pause');
+    const resumeButton = sidePanelPage.locator('#reading-tutor-resume');
+    const spinner = sidePanelPage.locator('#reading-tutor-spinner');
+    const refreshButton = sidePanelPage.locator('#reading-tutor-refresh');
+
+    await refreshButton.click();
+    await expect(pauseButton).toBeVisible({ timeout: 30000 });
+    await expect(refreshButton).toBeHidden();
+    await pauseButton.click();
+
+    await expect(resumeButton).toBeVisible();
+    await expect(spinner).toBeHidden();
+    await expect(refreshButton).toBeHidden();
+
+    await resumeButton.click();
+    await expect(spinner).toBeVisible({ timeout: 30000 });
+
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+  });
+
+  test('non-cyrillic or analyzed changes do not trigger auto refresh', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;
+
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage);
+
+    const refreshButton = sidePanelPage.locator('#reading-tutor-refresh');
+
+    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    await expect(refreshButton).not.toHaveAttribute('data-dirty');
+
+    await page.evaluate(() => {
+      const first = document.querySelector('.ʁ-reading-tutor');
+      if (first) first.textContent = 'тест';
+    });
+
+    await expect(refreshButton).not.toHaveAttribute('data-dirty', { timeout: 3000 });
+
+    await page.evaluate(() => {
+      const target = document.getElementById('target');
+      if (target) target.textContent = 'Plain English text only.';
+    });
+
+    await expect(refreshButton).not.toHaveAttribute('data-dirty', { timeout: 3000 });
+  });
+
+  test('batch progress indicator appears for large pages', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;
+
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    await page.evaluate(() => {
+      document.documentElement.dataset.rltkTestSlowEnhance = '1500';
+      const target = document.getElementById('target');
+      if (!target) return;
+      const paragraph = 'Это очень длинный текст. '.repeat(80);
+      target.innerHTML = Array.from({ length: 40 }, () => `<p>${paragraph}</p>`).join('');
+    });
+
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage);
+
+    const refreshButton = sidePanelPage.locator('#reading-tutor-refresh');
+    const progressLabel = sidePanelPage.locator('#reading-tutor-batch-progress');
+
+    await refreshButton.click();
+    await expect(progressLabel).toBeVisible({ timeout: 15000 });
+    await expect(progressLabel).toHaveText(/\d+\/\d+/);
+  });
+
+  test('analysis warning icon opens modal', async ({ page, browserContext, extensionId, serviceWorker }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;
+
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage);
+
+    const warningButton = sidePanelPage.locator('#reading-tutor-analysis-warning');
+    await expect(warningButton).toBeHidden();
+
+    await serviceWorker.evaluate(() => {
+      chrome.runtime.sendMessage({
+        action: 'analysis_error',
+        details: {
+          errorType: 'cg3',
+          stage: 'disambiguation (CG3)',
+          message: 'Processing failed during disambiguation (CG3): mock error',
+          sourceUrl: 'https://example.com',
+          timestamp: '2026-02-08T00:00:00Z'
+        }
+      });
+    });
+
+    await expect(warningButton).toBeVisible({ timeout: 5000 });
+    await warningButton.click();
+
+    const modal = sidePanelPage.locator('#analysis-error-modal');
+    await expect(modal).toBeVisible();
+    await expect(sidePanelPage.locator('#analysis-error-summary')).toContainText('disambiguating');
+    await expect(sidePanelPage.locator('#analysis-error-email')).toHaveAttribute('href', /mailto:robert_reynolds@byu.edu\?subject=RLTK%20analysis%20error/);
+  });
+});

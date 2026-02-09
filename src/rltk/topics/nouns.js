@@ -33,6 +33,11 @@
         const excludedTags = ['V', 'A', 'Det', 'Pron', 'Pcle', 'Adv', 'Interj', 'CC', 'CS', 'Pred'];
         const hasExcludedReading = cohort.rs.some(r => r.ts && r.ts.some(tag => excludedTags.includes(tag)));
 
+        const allowAmbiguity = window.RLTKAnalysisContext && window.RLTKAnalysisContext.cg3Failed;
+        if (allowAmbiguity) {
+            return hasNounReading;
+        }
+
         return hasNounReading && !hasExcludedReading;
     };
 

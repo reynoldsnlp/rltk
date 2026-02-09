@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Span Click Override Fixture</title>
+  <style>
+    #segment {
+      padding: 10px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div id="segment">
+    <span class="ʁ">Привет</span> мир
+  </div>
+
+  <script>
+    window.segmentClicks = 0;
+    window.spanClicks = 0;
+
+    document.getElementById('segment').addEventListener('click', () => {
+      window.segmentClicks += 1;
+    });
+
+    document.querySelector('.ʁ').addEventListener('click', () => {
+      window.spanClicks += 1;
+    });
+  </script>
+</body>
+</html>

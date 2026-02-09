@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>YouTube Transcript Fixture</title>
+  <style>
+    ytd-transcript-renderer {
+      display: block;
+      padding: 12px;
+      border: 1px solid #ccc;
+      max-width: 600px;
+      font-family: sans-serif;
+    }
+    ytd-transcript-segment-renderer {
+      display: block;
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+    #timestamp {
+      color: #065fd4;
+      font-weight: 600;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    #segment-text {
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <ytd-transcript-renderer>
+    <ytd-transcript-segment-renderer id="segment-1">
+      <span id="timestamp">0:01</span>
+      <span id="segment-text">
+        <span class="ʁ">Привет</span> мир
+      </span>
+    </ytd-transcript-segment-renderer>
+  </ytd-transcript-renderer>
+
+  <script>
+    window.segmentClicks = 0;
+    window.spanClicks = 0;
+
+    document.getElementById('segment-1').addEventListener('click', () => {
+      window.segmentClicks += 1;
+    });
+
+    document.querySelector('.ʁ').addEventListener('click', () => {
+      window.spanClicks += 1;
+    });
+  </script>
+</body>
+</html>

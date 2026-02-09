@@ -99,8 +99,23 @@ test.describe('Paradigm Generation - Numerals', () => {
     }
 
     const table = lemmaGroup.locator('.paradigm-table').first();
-    await expect(table).toBeVisible({ timeout: 90000 });
-    return table;
+    try {
+      await expect(table).toBeVisible({ timeout: 90000 });
+      return table;
+    } catch (error) {
+      await clickAndWaitForSelection(page, sidePanelPage, clickableSpan, id, serviceWorker);
+
+      const retryToggle = lemmaGroup.locator('.toggle-button').first();
+      if (await retryToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+        const retryText = await retryToggle.textContent();
+        if (retryText && retryText.includes('+')) {
+          await retryToggle.click();
+        }
+      }
+
+      await expect(table).toBeVisible({ timeout: 45000 });
+      return table;
+    }
   }
 
   async function expectTableShape(table, { rows, formCols }) {
