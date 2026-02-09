@@ -309,14 +309,30 @@ chrome.runtime.onConnect.addListener((port) => {
 
             // If no more side panels are open, clean up all annotated tabs
             if (activeSidePanelPorts.size === 0) {
-                for (const tabId of annotatedTabs) {
-                    chrome.tabs.sendMessage(tabId, { action: 'restore' })
-                        .catch(() => {
-                            // Tab might be closed or not accessible
-                            annotatedTabs.delete(tabId);
-                        });
-                }
-                annotatedTabs.clear();
+                (async () => {
+                    const storage = chrome.storage.session || chrome.storage.local;
+                    let storedTabIds = [];
+                    try {
+                        const allState = await storage.get(null);
+                        storedTabIds = Object.keys(allState)
+                            .filter((key) => key.startsWith('tabState_'))
+                            .map((key) => Number(key.slice('tabState_'.length)))
+                            .filter((value) => Number.isFinite(value));
+                    } catch (error) {
+                        // Ignore storage errors
+                    }
+
+                    const restoreTargets = new Set([...annotatedTabs, ...storedTabIds]);
+
+                    for (const tabId of restoreTargets) {
+                        chrome.tabs.sendMessage(tabId, { action: 'restore' })
+                            .catch(() => {
+                                // Tab might be closed or not accessible
+                                annotatedTabs.delete(tabId);
+                            });
+                    }
+                    annotatedTabs.clear();
+                })();
             }
         });
     }
