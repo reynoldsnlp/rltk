@@ -35,6 +35,16 @@ const CONTENT_SCRIPT_FILES = [
     'rltk/content.js'
 ];
 
+function isAccessErrorMessage(message) {
+    if (!message) return false;
+    return message.includes('Cannot access this page') ||
+        message.includes('Cannot access a chrome:// URL') ||
+        message.includes('The extensions gallery cannot be scripted') ||
+        message.includes('Extension manifest must request permission') ||
+        message.includes('Cannot access contents of the page') ||
+        message.includes('Cannot run on this system page');
+}
+
 /**
  * Creates the offscreen document if it doesn't exist.
  * The offscreen document is used for heavy WASM processing (HFST/CG3).
@@ -103,7 +113,9 @@ chrome.action.onClicked.addListener(async (tab) => {
     chrome.runtime.sendMessage({ action: 'access_granted', tabId: tab.id })
         .catch(() => {}); // Ignore error if side panel is not open/listening
   } catch (error) {
-    console.warn('Background: Script injection on click failed (non-fatal):', error);
+        if (!isAccessErrorMessage(error?.message || String(error))) {
+            console.warn('Background: Script injection on click failed (non-fatal):', error);
+        }
   }
 });
 
@@ -127,7 +139,9 @@ async function ensureContentScriptLoaded(tabId) {
             });
         } catch (injectionError) {
             const message = `Cannot access this page. Script injection failed: ${injectionError.message}`;
-            console.warn(message);
+            if (!isAccessErrorMessage(message)) {
+                console.warn(message);
+            }
             throw new Error(message);
         }
     }
@@ -223,7 +237,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     // Handle side panel requests to communicate with content script
-    if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore' || request.action === 'get_status' || request.action === 'get_reading_tutor_status' || request.action === 'get_text_hash') {
+    if (request.action === 'enhance' || request.action === 'abort' || request.action === 'restore' || request.action === 'get_status' || request.action === 'get_reading_tutor_status' || request.action === 'get_reading_tutor_restore_hash' || request.action === 'get_text_hash') {
         (async () => {
             try {
                 let tabId;
@@ -257,7 +271,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse({ success: true, data: response });
                 }
             } catch (error) {
-                if (!error.message.includes('chrome://')) {
+                if (!isAccessErrorMessage(error?.message || String(error))) {
                     console.error('BACKGROUND: Error forwarding message:', error.message);
                 }
                 sendResponse({ success: false, error: error.message });

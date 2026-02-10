@@ -16,7 +16,16 @@
     let enhanceAbortToken = 0;
     let readingTutorBatchState = {
         cohortCounts: [],
+        tokenCounts: [],
         totalBatches: 0
+    };
+    let lastEnhancementTextHash = null;
+    let readingTutorMetadata = {
+        tokenCount: 0,
+        totalBatches: 0,
+        processedBatches: 0,
+        restoreHash: null,
+        validationHash: null
     };
     let analysisIssueToken = 0;
     let analysisIssueSent = false;
@@ -416,7 +425,7 @@
      * @param {Object} cohortArrays - Analysis results from WASM
      * @param {Object} activity - Activity instance for highlighting logic
      * @param {number} cohortIndexOffset - Offset to add to cohort indices for global tracking
-     * @returns {number} - Number of cohorts processed in this batch
+     * @returns {{cohortsProcessed: number, tokensHighlighted: number}} - Counts for indexing and metadata
      */
     function highlightBatch(batch, cohortArrays, activity, cohortIndexOffset = 0) {
         const { text: plainText, positionMap, textNodes } = batch;
@@ -435,8 +444,11 @@
         // Apply highlighting
         applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity);
 
-        // Return the number of cohorts in this batch for index tracking
-        return cohortArray.length;
+        // Return counts for index tracking and metadata
+        return {
+            cohortsProcessed: cohortArray.length,
+            tokensHighlighted: tokenPositions.length
+        };
     }
 
     /**
@@ -498,6 +510,7 @@
 
         // Phase 3: Apply highlighting using position mappings
         applyHighlightingWithPositions(tokenPositions, positionMap, textNodes, activity);
+        return tokenPositions.length;
     }
 
     /**
@@ -885,6 +898,20 @@
             }
         });
 
+        lastEnhancementTextHash = null;
+
+        readingTutorMetadata = {
+            tokenCount: 0,
+            totalBatches: 0,
+            processedBatches: 0,
+            restoreHash: null,
+            validationHash: null
+        };
+        if (window.__rltkReadingTutorSelection) {
+            window.__rltkReadingTutorSelection.element = null;
+            window.__rltkReadingTutorSelection.index = null;
+        }
+
         if (window.RootsSummaryUtils && typeof window.RootsSummaryUtils.reset === 'function') {
             window.RootsSummaryUtils.reset();
         }
@@ -940,8 +967,19 @@
                 break;
 
             case 'get_reading_tutor_status': {
-                const count = document.querySelectorAll('.ʁ-reading-tutor').length;
-                sendResponse({ success: true, count: count });
+                sendResponse({
+                    success: true,
+                    count: Number(readingTutorMetadata.tokenCount || 0),
+                    totalBatches: Number(readingTutorMetadata.totalBatches || 0),
+                    processedBatches: Number(readingTutorMetadata.processedBatches || 0),
+                    restoreHash: readingTutorMetadata.restoreHash || null,
+                    validationHash: readingTutorMetadata.validationHash || null
+                });
+                break;
+            }
+
+            case 'get_reading_tutor_restore_hash': {
+                sendResponse({ success: true, hash: readingTutorMetadata.restoreHash || null });
                 break;
             }
 
@@ -998,6 +1036,10 @@
 
             case 'get_text_hash': {
                 try {
+                    if (lastEnhancementTextHash) {
+                        sendResponse({ success: true, hash: lastEnhancementTextHash });
+                        break;
+                    }
                     const text = extractPlainText(document.body, null);
                     const hash = computeTextHash(text || '');
                     sendResponse({ success: true, hash: hash });
@@ -1048,6 +1090,16 @@
 
                     // Extract plain text first to determine if we need batching
                     const bodyText = extractPlainText(cyrillicRoot, rangeForUse);
+                    const isReadingTutor = selections && selections.topic === 'reading-tutor';
+                    if (!selectionOnly) {
+                        lastEnhancementTextHash = computeTextHash(bodyText || '');
+                    }
+                    if (isReadingTutor) {
+                        readingTutorMetadata.restoreHash = computeTextHash(bodyText || '');
+                        readingTutorMetadata.tokenCount = 0;
+                        readingTutorMetadata.totalBatches = 0;
+                        readingTutorMetadata.processedBatches = 0;
+                    }
                     const isLargePage = bodyText.length > BATCH_TEXT_THRESHOLD;
 
                     if (isLargePage) {
@@ -1068,21 +1120,31 @@
                                 }
 
                                 const batches = extractTextInBatches(cyrillicRoot, rangeForUse);
-                                const isReadingTutor = selections && selections.topic === 'reading-tutor';
                                 let resumeFromBatch = Number(request.resumeFromBatch || 0);
+                                if (isReadingTutor) {
+                                    readingTutorMetadata.totalBatches = batches.length;
+                                    readingTutorMetadata.processedBatches = resumeFromBatch;
+                                }
                                 if (!isReadingTutor || !resumeFromBatch) {
                                     readingTutorBatchState = {
                                         cohortCounts: [],
+                                        tokenCounts: [],
                                         totalBatches: batches.length
                                     };
                                     resumeFromBatch = 0;
                                 } else if (readingTutorBatchState.totalBatches !== batches.length) {
                                     readingTutorBatchState = {
                                         cohortCounts: [],
+                                        tokenCounts: [],
                                         totalBatches: batches.length
                                     };
                                     resumeFromBatch = 0;
                                 }
+
+                                const updateReadingTutorTokenCount = () => {
+                                    if (!isReadingTutor) return;
+                                    readingTutorMetadata.tokenCount = tokenCounts.reduce((sum, count) => sum + Number(count || 0), 0);
+                                };
 
                                 const updateBatchProgressAttributes = (progress) => {
                                     if (!document || !document.documentElement) return;
@@ -1091,6 +1153,10 @@
                                     root.dataset.rltkBatchProcessed = String(progress.processed ?? 0);
                                     root.dataset.rltkBatchFailed = String(progress.failed ?? 0);
                                     root.dataset.rltkBatchCompleted = String(!!progress.completed);
+                                    if (isReadingTutor) {
+                                        readingTutorMetadata.totalBatches = Number(progress.total ?? 0);
+                                        readingTutorMetadata.processedBatches = Number(progress.processed ?? 0);
+                                    }
                                     notifyReadingTutorBatchProgress({
                                         total: progress.total ?? 0,
                                         processed: progress.processed ?? 0,
@@ -1113,6 +1179,9 @@
                                 let cohortIndexOffset = 0;
                                 const cohortCounts = Array.isArray(readingTutorBatchState.cohortCounts)
                                     ? readingTutorBatchState.cohortCounts
+                                    : [];
+                                const tokenCounts = Array.isArray(readingTutorBatchState.tokenCounts)
+                                    ? readingTutorBatchState.tokenCounts
                                     : [];
                                 if (resumeFromBatch > 0 && cohortCounts.length >= resumeFromBatch) {
                                     cohortIndexOffset = cohortCounts.slice(0, resumeFromBatch)
@@ -1148,10 +1217,12 @@
                                             }
                                             try {
                                                 if (isEnhanceAborted(abortToken)) break;
-                                                const cohortsProcessed = highlightBatch(batch, response.data, activity, cohortIndexOffset);
+                                                const { cohortsProcessed, tokensHighlighted } = highlightBatch(batch, response.data, activity, cohortIndexOffset);
                                                 cohortIndexOffset += cohortsProcessed;
                                                 if (isReadingTutor) {
                                                     cohortCounts[batchIndex] = cohortsProcessed;
+                                                    tokenCounts[batchIndex] = tokensHighlighted;
+                                                    updateReadingTutorTokenCount();
                                                 }
                                                 successfulBatches++;
                                                 batchProgress.processed = resumeFromBatch + successfulBatches + failedBatches;
@@ -1193,7 +1264,9 @@
 
                                 if (isReadingTutor) {
                                     readingTutorBatchState.cohortCounts = cohortCounts;
+                                    readingTutorBatchState.tokenCounts = tokenCounts;
                                     readingTutorBatchState.totalBatches = batches.length;
+                                    updateReadingTutorTokenCount();
                                 }
 
                                 batchProgress.processed = resumeFromBatch + successfulBatches + failedBatches;
@@ -1262,7 +1335,12 @@
                                         errorType: warning.type || 'cg3'
                                     }, analysisIssueId);
                                 }
-                                highlightTextNodesWithActivity(cyrillicRoot, response.data, activity, rangeForUse);
+                                const tokenCount = highlightTextNodesWithActivity(cyrillicRoot, response.data, activity, rangeForUse);
+                                if (isReadingTutor) {
+                                    readingTutorMetadata.tokenCount = Number(tokenCount || 0);
+                                    readingTutorMetadata.totalBatches = 1;
+                                    readingTutorMetadata.processedBatches = 1;
+                                }
                                 sendRootsSummaryIfReady(selections);
                                 sendResponse({ success: true });
                             } else {
@@ -1316,7 +1394,13 @@
                 break;
 
             case 'clear_reading_tutor_selection':
-                document.querySelectorAll('.ʁ-reading-tutor').forEach(el => el.classList.remove('ʁ-highlighted'));
+                if (window.__rltkReadingTutorSelection && window.__rltkReadingTutorSelection.element) {
+                    window.__rltkReadingTutorSelection.element.classList.remove('ʁ-highlighted');
+                    window.__rltkReadingTutorSelection.element = null;
+                    window.__rltkReadingTutorSelection.index = null;
+                } else {
+                    document.querySelectorAll('.ʁ-reading-tutor').forEach(el => el.classList.remove('ʁ-highlighted'));
+                }
                 sendResponse({ success: true });
                 break;
 
@@ -1324,7 +1408,13 @@
                 if (request.index !== undefined && request.index !== null) {
                     const el = document.querySelector(`.ʁ${request.index}`);
                     if (el) {
+                        if (window.__rltkReadingTutorSelection && window.__rltkReadingTutorSelection.element && window.__rltkReadingTutorSelection.element !== el) {
+                            window.__rltkReadingTutorSelection.element.classList.remove('ʁ-highlighted');
+                        }
                         el.classList.add('ʁ-highlighted');
+                        window.__rltkReadingTutorSelection = window.__rltkReadingTutorSelection || { element: null, index: null };
+                        window.__rltkReadingTutorSelection.element = el;
+                        window.__rltkReadingTutorSelection.index = request.index;
                     }
                 }
                 sendResponse({ success: true });
@@ -1529,6 +1619,7 @@
         readingTutorMutationTimer = setTimeout(() => {
             if (!readingTutorObserverEnabled) return;
             const nextHash = computeReadingTutorHash();
+            readingTutorMetadata.validationHash = nextHash || null;
             if (!readingTutorLastHash) {
                 readingTutorLastHash = nextHash;
                 readingTutorForceDirty = false;
@@ -1551,6 +1642,7 @@
         if (readingTutorObserver) return;
         readingTutorObserverEnabled = true;
         readingTutorLastHash = computeReadingTutorHash();
+        readingTutorMetadata.validationHash = readingTutorLastHash || null;
         readingTutorObserver = new MutationObserver((mutations) => {
             let hasRelevantMutation = false;
             for (const mutation of mutations) {

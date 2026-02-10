@@ -16,7 +16,8 @@ class RussianToolsSidePanel {
         this.isProcessing = false;
         this.freqDict = null;
         this.pageEnhanced = false;
-        this.readingTutorHash = null;
+        this.readingTutorRestoreHash = null;
+        this.readingTutorValidationHash = null;
         this.lastReadingTutorSelectionHash = null;
         this.readingTutorPollTimer = null;
         this.readingTutorInstructionsDismissed = false;
@@ -155,6 +156,16 @@ class RussianToolsSidePanel {
         return `mailto:robert_reynolds@byu.edu?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
 
+    isAccessErrorMessage(message) {
+        if (!message) return false;
+        return message.includes('Cannot access this page') ||
+            message.includes('Cannot access a chrome:// URL') ||
+            message.includes('The extensions gallery cannot be scripted') ||
+            message.includes('Extension manifest must request permission') ||
+            message.includes('Cannot access contents of the page') ||
+            message.includes('Cannot run on this system page');
+    }
+
     updateAnalysisWarningUI() {
         const warningButton = document.getElementById('reading-tutor-analysis-warning');
         if (!warningButton) return;
@@ -219,7 +230,9 @@ class RussianToolsSidePanel {
                 data: this.lastReadingTutorSelectionData || null,
                 index: this.lastReadingTutorSelectionIndex ?? null,
                 hash: this.lastReadingTutorSelectionHash || null,
-                processedHash: this.readingTutorHash || null,
+                restoreHash: this.readingTutorRestoreHash || null,
+                validationHash: this.readingTutorValidationHash || null,
+                processedHash: this.readingTutorRestoreHash || null,
                 instructionsDismissed: this.readingTutorInstructionsDismissed || false
             }),
             apply: (value) => {
@@ -227,10 +240,11 @@ class RussianToolsSidePanel {
                 this.lastReadingTutorSelectionData = next.data || null;
                 this.lastReadingTutorSelectionIndex = next.index ?? null;
                 this.lastReadingTutorSelectionHash = next.hash || null;
-                this.readingTutorHash = next.processedHash || null;
+                this.readingTutorRestoreHash = next.restoreHash || next.processedHash || null;
+                this.readingTutorValidationHash = next.validationHash || null;
                 this.readingTutorInstructionsDismissed = !!next.instructionsDismissed;
             },
-            defaultValue: { data: null, index: null, hash: null, processedHash: null, instructionsDismissed: false }
+            defaultValue: { data: null, index: null, hash: null, restoreHash: null, validationHash: null, processedHash: null, instructionsDismissed: false }
         });
 
         this.registerTabState('access', {
@@ -528,9 +542,7 @@ class RussianToolsSidePanel {
     async loadFreqDict() {
         if (this.freqDict) {
             if (this.freqDictTotal === null) {
-                this.freqDictTotal = Object.values(this.freqDict)
-                    .map(value => Number(value) || 0)
-                    .reduce((sum, value) => sum + value, 0);
+                this.freqDictTotal = 1_000_000;
             }
             return;
         }
@@ -538,9 +550,7 @@ class RussianToolsSidePanel {
             const url = chrome.runtime.getURL('rltk/resources/models/Sharoff_lem_freq_dict.json');
             const response = await fetch(url);
             this.freqDict = await response.json();
-            this.freqDictTotal = Object.values(this.freqDict)
-                .map(value => Number(value) || 0)
-                .reduce((sum, value) => sum + value, 0);
+            this.freqDictTotal = 1_000_000;
         } catch (e) {
             console.error('Failed to load frequency dictionary:', e);
             this.freqDict = {};
@@ -683,6 +693,15 @@ class RussianToolsSidePanel {
         }
 
         if (!response || !response.success) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            try {
+                response = await chrome.tabs.sendMessage(tabId, { action: 'get_reading_tutor_vocabulary' });
+            } catch (e) {
+                response = null;
+            }
+        }
+
+        if (!response || !response.success) {
             this.vocabularyState.rows = [];
             this.renderVocabularyTable();
             if (empty) empty.textContent = 'Activate Reading tutor to see vocabulary.';
@@ -692,7 +711,10 @@ class RussianToolsSidePanel {
         const items = Array.isArray(response.items) ? response.items : [];
         const totalTokens = Number(response.totalTokens) || 0;
 
-        await this.loadFreqDict();
+        const hasFreqDict = !!this.freqDict;
+        if (!hasFreqDict) {
+            this.loadFreqDict();
+        }
         const refTotal = Number(this.freqDictTotal) || 0;
 
         this.vocabularyState.totalTokens = totalTokens;
@@ -700,9 +722,9 @@ class RussianToolsSidePanel {
             const lemma = item.lemma || '';
             const count = Number(item.count) || 0;
             const lemmaKey = lemma.toLowerCase();
-            const refFreq = Number(this.freqDict?.[lemmaKey]) || 0;
-            const expected = (refTotal > 0 && totalTokens > 0) ? (refFreq / refTotal) * totalTokens : 0;
-            const keyness = this.computeLogLikelihood(count, refFreq, totalTokens, refTotal);
+            const refFreq = hasFreqDict ? Number(this.freqDict?.[lemmaKey]) || 0 : 0;
+            const expected = (hasFreqDict && refTotal > 0 && totalTokens > 0) ? (refFreq / refTotal) * totalTokens : 0;
+            const keyness = hasFreqDict ? this.computeLogLikelihood(count, refFreq, totalTokens, refTotal) : 0;
             return {
                 lemma,
                 count,
@@ -901,7 +923,7 @@ class RussianToolsSidePanel {
         const resumeButton = document.getElementById('reading-tutor-resume');
         const progressLabel = document.getElementById('reading-tutor-batch-progress');
 
-        if (!isProcessing && this.readingTutorPaused) {
+        if (this.readingTutorPaused) {
             return;
         }
 
@@ -975,7 +997,7 @@ class RussianToolsSidePanel {
         const progressLabel = document.getElementById('reading-tutor-batch-progress');
         if (!progressLabel) return;
 
-        if (!progress || !progress.total || progress.total <= 1) {
+        if (!progress || !progress.total || progress.total <= 0) {
             progressLabel.textContent = '';
             progressLabel.style.display = 'none';
             return;
@@ -1481,6 +1503,9 @@ class RussianToolsSidePanel {
                 if (!this.shouldHandleSelectionFromTab(sender?.tab?.id || message.tabId)) return;
                 if (this.currentTab !== 'reading-tutor') return;
                 this.setReadingTutorDirty(true);
+                if (message.hash) {
+                    this.readingTutorValidationHash = message.hash;
+                }
                 this.scheduleReadingTutorAutoRefresh();
             }
         });
@@ -1512,7 +1537,7 @@ class RussianToolsSidePanel {
                     return;
                 }
 
-                if (total > 1 && !completed) {
+                if (total >= 1 && !completed) {
                     this.readingTutorBatchInProgress = true;
                     this.setReadingTutorProcessing(true);
                     this.updateReadingTutorBatchProgress(progress);
@@ -1599,8 +1624,8 @@ class RussianToolsSidePanel {
         const resumeButton = document.getElementById('reading-tutor-resume');
         if (resumeButton) {
             resumeButton.addEventListener('click', async () => {
-                this.setReadingTutorProcessing(true);
                 this.setReadingTutorPaused(false);
+                this.setReadingTutorProcessing(true);
                 await this.activateReadingTutor({ force: true, resume: true });
             });
         }
@@ -1810,7 +1835,7 @@ ${errorMessage}`);
         try {
             if (!tabId) return null;
             const response = await chrome.runtime.sendMessage({ action: 'get_text_hash', tabId });
-            if (response && response.success) return response.hash || null;
+            if (response && response.success) return response.data?.hash || response.hash || null;
         } catch (e) {
             // ignore
         }
@@ -1852,8 +1877,10 @@ ${errorMessage}`);
         try {
             if (!tabId) return null;
             const response = await chrome.runtime.sendMessage({ action: 'get_reading_tutor_status', tabId });
-            if (response && response.success && response.data) {
-                return response.data.count || 0;
+            if (response && response.success) {
+                if (response.data && response.data.count !== undefined) {
+                    return response.data.count || 0;
+                }
             }
         } catch (e) {
             // ignore
@@ -1963,7 +1990,7 @@ ${errorMessage}`);
         }
 
         const tabId = await this.getTargetTabId();
-        const currentHash = this.readingTutorHash || await this.fetchReadingTutorHash();
+        const currentHash = this.readingTutorRestoreHash || await this.fetchReadingTutorHash();
         const readingTutorCount = tabId ? await this.fetchReadingTutorStatus(tabId) : 0;
         const hasStoredSelection = this.lastReadingTutorSelectionData || (this.lastReadingTutorSelectionIndex !== null && this.lastReadingTutorSelectionIndex !== undefined);
         const canRestoreSelection = !!(this.lastReadingTutorSelectionHash && currentHash && this.lastReadingTutorSelectionHash === currentHash);
@@ -2013,7 +2040,7 @@ ${errorMessage}`);
                     css: ''
                 }).catch(() => {});
             }
-            this.updateVocabularyTable();
+            await this.updateVocabularyTable();
         }
 
         if (persist && !this.isApplyingTabState) {
@@ -2332,7 +2359,8 @@ ${errorMessage}`);
                 throw new Error(response.error);
             }
 
-            if (response.batching) {
+            const batching = response.batching || response.data?.batching;
+            if (batching) {
                 keepProcessingForBatches = true;
                 this.readingTutorBatchInProgress = true;
                 this.setReadingTutorProcessing(true);
@@ -2368,9 +2396,19 @@ ${errorMessage}`);
             await this.ackReadingTutorRefresh(targetTabId);
             await this.sendReadingTutorWatch(true, targetTabId);
         } catch (error) {
-            console.error('Error activating Reading Tutor:', error);
             const errorMessage = (error && error.message) ? error.message : String(error);
+            if (!this.isAccessErrorMessage(errorMessage)) {
+                console.error('Error activating Reading Tutor:', error);
+            }
             if (errorMessage.includes('Could not establish connection') || errorMessage.includes('Receiving end does not exist')) {
+                const targetTabId = this.debugTabId || this.currentTabId;
+                if (targetTabId) {
+                    await this.checkAccess(targetTabId);
+                }
+                if (container) container.innerHTML = '<div class="info"></div>';
+                return;
+            }
+            if (this.isAccessErrorMessage(errorMessage)) {
                 const targetTabId = this.debugTabId || this.currentTabId;
                 if (targetTabId) {
                     await this.checkAccess(targetTabId);
@@ -2416,11 +2454,12 @@ ${errorMessage}`);
             const targetTabId = await this.getTargetTabId();
             if (!targetTabId) return null;
             const response = await chrome.runtime.sendMessage({
-                action: 'get_text_hash',
+                action: 'get_reading_tutor_restore_hash',
                 tabId: targetTabId
             });
-            if (response && response.success && response.hash) {
-                return response.hash;
+            if (response && response.success) {
+                const hash = response.data?.hash || response.hash || null;
+                if (hash) return hash;
             }
         } catch (e) {
             // ignore
@@ -2429,7 +2468,7 @@ ${errorMessage}`);
     }
 
     async syncReadingTutorHash() {
-        this.readingTutorHash = await this.fetchReadingTutorHash();
+        this.readingTutorRestoreHash = await this.fetchReadingTutorHash();
         if (!this.isApplyingTabState) {
             this.saveTabState();
         }
@@ -2824,10 +2863,10 @@ ${errorMessage}`);
             this.lastReadingTutorSelectionIndex = data.index;
         }
 
-        let currentHash = this.readingTutorHash || await this.fetchReadingTutorHash();
+        let currentHash = this.readingTutorRestoreHash || await this.fetchReadingTutorHash();
         if (!currentHash) {
             await this.syncReadingTutorHash();
-            currentHash = this.readingTutorHash || null;
+            currentHash = this.readingTutorRestoreHash || null;
         }
         this.lastReadingTutorSelectionHash = currentHash || null;
 
@@ -2851,7 +2890,13 @@ ${errorMessage}`);
             if (typeof data === 'object' && data.cohort) {
                 // We have the cohort directly from the click event
                 cohorts = [data.cohort];
-            } else {
+                const hasReadings = Array.isArray(cohorts[0]?.rs) && cohorts[0].rs.length > 0;
+                if (!hasReadings) {
+                    cohorts = null;
+                }
+            }
+
+            if (!cohorts) {
                 // Fallback to analyzing text (e.g. from selection)
                 const text = typeof data === 'string' ? data : data.text;
                 const analysisResponse = await chrome.runtime.sendMessage({
@@ -2977,19 +3022,22 @@ ${errorMessage}`);
                     readingsByLemma[reading.stressedLemma].push(reading);
                 }
 
-                // Ensure frequency dictionary is loaded
-                await this.loadFreqDict();
-                await this.loadTranslations();
+                // Kick off background loads but don't block UI rendering.
+                this.loadFreqDict();
+                this.loadTranslations();
 
                 // Sort lemmas by frequency
-                const sortedLemmas = Object.keys(readingsByLemma).sort((a, b) => {
-                    // Use original lemma for frequency lookup
-                    const lemmaA = readingsByLemma[a][0].originalLemma;
-                    const lemmaB = readingsByLemma[b][0].originalLemma;
-                    const freqA = this.freqDict[lemmaA] || 0;
-                    const freqB = this.freqDict[lemmaB] || 0;
-                    return freqB - freqA;
-                });
+                const sortedLemmas = Object.keys(readingsByLemma);
+                if (this.freqDict) {
+                    sortedLemmas.sort((a, b) => {
+                        // Use original lemma for frequency lookup
+                        const lemmaA = readingsByLemma[a][0].originalLemma;
+                        const lemmaB = readingsByLemma[b][0].originalLemma;
+                        const freqA = this.freqDict[lemmaA] || 0;
+                        const freqB = this.freqDict[lemmaB] || 0;
+                        return freqB - freqA;
+                    });
+                }
 
                 for (const lemma of sortedLemmas) {
                     const lemmaDiv = document.createElement('div');
@@ -3222,7 +3270,7 @@ ${errorMessage}`);
                         };
 
                         // Automatically expand if there is only one lemma
-                        if (Object.keys(readingsByLemma).length === 1) {
+                        if (Object.keys(readingsByLemma).length === 1 && !this.readingTutorBatchInProgress) {
                             toggleButton.click();
                         }
                     }

@@ -84,8 +84,15 @@
             e.stopPropagation();
             e.preventDefault();
 
+            const selectionState = window.__rltkReadingTutorSelection || { element: null, index: null };
+            window.__rltkReadingTutorSelection = selectionState;
+
             if (this.classList.contains('ʁ-highlighted')) {
                 this.classList.remove('ʁ-highlighted');
+                if (selectionState.element === this) {
+                    selectionState.element = null;
+                    selectionState.index = null;
+                }
                 chrome.runtime.sendMessage({
                     action: 'reading_tutor_selection',
                     text: null,
@@ -94,8 +101,12 @@
                 });
             } else {
                 // Highlight logic
-                document.querySelectorAll('.ʁ-reading-tutor').forEach(el => el.classList.remove('ʁ-highlighted'));
+                if (selectionState.element && selectionState.element !== this) {
+                    selectionState.element.classList.remove('ʁ-highlighted');
+                }
                 this.classList.add('ʁ-highlighted');
+                selectionState.element = this;
+                selectionState.index = cohortIndex;
 
                 const readings = JSON.parse(this.getAttribute('data-readings') || '[]');
 
