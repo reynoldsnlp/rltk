@@ -84,6 +84,53 @@ test.describe('Reading Tutor refresh observer', () => {
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
   });
 
+  test('spinner reserves space when hidden', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;
+
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    await page.evaluate(() => {
+      document.documentElement.dataset.rltkTestSlowEnhance = '1500';
+      const target = document.getElementById('target');
+      if (!target) return;
+      const paragraph = 'Это очень длинный текст. '.repeat(80);
+      target.innerHTML = Array.from({ length: 40 }, () => `<p>${paragraph}</p>`).join('');
+    });
+
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage);
+
+    const refreshButton = sidePanelPage.locator('#reading-tutor-refresh');
+    const pauseButton = sidePanelPage.locator('#reading-tutor-pause');
+    const resumeButton = sidePanelPage.locator('#reading-tutor-resume');
+    const spinner = sidePanelPage.locator('#reading-tutor-spinner');
+    const progressLabel = sidePanelPage.locator('#reading-tutor-batch-progress');
+
+    await refreshButton.click();
+    await expect(progressLabel).toBeVisible({ timeout: 15000 });
+    await expect(spinner).toBeVisible({ timeout: 15000 });
+    await expect(pauseButton).toBeVisible({ timeout: 15000 });
+
+    const beforeBox = await progressLabel.boundingBox();
+    expect(beforeBox).not.toBeNull();
+
+    await pauseButton.click();
+    await expect(resumeButton).toBeVisible();
+    await expect(spinner).toBeHidden();
+    await expect(progressLabel).toBeVisible();
+
+    const afterBox = await progressLabel.boundingBox();
+    expect(afterBox).not.toBeNull();
+
+    const deltaX = Math.abs((afterBox?.x ?? 0) - (beforeBox?.x ?? 0));
+    expect(deltaX).toBeLessThanOrEqual(1);
+  });
+
   test('non-cyrillic or analyzed changes do not trigger auto refresh', async ({ page, browserContext, extensionId }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL;
     const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;

@@ -730,7 +730,10 @@ class RussianToolsSidePanel {
         }
 
         if (refreshButton) refreshButton.style.display = isProcessing ? 'none' : 'inline-flex';
-        if (spinner) spinner.style.display = isProcessing ? 'inline-flex' : 'none';
+        if (spinner) {
+            spinner.style.display = 'inline-flex';
+            spinner.style.visibility = isProcessing ? 'visible' : 'hidden';
+        }
         if (pauseButton) pauseButton.style.display = isProcessing ? 'inline-flex' : 'none';
         if (resumeButton) resumeButton.style.display = 'none';
         if (progressLabel) {
@@ -748,7 +751,10 @@ class RussianToolsSidePanel {
         const progressLabel = document.getElementById('reading-tutor-batch-progress');
 
         if (isPaused) {
-            if (spinner) spinner.style.display = 'none';
+            if (spinner) {
+                spinner.style.display = 'inline-flex';
+                spinner.style.visibility = 'hidden';
+            }
             if (pauseButton) pauseButton.style.display = 'none';
             if (resumeButton) resumeButton.style.display = 'inline-flex';
             if (refreshButton) refreshButton.style.display = 'none';
@@ -761,14 +767,20 @@ class RussianToolsSidePanel {
         if (resumeButton) resumeButton.style.display = 'none';
         if (this.readingTutorProcessing) {
             if (refreshButton) refreshButton.style.display = 'none';
-            if (spinner) spinner.style.display = 'inline-flex';
+            if (spinner) {
+                spinner.style.display = 'inline-flex';
+                spinner.style.visibility = 'visible';
+            }
             if (pauseButton) pauseButton.style.display = 'inline-flex';
             if (progressLabel) {
                 progressLabel.style.display = this.readingTutorBatchInProgress ? 'inline-flex' : 'none';
             }
         } else {
             if (refreshButton) refreshButton.style.display = 'inline-flex';
-            if (spinner) spinner.style.display = 'none';
+            if (spinner) {
+                spinner.style.display = 'inline-flex';
+                spinner.style.visibility = 'hidden';
+            }
             if (pauseButton) pauseButton.style.display = 'none';
             if (progressLabel) progressLabel.style.display = 'none';
         }
