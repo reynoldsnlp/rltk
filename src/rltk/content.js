@@ -945,6 +945,57 @@
                 break;
             }
 
+            case 'get_reading_tutor_vocabulary': {
+                const spans = Array.from(document.querySelectorAll('.ʁ-reading-tutor'));
+                const lemmaMap = new Map();
+                const hasCyrillic = /[\u0400-\u04FF]/;
+                const hasNonLetters = /[^\p{L}\p{M}]/u;
+                let includedTokens = 0;
+
+                spans.forEach((span) => {
+                    let lemma = null;
+                    const readingsRaw = span.getAttribute('data-readings');
+                    if (readingsRaw) {
+                        try {
+                            const readings = JSON.parse(readingsRaw);
+                            if (Array.isArray(readings) && readings.length > 0) {
+                                const best = readings.find(r => r && r.l) || readings[0];
+                                lemma = best && (best.l || best.lemma);
+                            }
+                        } catch (e) {
+                            // ignore parse errors
+                        }
+                    }
+
+                    if (!lemma) {
+                        lemma = (span.textContent || '').trim();
+                    }
+
+                    if (!lemma) return;
+
+                    if (!hasCyrillic.test(lemma) || hasNonLetters.test(lemma)) {
+                        return;
+                    }
+
+                    includedTokens += 1;
+
+                    const key = lemma.toLowerCase();
+                    const existing = lemmaMap.get(key);
+                    if (existing) {
+                        existing.count += 1;
+                    } else {
+                        lemmaMap.set(key, { lemma, count: 1 });
+                    }
+                });
+
+                sendResponse({
+                    success: true,
+                    totalTokens: includedTokens,
+                    items: Array.from(lemmaMap.values())
+                });
+                break;
+            }
+
             case 'get_text_hash': {
                 try {
                     const text = extractPlainText(document.body, null);

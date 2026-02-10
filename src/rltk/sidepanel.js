@@ -47,6 +47,13 @@ class RussianToolsSidePanel {
         this.readingTutorBatchInProgress = false;
         this.readingTutorBatchProgress = null;
         this.analysisWarning = null;
+        this.vocabularyState = {
+            rows: [],
+            sortKey: 'keyness',
+            sortDir: 'desc',
+            totalTokens: 0
+        };
+        this.freqDictTotal = null;
 
         const urlParams = new URLSearchParams(window.location.search);
         this.debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
@@ -519,14 +526,25 @@ class RussianToolsSidePanel {
     }
 
     async loadFreqDict() {
-        if (this.freqDict) return;
+        if (this.freqDict) {
+            if (this.freqDictTotal === null) {
+                this.freqDictTotal = Object.values(this.freqDict)
+                    .map(value => Number(value) || 0)
+                    .reduce((sum, value) => sum + value, 0);
+            }
+            return;
+        }
         try {
             const url = chrome.runtime.getURL('rltk/resources/models/Sharoff_lem_freq_dict.json');
             const response = await fetch(url);
             this.freqDict = await response.json();
+            this.freqDictTotal = Object.values(this.freqDict)
+                .map(value => Number(value) || 0)
+                .reduce((sum, value) => sum + value, 0);
         } catch (e) {
             console.error('Failed to load frequency dictionary:', e);
             this.freqDict = {};
+            this.freqDictTotal = 0;
         }
     }
 
@@ -540,6 +558,164 @@ class RussianToolsSidePanel {
             console.error('Failed to load translations:', e);
             this.translations = {};
         }
+    }
+
+    setupVocabularySortButtons() {
+        const buttons = document.querySelectorAll('.vocab-sort-button');
+        buttons.forEach(button => {
+            button.addEventListener('click', () => {
+                const key = button.dataset.sort;
+                if (!key) return;
+
+                if (this.vocabularyState.sortKey === key) {
+                    this.vocabularyState.sortDir = this.vocabularyState.sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.vocabularyState.sortKey = key;
+                    this.vocabularyState.sortDir = key === 'lemma' ? 'asc' : 'desc';
+                }
+
+                this.renderVocabularyTable();
+            });
+        });
+    }
+
+    computeLogLikelihood(observedDoc, observedRef, totalDoc, totalRef) {
+        const total = totalDoc + totalRef;
+        const observedTotal = observedDoc + observedRef;
+        if (!total || !observedTotal) return 0;
+
+        const expectedDoc = totalDoc * (observedTotal / total);
+        const expectedRef = totalRef * (observedTotal / total);
+        const term = (observed, expected) => {
+            if (!observed || !expected) return 0;
+            return observed * Math.log(observed / expected);
+        };
+
+        return 2 * (term(observedDoc, expectedDoc) + term(observedRef, expectedRef));
+    }
+
+    formatVocabularyValue(value) {
+        if (!Number.isFinite(value) || value <= 0) return '0';
+        if (value < 0.01) return value.toFixed(3);
+        return value.toFixed(2);
+    }
+
+    sortVocabularyRows(rows) {
+        const { sortKey, sortDir } = this.vocabularyState;
+        const direction = sortDir === 'asc' ? 1 : -1;
+        return rows.sort((a, b) => {
+            let comparison = 0;
+            if (sortKey === 'lemma') {
+                comparison = a.lemma.localeCompare(b.lemma, 'ru');
+            } else {
+                comparison = (a[sortKey] || 0) - (b[sortKey] || 0);
+            }
+            if (comparison === 0) {
+                comparison = a.lemma.localeCompare(b.lemma, 'ru');
+            }
+            return comparison * direction;
+        });
+    }
+
+    renderVocabularyTable() {
+        const tbody = document.getElementById('vocabulary-table-body');
+        const empty = document.getElementById('vocabulary-empty');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        if (this.vocabularyState.rows.length === 0) {
+            if (empty) empty.style.display = 'block';
+        } else if (empty) {
+            empty.style.display = 'none';
+        }
+
+        const sortedRows = this.sortVocabularyRows([...this.vocabularyState.rows]);
+        sortedRows.forEach(row => {
+            const tr = document.createElement('tr');
+
+            const wordCell = document.createElement('td');
+            wordCell.textContent = row.lemma;
+            tr.appendChild(wordCell);
+
+            const freqCell = document.createElement('td');
+            freqCell.textContent = String(row.count);
+            tr.appendChild(freqCell);
+
+            const expectedCell = document.createElement('td');
+            expectedCell.textContent = this.formatVocabularyValue(row.expected);
+            tr.appendChild(expectedCell);
+
+            const keynessCell = document.createElement('td');
+            keynessCell.textContent = this.formatVocabularyValue(row.keyness);
+            tr.appendChild(keynessCell);
+
+            tbody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.vocabulary-table th[data-sort-key]').forEach(th => {
+            const key = th.dataset.sortKey;
+            if (key === this.vocabularyState.sortKey) {
+                th.setAttribute('aria-sort', this.vocabularyState.sortDir === 'asc' ? 'ascending' : 'descending');
+            } else {
+                th.setAttribute('aria-sort', 'none');
+            }
+        });
+    }
+
+    async updateVocabularyTable() {
+        const summary = document.getElementById('vocabulary-summary');
+        const empty = document.getElementById('vocabulary-empty');
+        if (summary) summary.textContent = '';
+
+        const tabId = await this.getTargetTabId();
+        if (!tabId) {
+            this.vocabularyState.rows = [];
+            this.renderVocabularyTable();
+            if (empty) empty.textContent = 'No vocabulary data yet.';
+            return;
+        }
+
+        let response;
+        try {
+            response = await chrome.tabs.sendMessage(tabId, { action: 'get_reading_tutor_vocabulary' });
+        } catch (e) {
+            response = null;
+        }
+
+        if (!response || !response.success) {
+            this.vocabularyState.rows = [];
+            this.renderVocabularyTable();
+            if (empty) empty.textContent = 'Activate Reading tutor to see vocabulary.';
+            return;
+        }
+
+        const items = Array.isArray(response.items) ? response.items : [];
+        const totalTokens = Number(response.totalTokens) || 0;
+
+        await this.loadFreqDict();
+        const refTotal = Number(this.freqDictTotal) || 0;
+
+        this.vocabularyState.totalTokens = totalTokens;
+        this.vocabularyState.rows = items.map(item => {
+            const lemma = item.lemma || '';
+            const count = Number(item.count) || 0;
+            const lemmaKey = lemma.toLowerCase();
+            const refFreq = Number(this.freqDict?.[lemmaKey]) || 0;
+            const expected = (refTotal > 0 && totalTokens > 0) ? (refFreq / refTotal) * totalTokens : 0;
+            const keyness = this.computeLogLikelihood(count, refFreq, totalTokens, refTotal);
+            return {
+                lemma,
+                count,
+                expected,
+                keyness
+            };
+        });
+
+        if (summary) {
+            summary.textContent = `Document length: ${totalTokens} words · ${this.vocabularyState.rows.length} lemmas`;
+        }
+
+        this.renderVocabularyTable();
     }
 
     /**
@@ -740,6 +916,9 @@ class RussianToolsSidePanel {
             progressLabel.style.display = this.readingTutorBatchInProgress ? 'inline-flex' : 'none';
         }
         this.updateAnalysisWarningUI();
+        if (!isProcessing && this.currentTab === 'reading-tutor' && this.lastReadingTutorSubTab === 'vocabulary') {
+            this.updateVocabularyTable();
+        }
     }
 
     setReadingTutorPaused(isPaused) {
@@ -1210,6 +1389,8 @@ class RussianToolsSidePanel {
                 this.switchSubTab(e.target.dataset.subtab, { persist: true });
             });
         });
+
+        this.setupVocabularySortButtons();
 
         this.initializeWritingTab();
 
@@ -1825,6 +2006,14 @@ ${errorMessage}`);
                     this.clearReadingTutorSelectionState({ tabId, showInstructions: true });
                 }
             }
+        } else if (subTabName === 'vocabulary') {
+            if (tabId) {
+                chrome.tabs.sendMessage(tabId, {
+                    action: 'update_grammar_highlighter_styles',
+                    css: ''
+                }).catch(() => {});
+            }
+            this.updateVocabularyTable();
         }
 
         if (persist && !this.isApplyingTabState) {

@@ -679,6 +679,91 @@ datalist#density-ticks option {
     display: block;
 }
 
+.vocabulary-summary {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.vocabulary-table-wrapper {
+    overflow-x: auto;
+}
+
+.vocabulary-table {
+    width: auto;
+    border-collapse: collapse;
+    font-size: 12px;
+    table-layout: auto;
+    display: inline-table;
+}
+
+.vocabulary-table th,
+.vocabulary-table td {
+    border: 1px solid #e0e0e0;
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+    width: 1%;
+}
+
+.vocabulary-table th {
+    background: #f7f7f7;
+    font-weight: 600;
+}
+
+.vocab-sort-button {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.vocab-sort-icon::before {
+    content: '▵▿';
+    font-size: 10px;
+    color: #777;
+    letter-spacing: -1px;
+}
+
+th[aria-sort="ascending"] .vocab-sort-icon::before {
+    content: '▲';
+    font-size: 11px;
+    color: #2c5aa0;
+}
+
+th[aria-sort="descending"] .vocab-sort-icon::before {
+    content: '▼';
+    font-size: 11px;
+    color: #2c5aa0;
+}
+
+.vocab-help {
+    width: 16px;
+    height: 16px;
+    border: none;
+    background: #e6e6e6;
+    color: #555;
+    border-radius: 50%;
+    font-size: 10px;
+    line-height: 16px;
+    padding: 0;
+    margin-left: 4px;
+    cursor: help;
+}
+
+.vocabulary-empty {
+    font-size: 12px;
+    color: #666;
+    padding: 8px 0;
+    display: none;
+}
+
 /* Grammar Highlighter UI */
 .grammar-highlighter-grid {
     --gh-col-width: 100px;

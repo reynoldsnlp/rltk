@@ -37,6 +37,7 @@
                 </div>
                 <button class="sub-tab-button active" data-subtab="translations-and-tables">Translations and tables</button>
                 <button class="sub-tab-button" data-subtab="grammar-highlighter">Grammar highlighter</button>
+                <button class="sub-tab-button" data-subtab="vocabulary">Vocabulary</button>
             </div>
 
             <div id="translations-and-tables-subtab" class="sub-tab-content active">
@@ -67,6 +68,50 @@
                 </div>
                 <div id="grammar-highlighter-filters">
                     <!-- Categories and tags will be generated here -->
+                </div>
+            </div>
+
+            <div id="vocabulary-subtab" class="sub-tab-content" style="display: none;">
+                <div class="panel-section">
+                    <div id="vocabulary-summary" class="vocabulary-summary"></div>
+                    <div class="vocabulary-table-wrapper">
+                        <table id="vocabulary-table" class="vocabulary-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort-key="lemma" aria-sort="none">
+                                        <button type="button" class="vocab-sort-button" data-sort="lemma">
+                                            Word
+                                            <span class="vocab-sort-icon" aria-hidden="true"></span>
+                                        </button>
+                                        <button type="button" class="vocab-help" aria-label="Word is the lemma (dictionary form)." title="Word is the lemma (dictionary form).">?</button>
+                                    </th>
+                                    <th data-sort-key="count" aria-sort="none">
+                                        <button type="button" class="vocab-sort-button" data-sort="count">
+                                            Frequency
+                                            <span class="vocab-sort-icon" aria-hidden="true"></span>
+                                        </button>
+                                        <button type="button" class="vocab-help" aria-label="Frequency is how many times the word appears on this page." title="Frequency is how many times the word appears on this page.">?</button>
+                                    </th>
+                                    <th data-sort-key="expected" aria-sort="none">
+                                        <button type="button" class="vocab-sort-button" data-sort="expected">
+                                            Expected freq.
+                                            <span class="vocab-sort-icon" aria-hidden="true"></span>
+                                        </button>
+                                        <button type="button" class="vocab-help" aria-label="Expected frequency is based on Sharoff corpus frequency, scaled to this document length." title="Expected frequency is based on Sharoff corpus frequency, scaled to this document length.">?</button>
+                                    </th>
+                                    <th data-sort-key="keyness" aria-sort="none">
+                                        <button type="button" class="vocab-sort-button" data-sort="keyness">
+                                            Keyness
+                                            <span class="vocab-sort-icon" aria-hidden="true"></span>
+                                        </button>
+                                        <button type="button" class="vocab-help" aria-label="Keyness is the log likelihood ratio compared to the Sharoff corpus." title="Keyness is the log likelihood ratio compared to the Sharoff corpus.">?</button>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="vocabulary-table-body"></tbody>
+                        </table>
+                        <div id="vocabulary-empty" class="vocabulary-empty">No vocabulary data yet.</div>
+                    </div>
                 </div>
             </div>
         </div>
