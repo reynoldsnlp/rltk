@@ -184,7 +184,9 @@
 
                     if (!found) return;
 
-                    const isStressed = (stressedIndex + 1 < correctForm.length) && (correctForm[stressedIndex + 1] === '\u0301');
+                    const isYo = correctForm[stressedIndex] === 'ё' || correctForm[stressedIndex] === 'Ё';
+                    const hasAcute = (stressedIndex + 1 < correctForm.length) && (correctForm[stressedIndex + 1] === '\u0301');
+                    const isStressed = hasAcute || isYo;
 
                     if (isStressed) {
                         this.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';

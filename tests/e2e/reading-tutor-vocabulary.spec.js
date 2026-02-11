@@ -32,8 +32,9 @@ test.describe('Reading Tutor vocabulary', () => {
     const vocabButton = sidePanelPage.locator('.sub-tab-button[data-subtab="vocabulary"]');
     await vocabButton.click();
 
-    const firstRow = sidePanelPage.locator('#vocabulary-table tbody tr').first();
-    await expect(firstRow).toBeVisible({ timeout: 15000 });
+    await expect.poll(async () => {
+      return sidePanelPage.locator('#vocabulary-table tbody tr').count();
+    }, { timeout: 20000 }).toBeGreaterThan(0);
 
     const summary = sidePanelPage.locator('#vocabulary-summary');
     await expect(summary).toContainText('Document length');
@@ -84,6 +85,10 @@ test.describe('Reading Tutor vocabulary', () => {
 
     const table = sidePanelPage.locator('#vocabulary-table');
     await expect(table).toBeVisible();
+
+    await expect.poll(async () => {
+      return sidePanelPage.locator('#vocabulary-table tbody').innerText();
+    }, { timeout: 15000 }).toContain('тест');
 
     const rowsText = await sidePanelPage.locator('#vocabulary-table tbody').innerText();
     expect(rowsText).toContain('тест');

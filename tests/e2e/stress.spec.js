@@ -155,6 +155,48 @@ test.describe('Word Stress Activity', () => {
     expect(letterCount).toBeGreaterThan(0);
   });
 
+  test('click activity treats ё as stressed with or without combining acute', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/stress-yo.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+    expect(tabId).not.toBeNull();
+
+    await openSidePanelForActivity(browserContext, extensionId, tabId, 'click');
+
+    const targets = [
+      { id: 'yo-no-acute', vowel: /[ёЁ]/, addAcute: false },
+      { id: 'yo-with-acute', vowel: /[ёЁ]/, addAcute: true },
+      { id: 'plain-stress', vowel: /[оО]/, addAcute: false }
+    ];
+
+    for (const target of targets) {
+      const container = page.locator(`#${target.id} .ʁ-stress-click`);
+      await expect(container).toBeVisible({ timeout: 12000 });
+
+      const letter = container.locator('.letter').filter({ hasText: target.vowel }).first();
+      await expect(letter).toBeVisible({ timeout: 8000 });
+      await expect(letter).toHaveCSS('cursor', 'pointer');
+
+      if (target.addAcute) {
+        await page.evaluate((id) => {
+          const containerEl = document.querySelector(`#${id} .ʁ-stress-click`);
+          if (!containerEl) return;
+          const letterEl = containerEl.querySelector('.letter');
+          if (!letterEl) return;
+          const next = letterEl.nextSibling;
+          if (next && next.nodeType === Node.TEXT_NODE && next.nodeValue === '\u0301') return;
+          const acuteNode = document.createTextNode('\u0301');
+          letterEl.parentNode.insertBefore(acuteNode, letterEl.nextSibling);
+        }, target.id);
+      }
+
+      await letter.click();
+      await expect(container).toHaveClass(/click-style-correct/, { timeout: 8000 });
+    }
+  });
+
   test('click activity wraps only vowels', async ({ page, browserContext, extensionId }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL;
     const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;

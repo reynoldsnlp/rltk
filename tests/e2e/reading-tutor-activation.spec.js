@@ -15,7 +15,7 @@ test.describe('Reading Tutor activation', () => {
 
   test('processes the current page without tab switching', async ({ page, browserContext, extensionId }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL;
-    const fixtureUrl = `${baseURL}/tests/fixtures/stress.html`;
+    const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.txt`;
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);

@@ -966,7 +966,8 @@ class RussianToolsSidePanel {
         }
 
         if (resumeButton) resumeButton.style.display = 'none';
-        if (this.readingTutorProcessing) {
+        const showProcessing = this.readingTutorProcessing || this.readingTutorBatchInProgress;
+        if (showProcessing) {
             if (refreshButton) refreshButton.style.display = 'none';
             if (spinner) {
                 spinner.style.display = 'inline-flex';
@@ -1626,6 +1627,11 @@ class RussianToolsSidePanel {
             resumeButton.addEventListener('click', async () => {
                 this.setReadingTutorPaused(false);
                 this.setReadingTutorProcessing(true);
+                const spinner = document.getElementById('reading-tutor-spinner');
+                if (spinner) {
+                    spinner.style.display = 'inline-flex';
+                    spinner.style.visibility = 'visible';
+                }
                 await this.activateReadingTutor({ force: true, resume: true });
             });
         }

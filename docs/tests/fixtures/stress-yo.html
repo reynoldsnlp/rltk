@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>RLTK Stress Ё Test Fixture</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+        .case { margin-bottom: 16px; }
+        .label { font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Word Stress Ё Test Page</h1>
+
+    <div class="case">
+        <div class="label">Ё without combining acute</div>
+        <p><span id="yo-no-acute">ёлка</span></p>
+    </div>
+
+    <div class="case">
+        <div class="label">Ё with combining acute</div>
+        <p><span id="yo-with-acute">ёлка</span></p>
+    </div>
+
+    <div class="case">
+        <div class="label">Regular stressed vowel (non-ё)</div>
+        <p><span id="plain-stress">дом</span></p>
+    </div>
+</body>
+</html>
