@@ -63,6 +63,22 @@ function createWasmError(operation, error, context = {}) {
     return new Error(userMessage);
 }
 
+function getCg3BatchApi() {
+    if (typeof self !== 'undefined' && self.RLTKCG3Batch) {
+        return self.RLTKCG3Batch;
+    }
+    return null;
+}
+
+async function runCg3Disambiguation(input) {
+    const batchApi = getCg3BatchApi();
+    if (batchApi && typeof batchApi.runCg3WithRecursiveSplit === 'function') {
+        return await batchApi.runCg3WithRecursiveSplit(input, vislcg3);
+    }
+
+    return await vislcg3(input);
+}
+
 const models = {
     imperfectiveToPerfectiveVerbMap: null,
     perfectiveToImperfectiveVerbMap: null,
@@ -447,7 +463,7 @@ async function handleMorphAnalysisRequest(text, context = {}) {
 
         let disambigArray = ambigArray;
         try {
-            const disambigOutput = await vislcg3(ambigOutput);
+            const disambigOutput = await runCg3Disambiguation(ambigOutput);
             const disambigJsonl = await cgConv(disambigOutput, {
                 input_format: 'cg',
                 output_format: 'jsonl'
@@ -563,7 +579,7 @@ async function analyzeL2(text) {
     // 3. Disambiguate with CG3
     let cg3Output = '';
     try {
-        cg3Output = await vislcg3(cg3Input);
+        cg3Output = await runCg3Disambiguation(cg3Input);
     } catch (e) {
         console.error("CG3 failed, falling back to raw analyses", e);
         cg3Output = cg3Input;

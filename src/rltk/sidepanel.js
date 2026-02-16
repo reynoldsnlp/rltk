@@ -1625,6 +1625,7 @@ class RussianToolsSidePanel {
         const resumeButton = document.getElementById('reading-tutor-resume');
         if (resumeButton) {
             resumeButton.addEventListener('click', async () => {
+                this.readingTutorBatchInProgress = true;
                 this.setReadingTutorPaused(false);
                 this.setReadingTutorProcessing(true);
                 const spinner = document.getElementById('reading-tutor-spinner');
@@ -2859,6 +2860,57 @@ ${errorMessage}`);
         }
     }
 
+    bindCaseTooltips(root) {
+        const scope = root || document;
+        const caseTooltipSpans = scope.querySelectorAll('.case-tooltip');
+        caseTooltipSpans.forEach(span => {
+            if (span.dataset.tooltipBound) return;
+            span.dataset.tooltipBound = 'true';
+            span.tabIndex = 0;
+
+            const loadTooltip = async () => {
+                if (span.dataset.tooltipLoaded) return;
+                const url = span.dataset.caseSnippet;
+                if (!url) return;
+                try {
+                    const response = await fetch(url);
+                    const html = await response.text();
+                    span.dataset.tooltipLoaded = 'true';
+                    span.setAttribute('data-tooltip', html);
+                } catch (e) {
+                    // ignore
+                }
+            };
+
+            const showTooltip = () => {
+                const html = span.getAttribute('data-tooltip');
+                if (!html) return;
+                const existing = span.querySelector('.case-tooltip-content');
+                if (existing) return;
+                const tooltip = document.createElement('div');
+                tooltip.className = 'case-tooltip-content';
+                tooltip.innerHTML = html;
+                span.appendChild(tooltip);
+            };
+
+            const hideTooltip = () => {
+                const tooltip = span.querySelector('.case-tooltip-content');
+                if (tooltip) tooltip.remove();
+            };
+
+            span.addEventListener('mouseenter', async () => {
+                await loadTooltip();
+                showTooltip();
+            });
+            span.addEventListener('focus', async () => {
+                await loadTooltip();
+                showTooltip();
+            });
+            span.addEventListener('mouseleave', hideTooltip);
+            span.addEventListener('blur', hideTooltip);
+        });
+    }
+
     async handleReadingTutorSelection(data) {
         if (data.text === null && data.cohort === null) {
             this.clearReadingTutorSelectionState({ showInstructions: true });
@@ -3224,6 +3276,7 @@ ${errorMessage}`);
                                         const matchFound = typeof result === 'object' ? result.matchFound : false;
 
                                         paradigmContainer.innerHTML = html;
+                                        this.bindCaseTooltips(paradigmContainer);
 
                                         if (!matchFound) {
                                             const warning = document.createElement('div');
@@ -3287,6 +3340,8 @@ ${errorMessage}`);
                 container.appendChild(wordDiv);
             }
 
+            this.bindCaseTooltips(container);
+
         } catch (error) {
             container.innerHTML = `<div class="error">Error: ${error.message}</div>`;
         }
@@ -3295,6 +3350,32 @@ ${errorMessage}`);
     async generateParadigm(lemma, pos, tags, currentReadings = [], surfaceForm = null) {
         let hasPassive = false;
         let matchFound = false;
+
+        const caseTooltipByTag = {
+            Nom: 'resources/snippets/nominative-case.html',
+            Acc: 'resources/snippets/accusative-case.html',
+            Gen: 'resources/snippets/genitive-case.html',
+            Prep: 'resources/snippets/prepositional-case.html',
+            Dat: 'resources/snippets/dative-case.html',
+            Ins: 'resources/snippets/instrumental-case.html',
+            Inst: 'resources/snippets/instrumental-case.html'
+        };
+        const caseLabelCache = new Map();
+        const buildCaseLabelHtml = (caseTag, labelText) => {
+            const cacheKey = `${caseTag}|${labelText}`;
+            if (caseLabelCache.has(cacheKey)) return caseLabelCache.get(cacheKey);
+
+            const snippet = caseTooltipByTag[caseTag];
+            if (!snippet) {
+                caseLabelCache.set(cacheKey, labelText);
+                return labelText;
+            }
+
+            const url = chrome.runtime.getURL(`rltk/${snippet}`);
+            const html = `<span class="case-tooltip" data-case-snippet="${url}">${labelText}</span>`;
+            caseLabelCache.set(cacheKey, html);
+            return html;
+        };
 
         const posTags = ['N', 'V', 'A', 'Adj', 'Pron', 'Num', 'Det'];
         const inferredPos = tags.find(t => posTags.includes(t));
@@ -3569,6 +3650,7 @@ ${errorMessage}`);
                 let label = c;
                 if (c === 'Ins') label = 'Inst';
                 if (c === 'Loc') label = 'Prep';
+                const labelHtml = buildCaseLabelHtml(label, label);
 
                 let [sgForm, plForm] = await Promise.all([generateForm(sgInput), generateForm(plInput)]);
 
@@ -3588,7 +3670,7 @@ ${errorMessage}`);
                     }
                 }
 
-                html += `<tr><td>${label}</td><td>${sgForm}</td><td>${plForm}</td></tr>`;
+                html += `<tr><td>${labelHtml}</td><td>${sgForm}</td><td>${plForm}</td></tr>`;
             }
             html += '</tbody></table>';
 
@@ -3608,6 +3690,7 @@ ${errorMessage}`);
                 let label = c;
                 if (c === 'Ins') label = 'Inst';
                 if (c === 'Loc') label = 'Prep';
+                const labelHtml = buildCaseLabelHtml(label, label);
 
                 let forms;
                 if (c === 'Acc') {
@@ -3638,7 +3721,7 @@ ${errorMessage}`);
                     forms = await Promise.all(inputs.map(generateForm));
                 }
 
-                html += `<tr><td>${label}</td><td>${forms[0]}</td><td>${forms[1]}</td><td>${forms[2]}</td><td>${forms[3]}</td></tr>`;
+                html += `<tr><td>${labelHtml}</td><td>${forms[0]}</td><td>${forms[1]}</td><td>${forms[2]}</td><td>${forms[3]}</td></tr>`;
             }
 
             // Short forms (Pred)
@@ -3690,6 +3773,7 @@ ${errorMessage}`);
                     let label = c;
                     if (c === 'Ins') label = 'Inst';
                     if (c === 'Loc') label = 'Prep';
+                    const labelHtml = buildCaseLabelHtml(label, label);
 
                     let forms;
                     if (c === 'Acc') {
@@ -3722,7 +3806,7 @@ ${errorMessage}`);
                         forms = await Promise.all(inputs.map(generateForm));
                     }
 
-                    html += `<tr><td>${label}</td><td>${forms[0]}</td><td>${forms[1]}</td><td>${forms[2]}</td><td>${forms[3]}</td></tr>`;
+                    html += `<tr><td>${labelHtml}</td><td>${forms[0]}</td><td>${forms[1]}</td><td>${forms[2]}</td><td>${forms[3]}</td></tr>`;
                 }
 
                 html += '</tbody></table>';
@@ -3733,6 +3817,7 @@ ${errorMessage}`);
                     let label = c;
                     if (c === 'Ins') label = 'Inst';
                     if (c === 'Loc') label = 'Prep';
+                    const labelHtml = buildCaseLabelHtml(label, label);
 
                     const mscInputs = c === 'Acc'
                         ? [`${lemmaBase}${baseTags}+Msc+Inan+Acc`, `${lemmaBase}${baseTags}+Msc+Anim+Acc`]
@@ -3766,7 +3851,7 @@ ${errorMessage}`);
                         ? `${femResults[0]} / ${femResults[1]}`
                         : femResults[0];
 
-                    html += `<tr><td>${label}</td><td>${mscForm}</td><td>${neuForm}</td><td>${femForm}</td></tr>`;
+                    html += `<tr><td>${labelHtml}</td><td>${mscForm}</td><td>${neuForm}</td><td>${femForm}</td></tr>`;
                 }
 
                 html += '</tbody></table>';
@@ -3777,6 +3862,7 @@ ${errorMessage}`);
                     let label = c;
                     if (c === 'Ins') label = 'Inst';
                     if (c === 'Loc') label = 'Prep';
+                    const labelHtml = buildCaseLabelHtml(label, label);
 
                     const mscInputs = c === 'Acc'
                         ? [`${lemmaBase}${baseTags}+Msc+Inan+Acc`, `${lemmaBase}${baseTags}+Msc+Anim+Acc`]
@@ -3804,7 +3890,7 @@ ${errorMessage}`);
                         ? `${femResults[0]} / ${femResults[1]}`
                         : femResults[0];
 
-                    html += `<tr><td>${label}</td><td>${mscForm}</td><td>${neuForm}</td><td>${femForm}</td></tr>`;
+                    html += `<tr><td>${labelHtml}</td><td>${mscForm}</td><td>${neuForm}</td><td>${femForm}</td></tr>`;
                 }
 
                 html += '</tbody></table>';
@@ -3820,10 +3906,11 @@ ${errorMessage}`);
                     let label = c;
                     if (c === 'Ins') label = 'Inst';
                     if (c === 'Loc') label = 'Prep';
+                    const labelHtml = buildCaseLabelHtml(label, label);
 
                     const input = `${lemmaBase}${baseTags}${defaultGenderTag}${defaultAnimacyTag}+${c}`;
                     const form = await generateForm(input);
-                    html += `<tr><td>${label}</td><td>${form}</td></tr>`;
+                    html += `<tr><td>${labelHtml}</td><td>${form}</td></tr>`;
                 }
 
                 html += '</tbody></table>';
@@ -3952,6 +4039,7 @@ ${errorMessage}`);
 
              for (const c of cases) {
                  const label = c === 'Ins' ? 'Inst' : c;
+                 const labelHtml = buildCaseLabelHtml(label, label);
                  // Better: lemma + Pron + ...
                  // Let's try to reconstruct standard order: Pron + Pers? + Gender? + Number + Case
                  // Or just use the tags we have.
@@ -3968,7 +4056,7 @@ ${errorMessage}`);
                  const tagsWithoutCase = tags.filter(t => !['Nom', 'Gen', 'Dat', 'Acc', 'Ins', 'Loc', 'Voc'].includes(t));
                  const input = `${lemma}+${tagsWithoutCase.join('+')}+${c}`;
                  const form = await generateForm(input);
-                 html += `<tr><td>${label}</td><td>${form}</td></tr>`;
+                 html += `<tr><td>${labelHtml}</td><td>${form}</td></tr>`;
              }
              html += '</tbody></table>';
         } else {

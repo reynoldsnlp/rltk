@@ -469,6 +469,46 @@ datalist#density-ticks option {
     align-self: flex-start;
 }
 
+.case-tooltip {
+    position: relative;
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+}
+
+.case-tooltip-content {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 6px;
+    z-index: 10;
+    min-width: 220px;
+    max-width: 420px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    color: #222;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.case-tooltip-content h3,
+.case-tooltip-content h4 {
+    margin: 0 0 6px 0;
+    font-size: 12px;
+}
+
+.case-tooltip-content ol {
+    margin: 0 0 6px 18px;
+    padding: 0;
+}
+
+.case-tooltip-content p {
+    margin: 0;
+}
+
 .analysis-warning-icon {
     color: #f28c28;
     font-weight: 700;
