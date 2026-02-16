@@ -1689,33 +1689,94 @@
         return span.closest('a, button, [role="button"], [role="link"]');
     }
 
-    function applySpanClickOverride(span) {
-        const ancestor = getInteractiveAncestor(span);
-        if (!ancestor) return;
+    function applyPointerOverride(element) {
+        if (!(element instanceof Element)) return;
+        if (!element.__rltkOverrideCount) {
+            element.__rltkOverrideCount = 0;
+            element.__rltkPointerEventsBackup = element.style.pointerEvents;
+        }
+        element.__rltkOverrideCount += 1;
+        element.style.pointerEvents = 'none';
+    }
 
-        if (!ancestor.__rltkOverrideCount) {
-            ancestor.__rltkOverrideCount = 0;
-            ancestor.__rltkPointerEventsBackup = ancestor.style.pointerEvents;
+    function removePointerOverride(element) {
+        if (!(element instanceof Element)) return;
+        if (!element.__rltkOverrideCount) return;
+        element.__rltkOverrideCount -= 1;
+        if (element.__rltkOverrideCount <= 0) {
+            element.style.pointerEvents = element.__rltkPointerEventsBackup || '';
+            element.__rltkOverrideCount = 0;
+        }
+    }
+
+    function findBlockingInteractiveElements(span, ancestor) {
+        if (!(span instanceof Element)) return [];
+        if (!document.elementFromPoint) return [];
+
+        const rect = span.getBoundingClientRect();
+        if (!rect || rect.width <= 0 || rect.height <= 0) return [];
+
+        const pad = Math.min(4, Math.floor(Math.min(rect.width, rect.height) / 2));
+        const points = [
+            [rect.left + rect.width / 2, rect.top + rect.height / 2],
+            [rect.left + pad, rect.top + pad],
+            [rect.right - pad, rect.bottom - pad]
+        ];
+
+        const blockers = new Set();
+        points.forEach(([x, y]) => {
+            if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return;
+            const hit = document.elementFromPoint(x, y);
+            if (!hit || hit === span || span.contains(hit)) return;
+
+            const interactive = hit.closest('a, button, [role="button"], [role="link"]');
+            if (!interactive) return;
+            if (interactive === ancestor) return;
+            if (interactive.contains(span)) return;
+            blockers.add(interactive);
+        });
+
+        return Array.from(blockers);
+    }
+
+    function applySpanClickOverride(span) {
+        if (!(span instanceof Element)) return;
+        const ancestor = getInteractiveAncestor(span);
+        const blockers = findBlockingInteractiveElements(span, ancestor);
+
+        if (span.__rltkOverrideApplied) {
+            if (span.__rltkOverrideAncestor && span.__rltkOverrideAncestor !== ancestor) {
+                removePointerOverride(span.__rltkOverrideAncestor);
+            }
+            if (Array.isArray(span.__rltkOverrideBlockers)) {
+                span.__rltkOverrideBlockers.forEach(removePointerOverride);
+            }
         }
 
-        ancestor.__rltkOverrideCount += 1;
-        ancestor.style.pointerEvents = 'none';
+        if (ancestor) {
+            applyPointerOverride(ancestor);
+        }
+        blockers.forEach(applyPointerOverride);
+
         span.style.pointerEvents = 'auto';
         span.__rltkOverrideApplied = true;
+        span.__rltkOverrideAncestor = ancestor || null;
+        span.__rltkOverrideBlockers = blockers;
     }
 
     function removeSpanClickOverride(span) {
         if (!span.__rltkOverrideApplied) return;
-        const ancestor = getInteractiveAncestor(span);
-        if (ancestor && ancestor.__rltkOverrideCount) {
-            ancestor.__rltkOverrideCount -= 1;
-            if (ancestor.__rltkOverrideCount <= 0) {
-                ancestor.style.pointerEvents = ancestor.__rltkPointerEventsBackup || '';
-                ancestor.__rltkOverrideCount = 0;
-            }
+        const ancestor = span.__rltkOverrideAncestor || getInteractiveAncestor(span);
+        if (ancestor) {
+            removePointerOverride(ancestor);
+        }
+        if (Array.isArray(span.__rltkOverrideBlockers)) {
+            span.__rltkOverrideBlockers.forEach(removePointerOverride);
         }
         span.style.pointerEvents = '';
         span.__rltkOverrideApplied = false;
+        span.__rltkOverrideAncestor = null;
+        span.__rltkOverrideBlockers = [];
     }
 
     function shouldGuardSpanClick(span) {
@@ -1768,6 +1829,8 @@
             if (!(span instanceof Element)) return;
             span.style.pointerEvents = '';
             span.__rltkOverrideApplied = false;
+            span.__rltkOverrideAncestor = null;
+            span.__rltkOverrideBlockers = [];
         });
     }
 

@@ -10,23 +10,61 @@
       cursor: pointer;
       display: inline-block;
     }
+
+    #overlay-card {
+      position: relative;
+      padding: 12px;
+      border: 1px solid #ccc;
+      margin-top: 12px;
+      max-width: 240px;
+    }
+
+    #overlay-link {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: block;
+    }
+
+    #overlay-content {
+      position: relative;
+      z-index: 1;
+    }
   </style>
 </head>
 <body>
   <div id="segment">
-    <span class="ʁ">Привет</span> мир
+    <span id="segment-span" class="ʁ">Привет</span> мир
+  </div>
+
+  <div id="overlay-card">
+    <a id="overlay-link" href="#" aria-hidden="true" tabindex="-1"></a>
+    <div id="overlay-content">
+      <span id="overlay-span" class="ʁ">Зимняя</span> Олимпиада
+    </div>
   </div>
 
   <script>
     window.segmentClicks = 0;
-    window.spanClicks = 0;
+    window.segmentSpanClicks = 0;
+    window.overlaySpanClicks = 0;
+    window.overlayClicks = 0;
 
     document.getElementById('segment').addEventListener('click', () => {
       window.segmentClicks += 1;
     });
 
-    document.querySelector('.ʁ').addEventListener('click', () => {
-      window.spanClicks += 1;
+    document.getElementById('segment-span').addEventListener('click', () => {
+      window.segmentSpanClicks += 1;
+    });
+
+    document.getElementById('overlay-span').addEventListener('click', () => {
+      window.overlaySpanClicks += 1;
+    });
+
+    document.getElementById('overlay-link').addEventListener('click', (event) => {
+      event.preventDefault();
+      window.overlayClicks += 1;
     });
   </script>
 </body>
