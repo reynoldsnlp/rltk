@@ -1198,6 +1198,8 @@ class RussianToolsSidePanel {
 
     async handleTabActivated(activeInfo) {
         const token = ++this.tabSwitchToken;
+        // Update modal state immediately to avoid lag during long-running work.
+        this.applyCachedAccessState(activeInfo.tabId);
         // Fire-and-forget: we don't await runExclusive here because tab activation
         // events should not block the browser. State will be saved/loaded asynchronously.
         await this.runExclusive(async () => {
@@ -3816,9 +3818,7 @@ ${errorMessage}`);
 
                         forms = [mscForm, neuForm, femForm, plForm];
                     } else {
-                        const femCaseTag = c === 'Ins'
-                            ? `${lemmaBase}${baseTags}+Fem+AnIn+Sg+Ins+Fac`
-                            : `${lemmaBase}${baseTags}+Fem+AnIn+Sg+${c}`;
+                        const femCaseTag = `${lemmaBase}${baseTags}+Fem+AnIn+Sg+${c}`;
                         const inputs = [
                             `${lemmaBase}${baseTags}+Msc+AnIn+Sg+${c}`,
                             `${lemmaBase}${baseTags}+Neu+AnIn+Sg+${c}`,

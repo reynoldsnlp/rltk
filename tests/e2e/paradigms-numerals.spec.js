@@ -205,4 +205,24 @@ test.describe('Paradigm Generation - Numerals', () => {
       await expectTableShape(table, { rows: 6, formCols: 1 });
     }
   });
+
+  test('ordinal paradigms omit Fac in feminine instrumental', async ({ page, browserContext, extensionId, serviceWorker }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/comprehensive-pos.html`;
+    await page.goto(fixtureUrl);
+
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await openSidePanelAndActivateReadingTutor(browserContext, extensionId, tabId);
+
+    const warmupSpan = page.locator('#adj-big .ʁ-reading-tutor').first();
+    await clickAndWaitForSelection(page, sidePanelPage, warmupSpan, 'adj-big', serviceWorker);
+
+    const table = await openNumeralParadigm(page, sidePanelPage, serviceWorker, 'num-ord-tretiy');
+    await expectTableShape(table, { rows: 6, formCols: 4 });
+
+    const instRow = table.locator('tbody tr', { hasText: 'Inst' });
+    const femCell = instRow.locator('td').nth(3);
+    await expect(femCell.locator('[title*="+Fac"]')).toHaveCount(0);
+  });
 });
