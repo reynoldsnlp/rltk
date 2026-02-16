@@ -482,12 +482,13 @@ datalist#density-ticks option {
     left: 0;
     margin-top: 6px;
     z-index: 10;
-    min-width: 220px;
-    max-width: 420px;
+    min-width: 265px;
+    max-width: 525px;
     background: #fff;
     border: 1px solid #ddd;
     border-radius: 8px;
     padding: 10px 12px;
+    box-sizing: border-box;
     box-shadow: 0 6px 16px rgba(0,0,0,0.12);
     color: #222;
     font-size: 12px;

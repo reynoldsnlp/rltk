@@ -2891,6 +2891,28 @@ ${errorMessage}`);
                 tooltip.className = 'case-tooltip-content';
                 tooltip.innerHTML = html;
                 span.appendChild(tooltip);
+
+                const wordAnalysis = span.closest('.word-analysis');
+                if (!wordAnalysis) return;
+
+                const containerRect = wordAnalysis.getBoundingClientRect();
+                const targetWidth = Math.round(containerRect.width * 0.9);
+                tooltip.style.width = `${targetWidth}px`;
+                tooltip.style.maxWidth = `${targetWidth}px`;
+
+                const tooltipRect = tooltip.getBoundingClientRect();
+                const minLeft = containerRect.left + 4;
+                const maxLeft = containerRect.right - tooltipRect.width - 4;
+                let shift = 0;
+                if (tooltipRect.left < minLeft) {
+                    shift = minLeft - tooltipRect.left;
+                } else if (tooltipRect.left > maxLeft) {
+                    shift = maxLeft - tooltipRect.left;
+                }
+
+                if (shift !== 0) {
+                    tooltip.style.transform = `translateX(${shift}px)`;
+                }
             };
 
             const hideTooltip = () => {
