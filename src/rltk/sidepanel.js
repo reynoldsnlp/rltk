@@ -3382,7 +3382,8 @@ ${errorMessage}`);
             Prep: 'resources/snippets/prepositional-case.html',
             Dat: 'resources/snippets/dative-case.html',
             Ins: 'resources/snippets/instrumental-case.html',
-            Inst: 'resources/snippets/instrumental-case.html'
+            Inst: 'resources/snippets/instrumental-case.html',
+            Short: 'resources/snippets/short-adjective-form.html'
         };
         const caseLabelCache = new Map();
         const buildCaseLabelHtml = (caseTag, labelText) => {
@@ -3758,7 +3759,8 @@ ${errorMessage}`);
                 ];
                 const shortForms = await Promise.all(shortInputs.map(generateForm));
                 if (shortForms.some(f => f !== '-')) {
-                    html += `<tr><td>Short</td><td>${shortForms[0]}</td><td>${shortForms[1]}</td><td>${shortForms[2]}</td><td>${shortForms[3]}</td></tr>`;
+                    const shortLabelHtml = buildCaseLabelHtml('Short', 'Short');
+                    html += `<tr><td>${shortLabelHtml}</td><td>${shortForms[0]}</td><td>${shortForms[1]}</td><td>${shortForms[2]}</td><td>${shortForms[3]}</td></tr>`;
                 }
             }
 
