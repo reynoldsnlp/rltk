@@ -73,9 +73,7 @@ Invited workshop, AATSEEL 2026 (New Orleans)
 ## How to install
 
 - Open your favorite Chromium-based desktop browser (e.g., Chrome, Edge, Brave, Chromium, etc.)
-- Does not yet work in...
-  - ...Safari or Firefox (but maybe in the future)
-  - ...mobile browsers (but maybe in the future)
+  - Does not yet work in Safari, Firefox, or mobile browsers (but maybe in the future)
 
 - Go to the Chrome Web Store and search for "RLTK".
 
