@@ -1,6 +1,8 @@
 # Russian Language ToolKit (RLTK): A browser extension for grammar analysis and interactive reading activities
 
 ```
+https://github.com/reynoldsnlp/rltk
+
 Rob Reynolds
 Associate Research Professor, Brigham Young University
 robert_reynolds@byu.edu; @reynoldsnlp
@@ -18,7 +20,7 @@ Invited workshop, AATSEEL 2026 (New Orleans)
     - Slow
     - Unreliable connection 😢
 
-## Goals
+## Goals for re-write
 
 - Fast
   - No LLMs/AI
@@ -27,6 +29,7 @@ Invited workshop, AATSEEL 2026 (New Orleans)
   - No javascript dependencies
 - Reliable
   - No server; everything runs in user's browser
+  - Compile C++ dependencies to Web Assembly (!!!)
 
 ## Brief demo
 
@@ -108,20 +111,20 @@ Invited workshop, AATSEEL 2026 (New Orleans)
 
 ### Learners
 
+- Use `Translations and tables` to aid reading texts.
 - Build a personal vocabulary list by sorting keyness and selecting 10–15 lemmas per week.
-- Use `Translations and tables` for immediate form‑meaning mapping instead of guessing from context alone.
-- Practice metalinguistic awareness: explain why a form is chosen in its sentence.
-- Track progress by re‑reading the same text and noting reduced reliance on clicks.
 - `Grammar highlighter`: Focus attention on a single structure during extensive reading.
 
 ## Future directions
 
-- More activity topics (e.g., verbs of motion, vocabulary quiz, etc.)
+- Repair/polish some Reading Activities
+- Automatic readability assessment (CEFR levels)
+- More activity topics (e.g., verbs of motion, vocabulary quiz, prefixes, suffixes, etc.)
 - Export vocabulary lists and tables for use in other applications (e.g., Anki, Quizlet, etc.)
 - Add stress annotation to Reading Tutor (currently only available in the Word Stress activity)
 - Track errors during Reading Activities and provide summaries to learners.
 - UI/UX improvements
-  - More fun and engaging design
+  - More fun and engaging design?
   - Adjustable font size (currently quite small)
 - You tell me!
 
