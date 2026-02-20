@@ -1,5 +1,9 @@
 # Russian Language ToolKit (RLTK): A browser extension for grammar analysis and interactive reading activities
 
+> Rob Reynolds
+> Associate Research Professor, Brigham Young University
+> robert_reynolds@byu.edu; @reynoldsnlp
+
 > Invited workshop, AATSEEL 2026 (New Orleans)
 
 ## Backstory
