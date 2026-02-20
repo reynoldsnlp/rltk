@@ -15,8 +15,8 @@ Invited workshop, AATSEEL 2026 (New Orleans)
 - VIEW (Meurers, et al., 2013) and rusVIEW (Reynolds & Schaf, 2016)
   - Automatic exercise generation on webpages
   - English, German, Spanish, and later, Russian
-  - Java backend (UIMA framework)
-    - Browser sends text to server, server sends back grammar analysis
+  - Java backend server (UIMA framework)
+    - send text to server; server sends back grammar analysis
     - Slow
     - Unreliable connection 😢
 
@@ -37,7 +37,7 @@ Invited workshop, AATSEEL 2026 (New Orleans)
   - Translations and tables
   - Grammar highlighter
   - Vocabulary
-- Reading activities
+- Reading activities (still in BETA!)
   - Word stress (mark stress, hover)
   - Noun declension (multiple-choice)
   - Phonetic transcription (by Konnor Petersen)
