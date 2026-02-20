@@ -1,13 +1,16 @@
-# Invited workshop, AATSEEL 2026 (New Orleans)
+# Russian Language ToolKit (RLTK): A browser extension for grammar analysis and interactive reading activities
+
+> Invited workshop, AATSEEL 2026 (New Orleans)
 
 ## Backstory
 
 - VIEW (Meurers, et al., 2013) and rusVIEW (Reynolds & Schaf, 2016)
   - Automatic exercise generation on webpages
-  - English, German, Spanish, and then Russian later
+  - English, German, Spanish, and later, Russian
   - Java backend (UIMA framework)
-  - Slow
-  - Unreliable server connection
+    - Browser sends text to server, server sends back grammar analysis
+    - Slow
+    - Unreliable connection 😢
 
 ## Goals
 
@@ -35,7 +38,7 @@
 ### What content can RLTK annotate?
 
 - Almost all websites
-    - LMS (Canvas, Moodle, Blackboard, etc.)
+    - LMS (Canvas, Brightspace, Blackboard, Moodle, Sakai, etc.)
     - Youtube transcripts
     - News websites
     - Wikipedia
@@ -86,6 +89,7 @@
   - Does NOT have to be teacher-centered!
 - Discreet grammar highlighting/noticing: have Reading Tutor ready on projector to help correct grammar misunderstandings as students read and discuss a text together.
   - No need to stop and discuss grammar; just click and clarify as needed.
+  - Projector can show text, or just a list of key vocabulary.
 - Guided noticing: students click a curated set of words and summarize the form‑meaning mapping aloud.
 - Group paradigm work: groups/individuals write paradigm tables, then verify with Reading Tutor.
 - Other ideas?
@@ -124,6 +128,8 @@
   - avoid the complexity and cost of integrating LLMs/AI
   - avoid potential for unreliable performance and inappropriate content.
   - I may be persuaded once powerful LLMs can be run locally, but currently they are MUCH too large for most personal computers.
+
+# Technical details
 
 ## How it works (overview)
 
