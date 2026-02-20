@@ -28,20 +28,22 @@
 - Reading activities
   - Word stress (mark stress, hover)
   - Noun declension (multiple-choice)
-  - Phonetic transcription (Konnor Petersen)
-  - Roots (Sam Handley)
+  - Phonetic transcription (by Konnor Petersen)
+  - Roots (by Sam Handley)
 - Writing tutor
 
 ### What content can RLTK annotate?
 
 - Almost all websites
+    - LMS (Canvas, Moodle, Blackboard, etc.)
     - Youtube transcripts
     - News websites
     - Wikipedia
     - Children's online encyclopedias (easier reading level)
+    - Online books (e.g., mezhdunami.org, lib.ru, etc.)
     - Business / retail / advertising websites
-- Any text file that you can open in a browser (except PDFs)
-  - Recommended: save documents as `txt` files
+- Any text file that you can open in a browser
+  - Recommended: save documents as `txt` files, then right-click `Open with > Chrome` (or whichever browser RLTK is installed on)
 
 ### What content can RLTK NOT annotate?
 
@@ -53,9 +55,75 @@
     - Figma
     - Video games
   - PDFs
-    - ...but you can convert them to plain text files (`.txt`)
+    - ...but you can convert them to plain text files (`.txt`)!
+      - (e.g., using Adobe Acrobat, Google Docs, or command-line tools like `pdftotext`)
 
+## How to install
 
+- Open your favorite Chromium-based desktop browser (e.g., Chrome, Edge, Brave, Chromium, etc.)
+- Does not yet work in...
+  - ...Safari or Firefox (but maybe in the future)
+  - ...mobile browsers (but maybe in the future)
+
+- Go to the Chrome Web Store and search for "RLTK".
+
+![QR code for RLTK installation page in Chrome Web Store](./qr-rltk-chrome-web-store.png)
+
+## Ideas for how to use RLTK
+
+### Instructors
+
+#### Lesson preparation
+
+- `Vocabulary`: Identify 8–12 high‑value lemmas in the target text using Vocabulary keyness to build a focused pre‑teaching list.
+- `Grammar highlighter`: Verify the density and distribution of a single target feature (e.g., participles) before class.
+- `Translations and tables`: Copy-paste stressed paradigms to your own materials.
+- Other ideas?
+
+#### In-class activities
+
+- Grammar-Translation Method: Read, translate, identify grammatical form/use. Focus on form/structure.
+  - Does NOT have to be teacher-centered!
+- Discreet grammar highlighting/noticing: have Reading Tutor ready on projector to help correct grammar misunderstandings as students read and discuss a text together.
+  - No need to stop and discuss grammar; just click and clarify as needed.
+- Guided noticing: students click a curated set of words and summarize the form‑meaning mapping aloud.
+- Group paradigm work: groups/individuals write paradigm tables, then verify with Reading Tutor.
+- Other ideas?
+
+#### Homework assignments
+
+- Vocabulary identification: students use `Expected frequency` and `Keyness` to choose new vocabulary to learn.
+- Low‑stakes quiz: students identify and submit their own mistakes while using Reading Activities (e.g., stressed syllables after RLTK stress "hover" annotation)
+- Other ideas?
+
+### Learners
+
+- Build a personal vocabulary list by sorting keyness and selecting 10–15 lemmas per week.
+- Use `Translations and tables` for immediate form‑meaning mapping instead of guessing from context alone.
+- Practice metalinguistic awareness: explain why a form is chosen in its sentence.
+- Track progress by re‑reading the same text and noting reduced reliance on clicks.
+- `Grammar highlighter`: Focus attention on a single structure during extensive reading.
+
+## Future directions
+
+- More activity topics (e.g., verbs of motion, vocabulary quiz, etc.)
+- Export vocabulary lists and tables for use in other applications (e.g., Anki, Quizlet, etc.)
+- Add stress annotation to Reading Tutor (currently only available in the Word Stress activity)
+- Track errors during Reading Activities and provide summaries to learners.
+- UI/UX improvements
+  - More fun and engaging design
+  - Adjustable font size (currently quite small)
+- You tell me!
+
+### Directions I am NOT pursuing
+
+- User accounts, data collection, and personalized learning
+  - privacy
+  - Deployment complexity (server/database) leads to app failure
+- Integrating LLMs/AI
+  - avoid the complexity and cost of integrating LLMs/AI
+  - avoid potential for unreliable performance and inappropriate content.
+  - I may be persuaded once powerful LLMs can be run locally, but currently they are MUCH too large for most personal computers.
 
 ## How it works (overview)
 
@@ -72,15 +140,15 @@ Rule-based approach. ("Don't guess if you know.")
 
 My FST is a (mostly) complete implementation of Zaliznjak's 1977 "Grammatical dictionary of Russian" (>110,000 entries).
 
-> па́почка ж 3*a (_уменьш. к_ папка)
-> па́почка мо <жо 3*a> (_уменьш. к_ папка)
-> засты́ть св нп 15a [//__засты́нуть__] ◑III
-> су́мка ж 1*b
-> мо́ре ср 2*c
-> краси́вый прил 4*b
-> бе́лый прил 3*c
-> говори́ть нсв 5*a
-> сказа́ть св 6*c
+- па́почка ж 3*a (_уменьш. к_ папка)
+- па́почка мо <жо 3*a> (_уменьш. к_ папка)
+- засты́ть св нп 15a [//__засты́нуть__] ◑III
+- су́мка ж 1*b
+- мо́ре ср 2*c
+- краси́вый прил 4*b
+- бе́лый прил 3*c
+- говори́ть нсв 5*a
+- сказа́ть св 6*c
 
 - Headword + stress marks — the lemma with accent position (critical in Russian morphology/phonology)
 - Part of speech and grammatical categories — e.g., ж (feminine), ср (neuter), нсв (imperfective), св (perfective)
@@ -154,36 +222,3 @@ robust derivation of phonetic wordforms (graph2phone or g2p). In 2019, Konnor
 Peterson work with me on a humgrant to develop a TWO-Level morphology (twolc)
 that compiles into a finite-state transducer that converts stressed Russian
 wordforms into the Russian Phonetic Alphabet.
-
-## Ideas for how to use RLTK
-
-### Instructors
-
-#### Lesson preparation
-
-- `Vocabulary`: Identify 8–12 high‑value lemmas in the target text using Vocabulary keyness to build a focused pre‑teaching list.
-- `Grammar highlighter`: Verify the density and distribution of a single target feature (e.g., participles) before class.
-- `Translations and tables`: Create a short “contrast set” list by exporting paradigms for 2–3 representative words to support noticing.
-
-#### In-class activities
-
-- Guided noticing: students click a curated set of tokens and summarize the form‑meaning mapping aloud.
-- Retrieval practice: quick “spot and explain” rounds using Reading tutor tables for target forms.
-- Collaborative error analysis: groups predict paradigm slots, then verify with generated tables.
-- Task‑based reading: students answer comprehension questions that require attention to marked forms.
-- Pair work: one student controls RLTK, the other verbalizes rules and checks.
-
-#### Homework assignments
-
-- Extensive reading with checkpoints: students click 10 unfamiliar tokens and log translations + lemmas.
-- Spaced review: students revisit a text and use keyness to choose new vocabulary targets.
-- Focused practice: assign one feature (e.g., noun cases) and submit three paradigm screenshots.
-- Low‑stakes quiz: students identify stressed syllables after RLTK stress "hover" annotation.
-
-### Learners
-
-- Build a personal vocabulary list by sorting keyness and selecting 10–15 lemmas per week.
-- Use `Translations and tables` for immediate form‑meaning mapping instead of guessing from context alone.
-- Practice metalinguistic awareness: explain why a form is chosen in its sentence.
-- Track progress by re‑reading the same text and noting reduced reliance on clicks.
-- `Grammar highlighter`: Focus attention on a single structure during extensive reading.
