@@ -20,7 +20,8 @@ const test = base.test.extend({
     const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
     await use(serviceWorker);
   }, { scope: 'worker' }],
-  page: async ({ browserContext }, use) => {
+  page: async ({ browserContext, extensionId }, use) => {
+    void extensionId; // ensure extensionId (worker-scoped) initializes before this test-scoped fixture
     const page = await browserContext.newPage();
     await use(page);
     await page.close();

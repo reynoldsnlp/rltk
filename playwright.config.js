@@ -9,12 +9,12 @@ module.exports = defineConfig({
   reporter: 'list',
   use: {
     trace: 'on-first-retry',
-    baseURL: 'http://127.0.0.1:8080',
+    baseURL: 'http://127.0.0.1:19876',
   },
   webServer: {
     command: 'node tests/e2e/server.js',
-    port: 8080,
-    reuseExistingServer: !process.env.CI,
+    port: 19876,
+    reuseExistingServer: false,
   },
   projects: [
     {

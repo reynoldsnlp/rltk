@@ -18,6 +18,11 @@ fi
 
 ./scripts/preflight-offscreen-resources.sh
 
+# Kill any process left over from a previous interrupted run that is still
+# holding port 19876 open. Without this, reuseExistingServer would silently
+# reuse the hung process and all page.goto() calls would time out.
+lsof -ti tcp:19876 | xargs kill 2>/dev/null || true
+
 if command -v xvfb-run >/dev/null 2>&1; then
   xvfb-run -a npm exec playwright test -- --workers=1 --retries=1 "$@"
 else

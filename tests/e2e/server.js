@@ -5,12 +5,13 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 8080;
+const PORT = 19876;
 const DOCS_ROOT = path.join(__dirname, '../../docs');
 
 const server = http.createServer((req, res) => {
-    let filePath = path.join(DOCS_ROOT, req.url === '/' ? 'index.html' : req.url);
-    
+    const urlPath = new URL(req.url, 'http://localhost').pathname;
+    let filePath = path.join(DOCS_ROOT, urlPath === '/' ? 'index.html' : urlPath);
+
     const extname = path.extname(filePath);
     let contentType = 'text/html';
     switch (extname) {
@@ -38,8 +39,8 @@ const server = http.createServer((req, res) => {
 });
 
 if (require.main === module) {
-    server.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}/`);
+    server.listen(PORT, '127.0.0.1', () => {
+        console.log(`Server running at http://127.0.0.1:${PORT}/`);
     });
 }
 

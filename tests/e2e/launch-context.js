@@ -38,8 +38,8 @@ async function closeNonKeepAlivePages(browserContext) {
 }
 
 async function ensureExtensionReady(browserContext) {
-  const serviceWorker = browserContext.serviceWorkers()[0]
-    || await browserContext.waitForEvent('serviceworker');
+  const existing = browserContext.serviceWorkers()[0];
+  const serviceWorker = existing || await browserContext.waitForEvent('serviceworker');
   const swUrl = serviceWorker.url();
   const extensionId = swUrl.split('/')[2];
 
@@ -52,6 +52,19 @@ async function ensureExtensionReady(browserContext) {
     );
   } finally {
     await probePage.close();
+  }
+
+  // Warm-up: navigate to the fixture server so Chrome is fully settled before
+  // any test calls page.goto(). Without this the very first navigation can hang
+  // or get ERR_ABORTED while Chrome is still transitioning from the extension
+  // probe page.
+  const warmupPage = await browserContext.newPage();
+  try {
+    await warmupPage.goto('http://127.0.0.1:19876/', { timeout: 10000 });
+  } catch (_) {
+    // Non-fatal: warm-up is best-effort.
+  } finally {
+    await warmupPage.close();
   }
 
   return { serviceWorker, extensionId };

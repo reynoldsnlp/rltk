@@ -10,7 +10,9 @@ async function waitForFixtureTabId(browserContext, fixtureUrl, options = {}) {
       return exact.length > 0 ? exact[0].id : null;
     }, fixtureUrl);
 
-    if (tabId) return tabId;
+    if (tabId) {
+      return tabId;
+    }
     await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
 
