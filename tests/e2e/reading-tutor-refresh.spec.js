@@ -10,7 +10,7 @@ test.describe('Reading Tutor refresh observer', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  test('auto reanalysis runs when content changes', async ({ page, browserContext, extensionId }, testInfo) => {
+  test('changes detected highlights refresh button with tooltip, manual click re-analyzes', async ({ page, browserContext, extensionId }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL;
     const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;
 
@@ -36,7 +36,15 @@ test.describe('Reading Tutor refresh observer', () => {
     });
 
     await expect(refreshButton).toHaveAttribute('data-dirty', 'true', { timeout: 20000 });
-    await expect(refreshButton).not.toHaveAttribute('data-dirty', { timeout: 60000 });
+    await expect(refreshButton).toHaveAttribute('title', 'Changes detected. Click to refresh the analysis.');
+
+    // Verify no auto-refresh occurs (dirty state persists)
+    await sidePanelPage.waitForTimeout(2000);
+    await expect(refreshButton).toHaveAttribute('data-dirty', 'true');
+
+    // Manually click refresh and verify re-analysis
+    await refreshButton.click();
+    await expect(refreshButton).not.toHaveAttribute('data-dirty', { timeout: 5000 });
 
     await page.waitForFunction(() => {
       return Array.from(document.querySelectorAll('.ʁ-reading-tutor'))

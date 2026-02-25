@@ -44,7 +44,6 @@ class RussianToolsSidePanel {
         this.readingTutorDirty = false;
         this.readingTutorProcessing = false;
         this.readingTutorPaused = false;
-        this.readingTutorAutoRefreshTimer = null;
         this.readingTutorBatchInProgress = false;
         this.readingTutorBatchProgress = null;
         this.analysisWarning = null;
@@ -906,8 +905,13 @@ class RussianToolsSidePanel {
         if (refreshButton) {
             if (this.readingTutorDirty) {
                 refreshButton.setAttribute('data-dirty', 'true');
+                const tooltip = 'Changes detected. Click to refresh the analysis.';
+                refreshButton.setAttribute('title', tooltip);
+                refreshButton.setAttribute('aria-label', tooltip);
             } else {
                 refreshButton.removeAttribute('data-dirty');
+                refreshButton.setAttribute('title', 'Force re-analysis of page');
+                refreshButton.setAttribute('aria-label', 'Force re-analysis of page');
             }
         }
         if (!this.isApplyingTabState) {
@@ -1009,21 +1013,6 @@ class RussianToolsSidePanel {
         const current = Math.min(total, Math.max(1, processed + 1));
         progressLabel.textContent = `${current}/${total}`;
         progressLabel.style.display = 'inline-flex';
-    }
-
-    scheduleReadingTutorAutoRefresh() {
-        if (this.readingTutorAutoRefreshTimer) {
-            clearTimeout(this.readingTutorAutoRefreshTimer);
-        }
-        this.readingTutorAutoRefreshTimer = setTimeout(async () => {
-            if (this.currentTab !== 'reading-tutor') return;
-            if (this.readingTutorPaused) return;
-            if (this.readingTutorProcessing) {
-                this.scheduleReadingTutorAutoRefresh();
-                return;
-            }
-            await this.activateReadingTutor({ force: true, auto: true });
-        }, 800);
     }
 
     async pauseReadingTutorProcessing() {
@@ -1509,7 +1498,6 @@ class RussianToolsSidePanel {
                 if (message.hash) {
                     this.readingTutorValidationHash = message.hash;
                 }
-                this.scheduleReadingTutorAutoRefresh();
             }
         });
 
