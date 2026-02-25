@@ -1454,6 +1454,13 @@
                 sendResponse({ success: true });
                 break;
 
+            case 'reading_tutor_set_stress':
+                if (window.setReadingTutorStressMode) {
+                    window.setReadingTutorStressMode(request.mode || 'none');
+                }
+                sendResponse({ success: true });
+                break;
+
             // case 'set_grammar_explorer_active':
             //     isGrammarExplorerActive = request.active;
             //     sendResponse({ success: true });

@@ -283,6 +283,9 @@
     // Backward compatibility alias (if any config still requests cloze for word-stress)
     window.EnhanceFuncs["word-stress-cloze"] = window.EnhanceFuncs["word-stress-hover"];
 
+    // Expose helpers for use by reading-tutor.js
+    window.rltkStress = { analyzeStress, createAmbiguousTooltip };
+
     // 4. Multiple Choice Activity
     function generateStressDistractors(surfaceForm) {
         const vowels = ['а', 'е', 'ё', 'и', 'о', 'у', 'ы', 'э', 'ю', 'я', 'А', 'Е', 'Ё', 'И', 'О', 'У', 'Ы', 'Э', 'Ю', 'Я'];

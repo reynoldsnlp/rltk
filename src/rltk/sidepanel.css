@@ -429,6 +429,17 @@ datalist#density-ticks option {
     justify-content: flex-start;
 }
 
+.reading-tutor-stress-select {
+    margin-left: auto;
+    font-size: 12px;
+    padding: 2px 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #fff;
+    color: #333;
+}
+
 .reading-tutor-refresh {
     border: 1px solid #ccc;
     background: #fff;

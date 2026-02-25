@@ -11,6 +11,75 @@
 (function() {
     'use strict';
 
+    let currentStressMode = 'none'; // 'none' | 'mark' | 'hover'
+
+    function applyStressModeToSpan(span, mode) {
+        if (span.__rltkStressEnter) {
+            span.removeEventListener('mouseenter', span.__rltkStressEnter);
+            span.__rltkStressEnter = null;
+        }
+        if (span.__rltkStressLeave) {
+            span.removeEventListener('mouseleave', span.__rltkStressLeave);
+            span.__rltkStressLeave = null;
+        }
+
+        const originalText = span.dataset.originalText;
+        if (originalText !== undefined) span.textContent = originalText;
+        span.classList.remove('click-style-correct');
+        span.removeAttribute('title');
+        span.style.cursor = 'pointer';
+
+        if (mode === 'none') return;
+
+        const status  = span.dataset.stressStatus;
+        const form    = span.dataset.stressForm;
+        const tooltip = span.dataset.stressTooltip;
+
+        if (!status || status === 'loading') return;
+
+        if (mode === 'mark') {
+            if (status === 'unambiguous' && form) {
+                const cap = window.RLTKUtils.detectCapitalization(originalText);
+                span.textContent = window.RLTKUtils.matchCapitalization(form, cap);
+            } else if (status === 'ambiguous') {
+                span.style.cursor = 'help';
+                if (tooltip) span.title = tooltip;
+            } else {
+                span.style.cursor = 'not-allowed';
+            }
+        } else if (mode === 'hover') {
+            if (status === 'ambiguous') {
+                span.style.cursor = 'help';
+                if (tooltip) span.title = tooltip;
+            } else if (status === 'unknown') {
+                span.style.cursor = 'not-allowed';
+            }
+            if (status === 'unambiguous' && form && originalText !== undefined) {
+                const cap = window.RLTKUtils.detectCapitalization(originalText);
+                const cappedForm = window.RLTKUtils.matchCapitalization(form, cap);
+                const enterHandler = () => {
+                    span.textContent = cappedForm;
+                    span.classList.add('click-style-correct');
+                };
+                const leaveHandler = () => {
+                    span.textContent = originalText;
+                    span.classList.remove('click-style-correct');
+                };
+                span.addEventListener('mouseenter', enterHandler);
+                span.addEventListener('mouseleave', leaveHandler);
+                span.__rltkStressEnter = enterHandler;
+                span.__rltkStressLeave = leaveHandler;
+            }
+        }
+    }
+
+    window.setReadingTutorStressMode = function(mode) {
+        currentStressMode = mode || 'none';
+        document.querySelectorAll('.ʁ-reading-tutor').forEach(span => {
+            applyStressModeToSpan(span, currentStressMode);
+        });
+    };
+
     // Reading Tutor filter function
     // Accept any token that has readings and is a word
     window.FilterFuncs["reading-tutor"] = function(cohort) {
@@ -79,6 +148,24 @@
 
         // Store readings in data attribute
         span.setAttribute('data-readings', JSON.stringify(cohort.rs || []));
+
+        // Pre-compute stress asynchronously and cache on span
+        span.dataset.originalText = originalText;
+        span.dataset.stressStatus = 'loading';
+        if (window.rltkStress) {
+            (async () => {
+                const analysis = await window.rltkStress.analyzeStress(originalText, cohort);
+                span.dataset.stressStatus = analysis.status;
+                if (analysis.status === 'unambiguous') {
+                    span.dataset.stressForm = analysis.form;
+                } else if (analysis.status === 'ambiguous') {
+                    span.dataset.stressTooltip = window.rltkStress.createAmbiguousTooltip(analysis);
+                }
+                if (currentStressMode !== 'none') {
+                    applyStressModeToSpan(span, currentStressMode);
+                }
+            })();
+        }
 
         span.addEventListener('click', function(e) {
             e.stopPropagation();

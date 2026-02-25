@@ -42,6 +42,7 @@ class RussianToolsSidePanel {
         this.lastRootsSummary = null;
         this.spanClickOverride = false;
         this.readingTutorDirty = false;
+        this.readingTutorStressMode = 'none';
         this.readingTutorProcessing = false;
         this.readingTutorPaused = false;
         this.readingTutorBatchInProgress = false;
@@ -331,6 +332,16 @@ class RussianToolsSidePanel {
             },
             defaultValue: { enabled: false }
         });
+
+        this.registerTabState('readingTutorStress', {
+            order: 29,
+            capture: () => ({ mode: this.readingTutorStressMode || 'none' }),
+            apply: (value) => {
+                this.setReadingTutorStressMode((value && value.mode) || 'none');
+            },
+            defaultValue: { mode: 'none' }
+        });
+
         this.registerTabState('ui', {
             order: 20,
             capture: () => ({
@@ -919,7 +930,24 @@ class RussianToolsSidePanel {
         }
     }
 
+    setReadingTutorStressMode(mode) {
+        this.readingTutorStressMode = mode || 'none';
+        const stressSelect = document.getElementById('reading-tutor-stress');
+        if (stressSelect) stressSelect.value = this.readingTutorStressMode;
+        const targetTabId = this.debugTabId || this.currentTabId;
+        if (targetTabId) {
+            chrome.tabs.sendMessage(targetTabId, {
+                action: 'reading_tutor_set_stress',
+                mode: this.readingTutorStressMode
+            }).catch(() => {});
+        }
+        if (!this.isApplyingTabState) {
+            this.saveTabState();
+        }
+    }
+
     setReadingTutorProcessing(isProcessing) {
+        const wasProcessing = this.readingTutorProcessing;
         this.readingTutorProcessing = !!isProcessing;
         const refreshButton = document.getElementById('reading-tutor-refresh');
         const spinner = document.getElementById('reading-tutor-spinner');
@@ -944,6 +972,9 @@ class RussianToolsSidePanel {
         this.updateAnalysisWarningUI();
         if (!isProcessing && this.currentTab === 'reading-tutor' && this.lastReadingTutorSubTab === 'vocabulary') {
             this.updateVocabularyTable();
+        }
+        if (wasProcessing && !isProcessing && !this.isApplyingTabState && this.readingTutorStressMode !== 'none') {
+            this.setReadingTutorStressMode(this.readingTutorStressMode);
         }
     }
 
@@ -1564,6 +1595,13 @@ class RussianToolsSidePanel {
                 if (instructions) instructions.style.display = 'none';
                 this.readingTutorInstructionsDismissed = true;
                 this.saveTabState();
+            });
+        }
+
+        const stressSelect = document.getElementById('reading-tutor-stress');
+        if (stressSelect) {
+            stressSelect.addEventListener('change', () => {
+                this.setReadingTutorStressMode(stressSelect.value);
             });
         }
 
