@@ -24,10 +24,13 @@ test.describe('Reading Tutor refresh observer', () => {
     await waitForSidePanelReady(sidePanelPage);
 
     const refreshButton = sidePanelPage.locator('#reading-tutor-refresh');
+    const refreshWrapper = sidePanelPage.locator('#reading-tutor-refresh-wrapper');
     await expect(refreshButton).toBeVisible({ timeout: 20000 });
     await expect(refreshButton).toHaveAttribute('title', 'Force re-analysis of page');
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    // The wrapper is hidden during processing and visible when done — a reliable completion signal.
+    await expect(refreshWrapper).toBeVisible({ timeout: 10000 });
     await expect(refreshButton).not.toHaveAttribute('data-dirty');
 
     await page.evaluate(() => {
@@ -48,7 +51,13 @@ test.describe('Reading Tutor refresh observer', () => {
 
     await page.waitForFunction(() => {
       return Array.from(document.querySelectorAll('.ʁ-reading-tutor'))
-        .some((el) => (el.textContent || '').includes('обновленный'));
+        .some((el) => {
+          // dataset.originalText is always the un-stressed original; fall back to
+          // normalized textContent to strip combining stress marks (U+0300-U+036F).
+          const orig = el.dataset.originalText;
+          if (orig !== undefined) return orig.includes('обновленный');
+          return (el.textContent || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes('обновленный');
+        });
     }, { timeout: 60000 });
   });
 

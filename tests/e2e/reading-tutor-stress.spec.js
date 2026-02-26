@@ -20,7 +20,7 @@ test.describe('Reading Tutor stress select', () => {
     return sidePanelPage;
   }
 
-  test('stress select is present and defaults to No stress', async ({ page, browserContext, extensionId }, testInfo) => {
+  test('stress select is present and defaults to Mark stress', async ({ page, browserContext, extensionId }, testInfo) => {
     const fixtureUrl = `${testInfo.project.use.baseURL}/tests/fixtures/reading-tutor-mutation.html`;
     await page.goto(fixtureUrl);
     await page.bringToFront();
@@ -30,7 +30,7 @@ test.describe('Reading Tutor stress select', () => {
 
     const stressSelect = sidePanelPage.locator('#reading-tutor-stress');
     await expect(stressSelect).toBeVisible();
-    await expect(stressSelect).toHaveValue('none');
+    await expect(stressSelect).toHaveValue('mark');
   });
 
   test('Mark stress shows accent marks in reading tutor spans', async ({ page, browserContext, extensionId }, testInfo) => {

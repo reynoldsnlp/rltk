@@ -21,9 +21,14 @@
         <div id="reading-tutor-tab" class="tab-content active">
             <div class="sub-tab-navigation">
                 <div id="reading-tutor-controls" class="reading-tutor-controls">
-                    <button id="reading-tutor-refresh" class="reading-tutor-refresh" title="Force re-analysis of page" aria-label="Force re-analysis of page">
-                        <img class="reading-tutor-refresh-icon" src="resources/img/refresh.svg" alt="" aria-hidden="true" />
-                    </button>
+                    <div id="reading-tutor-refresh-wrapper" class="reading-tutor-refresh-wrapper">
+                        <button id="reading-tutor-refresh" class="reading-tutor-refresh" title="Force re-analysis of page" aria-label="Force re-analysis of page">
+                            <img class="reading-tutor-refresh-icon reading-tutor-icon-refresh" src="resources/img/refresh.svg" alt="" aria-hidden="true" />
+                            <img class="reading-tutor-refresh-icon reading-tutor-icon-play" src="resources/img/play.svg" alt="" aria-hidden="true" style="display:none" />
+                            <span class="reading-tutor-icon-stop" aria-hidden="true" style="display:none">✕</span>
+                        </button>
+                        <div id="reading-tutor-selection-badge" class="reading-tutor-selection-badge" aria-hidden="true">selection</div>
+                    </div>
                     <button id="reading-tutor-pause" class="reading-tutor-pause" title="Pause analysis" aria-label="Pause analysis">
                         <img class="reading-tutor-pause-icon" src="resources/img/pause.svg" alt="" aria-hidden="true" />
                     </button>
@@ -37,7 +42,7 @@
                     <select id="reading-tutor-stress" class="reading-tutor-stress-select"
                             title="Stress display mode" aria-label="Stress display mode">
                         <option value="none">No stress</option>
-                        <option value="mark">Mark stress</option>
+                        <option value="mark" selected>Mark stress</option>
                         <option value="hover">Hover stress</option>
                     </select>
                 </div>

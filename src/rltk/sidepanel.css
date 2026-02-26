@@ -453,6 +453,7 @@ datalist#density-ticks option {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .reading-tutor-refresh-icon {
@@ -468,6 +469,83 @@ datalist#density-ticks option {
 
 .reading-tutor-refresh:hover {
     background: #f6f6f6;
+}
+
+/* Wrapper holds button + sliding selection badge as a connected pill */
+.reading-tutor-refresh-wrapper {
+    display: inline-flex;
+    align-items: stretch;
+}
+
+/* Flatten button's right side when badge is visible */
+.reading-tutor-refresh-wrapper.badge-visible .reading-tutor-refresh {
+    border-radius: 14px 0 0 14px;
+    border-right: none;
+}
+
+/* Play mode: blue button + white icons */
+.reading-tutor-refresh-wrapper.play-mode .reading-tutor-refresh {
+    background: #1976d2;
+    border-color: #1976d2;
+    color: white;
+}
+.reading-tutor-refresh-wrapper.play-mode:hover .reading-tutor-refresh {
+    background: #1565c0;
+    border-color: #1565c0;
+}
+.reading-tutor-refresh-wrapper.play-mode:hover .reading-tutor-selection-badge {
+    background: #1565c0;
+}
+.reading-tutor-refresh-wrapper.play-mode .reading-tutor-icon-play {
+    filter: brightness(0) invert(1);
+}
+
+/* Analyzed mode: gray button + white icons */
+.reading-tutor-refresh-wrapper.analyzed-mode .reading-tutor-refresh {
+    background: #888;
+    border-color: #888;
+    color: white;
+}
+.reading-tutor-refresh-wrapper.analyzed-mode:hover .reading-tutor-refresh {
+    background: #777;
+    border-color: #777;
+}
+.reading-tutor-refresh-wrapper.analyzed-mode:hover .reading-tutor-selection-badge {
+    background: #777;
+}
+
+/* Sliding badge — hidden by default via max-width trick */
+.reading-tutor-selection-badge {
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+    max-width: 0;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    background: #1976d2;
+    border-radius: 0 14px 14px 0;
+    white-space: nowrap;
+    transition: max-width 0.25s ease, padding 0.25s ease,
+                background 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.reading-tutor-selection-badge.visible {
+    max-width: 80px;
+    padding: 0 8px 0 5px;
+}
+
+.reading-tutor-selection-badge.analyzed {
+    background: #888;
+}
+
+/* Stop (X) icon sizing */
+.reading-tutor-icon-stop {
+    font-size: 14px;
+    line-height: 1;
 }
 
 .reading-tutor-analysis-warning {

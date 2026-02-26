@@ -887,6 +887,12 @@
         const explorerStyles = document.getElementById('rltk-reading-tutor-styles');
         if (explorerStyles) explorerStyles.remove();
 
+        const selBoundaryStyle = document.getElementById('rltk-selection-boundary-style');
+        if (selBoundaryStyle) selBoundaryStyle.remove();
+        document.querySelectorAll('.rltk-selection-boundary').forEach(el => {
+            el.classList.remove('rltk-selection-boundary');
+        });
+
         // Remove all highlighting by removing spans with ʁ class
         document.querySelectorAll('.ʁ').forEach(span => {
             const parent = span.parentNode;
@@ -1381,6 +1387,75 @@
             case 'get_selection_state':
                 sendResponse({ success: true, hasSelection: hasNonEmptySelection() });
                 break;
+
+            case 'clear_selection':
+                window.getSelection().removeAllRanges();
+                sendResponse({ success: true });
+                break;
+
+            case 'set_selection_boundary_style': {
+                // Remove any previous boundary markers.
+                const existingBoundary = document.getElementById('rltk-selection-boundary-style');
+                if (existingBoundary) existingBoundary.remove();
+                document.querySelectorAll('.rltk-selection-boundary').forEach(el => {
+                    el.classList.remove('rltk-selection-boundary');
+                });
+
+                // Walk up from each analyzed span to its nearest block-level ancestor
+                // and mark that ancestor, so the border covers the whole paragraph/block.
+                const BLOCK_DISPLAY = new Set([
+                    'block', 'flex', 'grid', 'table', 'table-cell', 'table-caption', 'list-item'
+                ]);
+                const marked = new Set();
+                document.querySelectorAll('.ʁ-reading-tutor').forEach(span => {
+                    let el = span.parentElement;
+                    while (el && el !== document.body) {
+                        if (BLOCK_DISPLAY.has(getComputedStyle(el).display)) {
+                            marked.add(el);
+                            break;
+                        }
+                        el = el.parentElement;
+                    }
+                });
+                marked.forEach(el => el.classList.add('rltk-selection-boundary'));
+
+                if (marked.size > 0) {
+                    const style = document.createElement('style');
+                    style.id = 'rltk-selection-boundary-style';
+                    style.textContent = '.rltk-selection-boundary { border-left: 3px solid orange; }';
+                    document.head.appendChild(style);
+                }
+                sendResponse({ success: true });
+                break;
+            }
+
+            case 'get_selection_text':
+                sendResponse({ success: true, text: window.getSelection().toString() });
+                break;
+
+            case 'select_text': {
+                const selText = request.text;
+                if (!selText) { sendResponse({ success: false }); break; }
+                document.body.normalize();
+                const selWalker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                let selFound = false;
+                while (selWalker.nextNode()) {
+                    const node = selWalker.currentNode;
+                    const idx = node.nodeValue.indexOf(selText);
+                    if (idx !== -1) {
+                        const range = document.createRange();
+                        range.setStart(node, idx);
+                        range.setEnd(node, idx + selText.length);
+                        window.getSelection().removeAllRanges();
+                        window.getSelection().addRange(range);
+                        document.dispatchEvent(new Event('selectionchange'));
+                        selFound = true;
+                        break;
+                    }
+                }
+                sendResponse({ success: selFound });
+                break;
+            }
 
             case 'update_grammar_highlighter_styles':
                 let style = document.getElementById('rltk-grammar-highlighter-styles');

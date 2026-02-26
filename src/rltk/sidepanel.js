@@ -42,7 +42,9 @@ class RussianToolsSidePanel {
         this.lastRootsSummary = null;
         this.spanClickOverride = false;
         this.readingTutorDirty = false;
-        this.readingTutorStressMode = 'none';
+        this.readingTutorStressMode = 'mark';
+        this.readingTutorSelectionAnalysisActive = false;
+        this.pendingSelectionAnalysis = false;
         this.readingTutorProcessing = false;
         this.readingTutorPaused = false;
         this.readingTutorBatchInProgress = false;
@@ -335,11 +337,11 @@ class RussianToolsSidePanel {
 
         this.registerTabState('readingTutorStress', {
             order: 29,
-            capture: () => ({ mode: this.readingTutorStressMode || 'none' }),
+            capture: () => ({ mode: this.readingTutorStressMode || 'mark' }),
             apply: (value) => {
-                this.setReadingTutorStressMode((value && value.mode) || 'none');
+                this.setReadingTutorStressMode((value && value.mode) || 'mark');
             },
-            defaultValue: { mode: 'none' }
+            defaultValue: { mode: 'mark' }
         });
 
         this.registerTabState('ui', {
@@ -850,6 +852,54 @@ class RussianToolsSidePanel {
         this.hasSelection = !!hasSelection;
         this.updateEnhanceButtonLabel();
         this.scheduleTabStateSave();
+        if (this.readingTutorSelectionAnalysisActive && hasSelection) {
+            // New selection while in X mode — drop back to play mode.
+            this.readingTutorSelectionAnalysisActive = false;
+            this.updateSelectionUI();
+        } else if (!this.readingTutorSelectionAnalysisActive) {
+            this.updateSelectionUI();
+        }
+    }
+
+    updateSelectionUI() {
+        const wrapper       = document.getElementById('reading-tutor-refresh-wrapper');
+        const refreshIcon   = document.querySelector('.reading-tutor-icon-refresh');
+        const playIcon      = document.querySelector('.reading-tutor-icon-play');
+        const stopIcon      = document.querySelector('.reading-tutor-icon-stop');
+        const badge         = document.getElementById('reading-tutor-selection-badge');
+        const refreshButton = document.getElementById('reading-tutor-refresh');
+
+        if (this.readingTutorSelectionAnalysisActive) {
+            if (refreshIcon) refreshIcon.style.display = 'none';
+            if (playIcon)    playIcon.style.display    = 'none';
+            if (stopIcon)    stopIcon.style.display    = '';
+            if (wrapper)     { wrapper.classList.add('badge-visible', 'analyzed-mode'); wrapper.classList.remove('play-mode'); }
+            if (badge)     { badge.classList.add('visible', 'analyzed'); }
+            if (refreshButton) {
+                refreshButton.title = 'Re-analyze full page';
+                refreshButton.setAttribute('aria-label', 'Re-analyze full page');
+            }
+        } else if (this.hasSelection && this.currentTab === 'reading-tutor') {
+            if (refreshIcon) refreshIcon.style.display = 'none';
+            if (playIcon)    playIcon.style.display    = '';
+            if (stopIcon)    stopIcon.style.display    = 'none';
+            if (wrapper)     { wrapper.classList.add('badge-visible', 'play-mode'); wrapper.classList.remove('analyzed-mode'); }
+            if (badge)     { badge.classList.add('visible'); badge.classList.remove('analyzed'); }
+            if (refreshButton) {
+                refreshButton.title = 'Analyze selected text only';
+                refreshButton.setAttribute('aria-label', 'Analyze selected text only');
+            }
+        } else {
+            if (refreshIcon) refreshIcon.style.display = '';
+            if (playIcon)    playIcon.style.display    = 'none';
+            if (stopIcon)    stopIcon.style.display    = 'none';
+            if (wrapper)     { wrapper.classList.remove('badge-visible', 'play-mode', 'analyzed-mode'); }
+            if (badge)     { badge.classList.remove('visible', 'analyzed'); }
+            if (refreshButton) {
+                refreshButton.title = 'Force re-analysis of page';
+                refreshButton.setAttribute('aria-label', 'Force re-analysis of page');
+            }
+        }
     }
 
     async syncSelectionStateFromTab(tabId = null) {
@@ -931,7 +981,7 @@ class RussianToolsSidePanel {
     }
 
     setReadingTutorStressMode(mode) {
-        this.readingTutorStressMode = mode || 'none';
+        this.readingTutorStressMode = mode || 'mark';
         const stressSelect = document.getElementById('reading-tutor-stress');
         if (stressSelect) stressSelect.value = this.readingTutorStressMode;
         const targetTabId = this.debugTabId || this.currentTabId;
@@ -959,7 +1009,8 @@ class RussianToolsSidePanel {
             return;
         }
 
-        if (refreshButton) refreshButton.style.display = isProcessing ? 'none' : 'inline-flex';
+        const refreshWrapper = document.getElementById('reading-tutor-refresh-wrapper');
+        if (refreshWrapper) refreshWrapper.style.display = isProcessing ? 'none' : 'inline-flex';
         if (spinner) {
             spinner.style.display = 'inline-flex';
             spinner.style.visibility = isProcessing ? 'visible' : 'hidden';
@@ -976,6 +1027,18 @@ class RussianToolsSidePanel {
         if (wasProcessing && !isProcessing && !this.isApplyingTabState && this.readingTutorStressMode !== 'none') {
             this.setReadingTutorStressMode(this.readingTutorStressMode);
         }
+        if (wasProcessing && !isProcessing && this.pendingSelectionAnalysis) {
+            this.readingTutorSelectionAnalysisActive = true;
+            this.pendingSelectionAnalysis = false;
+            this.updateSelectionUI();
+            const clearTabId = this.debugTabId || this.currentTabId;
+            if (clearTabId) {
+                chrome.tabs.sendMessage(clearTabId, { action: 'clear_selection' }).catch(() => {});
+                chrome.tabs.sendMessage(clearTabId, {
+                    action: 'set_selection_boundary_style'
+                }).catch(() => {});
+            }
+        }
     }
 
     setReadingTutorPaused(isPaused) {
@@ -986,6 +1049,7 @@ class RussianToolsSidePanel {
         const resumeButton = document.getElementById('reading-tutor-resume');
         const progressLabel = document.getElementById('reading-tutor-batch-progress');
 
+        const refreshWrapper = document.getElementById('reading-tutor-refresh-wrapper');
         if (isPaused) {
             if (spinner) {
                 spinner.style.display = 'inline-flex';
@@ -993,7 +1057,7 @@ class RussianToolsSidePanel {
             }
             if (pauseButton) pauseButton.style.display = 'none';
             if (resumeButton) resumeButton.style.display = 'inline-flex';
-            if (refreshButton) refreshButton.style.display = 'none';
+            if (refreshWrapper) refreshWrapper.style.display = 'none';
             if (progressLabel) {
                 progressLabel.style.display = this.readingTutorBatchInProgress ? 'inline-flex' : 'none';
             }
@@ -1003,7 +1067,7 @@ class RussianToolsSidePanel {
         if (resumeButton) resumeButton.style.display = 'none';
         const showProcessing = this.readingTutorProcessing || this.readingTutorBatchInProgress;
         if (showProcessing) {
-            if (refreshButton) refreshButton.style.display = 'none';
+            if (refreshWrapper) refreshWrapper.style.display = 'none';
             if (spinner) {
                 spinner.style.display = 'inline-flex';
                 spinner.style.visibility = 'visible';
@@ -1013,7 +1077,7 @@ class RussianToolsSidePanel {
                 progressLabel.style.display = this.readingTutorBatchInProgress ? 'inline-flex' : 'none';
             }
         } else {
-            if (refreshButton) refreshButton.style.display = 'inline-flex';
+            if (refreshWrapper) refreshWrapper.style.display = 'inline-flex';
             if (spinner) {
                 spinner.style.display = 'inline-flex';
                 spinner.style.visibility = 'hidden';
@@ -1608,15 +1672,46 @@ class RussianToolsSidePanel {
         const refreshButton = document.getElementById('reading-tutor-refresh');
         if (refreshButton) {
             refreshButton.addEventListener('click', async () => {
-                this.setReadingTutorProcessing(true);
-                this.setReadingTutorDirty(false);
-                this.clearAnalysisWarning();
-                await this.ackReadingTutorRefresh();
-                this.setReadingTutorPaused(false);
-                this.readingTutorBatchInProgress = false;
-                this.readingTutorBatchProgress = null;
-                this.updateReadingTutorBatchProgress(null);
-                await this.activateReadingTutor({ force: true });
+                const commonSetup = async () => {
+                    this.setReadingTutorProcessing(true);
+                    this.setReadingTutorDirty(false);
+                    this.clearAnalysisWarning();
+                    await this.ackReadingTutorRefresh();
+                    this.setReadingTutorPaused(false);
+                    this.readingTutorBatchInProgress = false;
+                    this.readingTutorBatchProgress = null;
+                    this.updateReadingTutorBatchProgress(null);
+                };
+
+                if (this.readingTutorSelectionAnalysisActive) {
+                    // X clicked — clear selection mode, full re-analysis
+                    this.readingTutorSelectionAnalysisActive = false;
+                    this.pendingSelectionAnalysis = false;
+                    this.updateSelectionUI();
+                    const clearTabId = this.debugTabId || this.currentTabId;
+                    if (clearTabId) {
+                        chrome.tabs.sendMessage(clearTabId, { action: 'clear_selection' }).catch(() => {});
+                    }
+                    await commonSetup();
+                    await this.activateReadingTutor({ force: true });
+                } else if (this.hasSelection && this.currentTab === 'reading-tutor') {
+                    // Play clicked — selection-only analysis
+                    this.pendingSelectionAnalysis = true;
+                    await commonSetup();
+                    await this.activateReadingTutor({ force: true, selectionOnly: true });
+                } else {
+                    // Normal refresh
+                    await commonSetup();
+                    await this.activateReadingTutor({ force: true });
+                }
+            });
+        }
+
+        const selectionBadge = document.getElementById('reading-tutor-selection-badge');
+        if (selectionBadge) {
+            selectionBadge.addEventListener('click', () => {
+                const btn = document.getElementById('reading-tutor-refresh');
+                if (btn) btn.click();
             });
         }
 
@@ -2332,6 +2427,7 @@ ${errorMessage}`);
     async activateReadingTutor(options = {}) {
         const force = !!options.force;
         const resume = !!options.resume;
+        const selectionOnly = !!options.selectionOnly;
         const activationToken = ++this.readingTutorActivationToken;
         if (!resume) {
             this.readingTutorBatchInProgress = false;
@@ -2359,7 +2455,25 @@ ${errorMessage}`);
 
         // 1. Restore page to clear any existing activity
         if (!resume) {
+            let savedSelectionText = null;
+            if (selectionOnly) {
+                const saveTabId = this.debugTabId || this.currentTabId;
+                if (saveTabId) {
+                    try {
+                        const selResp = await chrome.tabs.sendMessage(saveTabId, { action: 'get_selection_text' });
+                        if (selResp?.text?.trim()) savedSelectionText = selResp.text.trim();
+                    } catch (e) {}
+                }
+            }
             await this.restorePage();
+            if (savedSelectionText) {
+                const restoreTabId = this.debugTabId || this.currentTabId;
+                if (restoreTabId) {
+                    try {
+                        await chrome.tabs.sendMessage(restoreTabId, { action: 'select_text', text: savedSelectionText });
+                    } catch (e) {}
+                }
+            }
         }
 
         if (this.currentTab !== 'reading-tutor' || activationToken !== this.readingTutorActivationToken) return;
@@ -2387,6 +2501,7 @@ ${errorMessage}`);
                 action: 'enhance',
                 selections: selections,
                 tabId: targetTabId,
+                selectionOnly: selectionOnly || undefined,
                 resumeFromBatch: resume ? resumeFromBatch : undefined
             });
 
@@ -2431,6 +2546,7 @@ ${errorMessage}`);
             await this.ackReadingTutorRefresh(targetTabId);
             await this.sendReadingTutorWatch(true, targetTabId);
         } catch (error) {
+            this.pendingSelectionAnalysis = false;
             const errorMessage = (error && error.message) ? error.message : String(error);
             if (!this.isAccessErrorMessage(errorMessage)) {
                 console.error('Error activating Reading Tutor:', error);
