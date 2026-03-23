@@ -1204,6 +1204,7 @@ class RussianToolsSidePanel {
         this.setupEventListeners();
         this.initializeActivitySelectors();
         this.registerDefaultTabStateHandlers();
+        this.initFontSize();
 
         const urlParams = new URLSearchParams(window.location.search);
         const debugTabIdParam = urlParams.get('debugTabId');
@@ -1480,6 +1481,30 @@ class RussianToolsSidePanel {
         } catch (error) {
             // Ignore errors, likely just not enhanced or script not ready
         }
+    }
+
+    initFontSize() {
+        const ids = ['translations-and-tables-subtab', 'grammar-highlighter-subtab', 'vocabulary-subtab'];
+        const MIN = 10;
+        const setSize = (px) => ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.fontSize = px + 'px';
+        });
+        chrome.storage.local.get(['fontSize'], (result) => {
+            if (result.fontSize) setSize(parseFloat(result.fontSize));
+        });
+        document.querySelector('.font-size-up').addEventListener('click', () => {
+            const el = document.getElementById('translations-and-tables-subtab');
+            const next = parseFloat(getComputedStyle(el).fontSize) + 1;
+            setSize(next);
+            chrome.storage.local.set({ fontSize: next + 'px' });
+        });
+        document.querySelector('.font-size-down').addEventListener('click', () => {
+            const el = document.getElementById('translations-and-tables-subtab');
+            const next = Math.max(parseFloat(getComputedStyle(el).fontSize) - 1, MIN);
+            setSize(next);
+            chrome.storage.local.set({ fontSize: next + 'px' });
+        });
     }
 
     setupEventListeners() {
