@@ -756,11 +756,36 @@ class RussianToolsSidePanel {
      * Connects to the background script to track side panel lifecycle.
      */
     connectToBackground(tabId) {
-        // Establish a long-lived connection to the background script
+        // Establish a long-lived connection to the background script.
         // This allows the background script to detect when the side panel is closed (port disconnects)
-        // We include the tabId in the name so the background script knows which tab to clean up
-        const name = tabId ? `sidepanel-${tabId}` : 'sidepanel';
-        this.port = chrome.runtime.connect({ name: name });
+        // and restore every page whose DOM we modified.
+        // We include the tabId in the name so the background script knows which tab to clean up.
+        if (tabId) this.connectedTabId = tabId;
+        const name = this.connectedTabId ? `sidepanel-${this.connectedTabId}` : 'sidepanel';
+        try {
+            this.port = chrome.runtime.connect({ name: name });
+        } catch (e) {
+            this.port = null;
+            return;
+        }
+
+        this.port.onDisconnect.addListener(() => {
+            this.port = null;
+            // The port drops in two cases:
+            //   1. The side panel is closing. The page is being torn down, so the
+            //      deferred reconnect below never runs and the background proceeds
+            //      to restore modified pages. (This is the intended cleanup path.)
+            //   2. The background service worker was terminated/restarted while the
+            //      panel is still open. MV3 workers go idle aggressively, and a fresh
+            //      worker starts with no record of this panel. We must reconnect so it
+            //      keeps tracking us and can clean up when the panel really closes.
+            // Deferring via setTimeout distinguishes the two: a closing panel's JS
+            // context is destroyed before the timer fires, so only case 2 reconnects.
+            setTimeout(() => {
+                if (this.panelClosing) return;
+                this.connectToBackground();
+            }, 500);
+        });
     }
 
     async loadDensitySetting() {
@@ -1201,6 +1226,10 @@ class RussianToolsSidePanel {
      * Initializes the side panel: sets up listeners, loads state, and checks access.
      */
     async init() {
+        // Mark when the panel page is being torn down so the port's onDisconnect
+        // handler does not attempt to reconnect (which would cancel cleanup).
+        window.addEventListener('pagehide', () => { this.panelClosing = true; });
+
         this.setupEventListeners();
         this.initializeActivitySelectors();
         this.registerDefaultTabStateHandlers();
