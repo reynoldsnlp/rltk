@@ -6,6 +6,5 @@ createParadigmSuite('Verbs', [
   'verb-participle-pstpss-gen', 'verb-participle-short'
 ], {
   allowMissingIds: ['verb-eat', 'verb-doing-refl'],
-  warmupId: 'verb-do',
   timeout: 120000
 });

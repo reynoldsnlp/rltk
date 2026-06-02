@@ -6,6 +6,18 @@ test.describe('Paradigm generation during batch processing', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
+  // SKIPPED: this test's assumptions are stale and it needs a rewrite, not just
+  // un-skipping. Observed current behavior (single-lemma "книга" fixture):
+  //   1. The selection auto-expands the paradigm, so the toggle button reads "−"
+  //      (collapse). The `filter({ hasText: '+' })` locator below never matches
+  //      and the test times out at the toggle wait.
+  //   2. Batch enhancement finishes before the word is clicked (the progress
+  //      label is empty by the time the selection lands), so there is no active
+  //      batch left to observe "resuming".
+  // To restore it: drop the dependency on a "+" toggle (assert the paradigm
+  // table directly), and keep batch processing genuinely in-flight at click time
+  // (e.g. much larger input and/or a stronger rltkTestSlowEnhance) so the
+  // "resumes batch processing" assertion is actually exercised.
   test.skip('generates paradigms and resumes batch processing', async ({ page, browserContext, extensionId }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL;
     const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;

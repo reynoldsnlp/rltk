@@ -65,13 +65,17 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
 
         let selectionArrived = true;
         try {
+          // A selection normally renders in well under a second. Keep this short
+          // so a click that produced no selection (e.g. one that toggled an
+          // already-selected word back off) falls through to the deterministic
+          // service-worker re-send below quickly instead of stalling ~20s.
           await expect.poll(async () => {
             const lemmaCount = await sidePanelPage.locator('.lemma-group').count();
             if (lemmaCount > 0) return true;
             const container = sidePanelPage.locator('#reading-tutor-results');
             const text = await container.innerText().catch(() => '');
             return text.includes('Analyzing...');
-          }, { timeout: 20000 }).toBe(true);
+          }, { timeout: 5000 }).toBe(true);
         } catch (error) {
           selectionArrived = false;
         }
@@ -97,7 +101,12 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
         }
       }
 
-      if (warmupId) {
+      // Warm up generation before the asserted loop — but never with a word the
+      // loop itself will click. Clicking a reading-tutor word toggles its
+      // selection, so warming up with an id that is also in `ids` makes that id's
+      // first loop click DEselect the word, leaving the test to stall on the
+      // selection wait before recovering via the fallback.
+      if (warmupId && !ids.includes(warmupId)) {
         const warmupElement = page.locator(`#${warmupId}`);
         const warmupSpan = warmupElement.locator('.ʁ-reading-tutor').first();
         await expect(warmupSpan).toBeVisible();

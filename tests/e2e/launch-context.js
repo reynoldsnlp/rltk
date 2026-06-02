@@ -50,6 +50,21 @@ async function ensureExtensionReady(browserContext) {
       () => typeof chrome !== 'undefined' && !!chrome.runtime?.id,
       { timeout: 10000 }
     );
+
+    // Warm up the offscreen document once per worker. On first use the offscreen
+    // loads ~570MB of HFST/CG3 WASM models, and that initialization blocks its
+    // single JS thread — so the FIRST test in a cold worker otherwise races the
+    // load and flakily times out, and model requests (e.g. roots' root_parses)
+    // get starved behind it. The offscreen only answers a `generate` request
+    // after initWasmTools() resolves, so awaiting one here guarantees WASM is
+    // fully initialized before any test's timed assertions run. Best-effort and
+    // bounded so a warm-up hiccup can never hang the suite.
+    await probePage.evaluate(async () => {
+      const warm = chrome.runtime
+        .sendMessage({ action: 'generate', input: 'дом+N+Msc+Inan+Sg+Nom', useStress: false })
+        .catch(() => {});
+      await Promise.race([warm, new Promise((resolve) => setTimeout(resolve, 90000))]);
+    });
   } finally {
     await probePage.close();
   }
