@@ -39,7 +39,7 @@ async function closeNonKeepAlivePages(browserContext) {
 
 async function ensureExtensionReady(browserContext) {
   const existing = browserContext.serviceWorkers()[0];
-  const serviceWorker = existing || await browserContext.waitForEvent('serviceworker');
+  const serviceWorker = existing || await browserContext.waitForEvent('serviceworker', { timeout: 60000 });
   const swUrl = serviceWorker.url();
   const extensionId = swUrl.split('/')[2];
 

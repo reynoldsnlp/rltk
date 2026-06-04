@@ -17,7 +17,7 @@ const test = base.test.extend({
     await use(extension.extensionId);
   }, { scope: 'worker' }],
   serviceWorker: [async ({ browserContext }, use) => {
-    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker');
+    const serviceWorker = browserContext.serviceWorkers()[0] || await browserContext.waitForEvent('serviceworker', { timeout: 60000 });
     await use(serviceWorker);
   }, { scope: 'worker' }],
   page: async ({ browserContext, extensionId }, use) => {
