@@ -1136,6 +1136,19 @@ class RussianToolsSidePanel {
     }
 
     async pauseReadingTutorProcessing() {
+        // Register the paused state synchronously, before awaiting the abort
+        // round-trip. Otherwise a batch completion that races in during the
+        // await is handled while readingTutorPaused is still false and falls
+        // into the "completed && !aborted" branch, which clears the progress
+        // label and resets the paused state — the pause would lose the race.
+        // Setting it first makes the abort win: any progress arriving after is
+        // handled by the paused branch, which keeps the label visible.
+        this.readingTutorActivationToken++;
+        this.readingTutorProcessing = false;
+        this.isProcessing = false;
+        this.processingContext = null;
+        this.setReadingTutorPaused(true);
+
         const targetTabId = await this.getTargetTabId();
         if (targetTabId) {
             try {
@@ -1144,11 +1157,6 @@ class RussianToolsSidePanel {
                 // ignore
             }
         }
-        this.readingTutorActivationToken++;
-        this.readingTutorProcessing = false;
-        this.isProcessing = false;
-        this.processingContext = null;
-        this.setReadingTutorPaused(true);
         if (!this.isApplyingTabState) {
             this.saveTabState();
         }

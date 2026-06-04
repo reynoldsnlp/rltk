@@ -113,7 +113,7 @@ test.describe('Reading Tutor refresh observer', () => {
       const target = document.getElementById('target');
       if (!target) return;
       const paragraph = 'Это очень длинный текст. '.repeat(80);
-      target.innerHTML = Array.from({ length: 40 }, () => `<p>${paragraph}</p>`).join('');
+      target.innerHTML = Array.from({ length: 12 }, () => `<p>${paragraph}</p>`).join('');
     });
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
@@ -133,6 +133,11 @@ test.describe('Reading Tutor refresh observer', () => {
     await expect(spinner).toBeVisible({ timeout: 15000 });
     await expect(pauseButton).toBeVisible({ timeout: 15000 });
 
+    // Anchor the pause to batch 2 beginning, so there are still batches left to
+    // pause regardless of runner speed. The multi-batch path has no artificial
+    // per-batch delay, so on a fast runner the whole job would otherwise finish
+    // before the pause click lands.
+    await expect(progressLabel).toHaveText(/^[2-9]\d*\/\d+$/, { timeout: 15000 });
     const beforeBox = await progressLabel.boundingBox();
     expect(beforeBox).not.toBeNull();
 
@@ -193,7 +198,7 @@ test.describe('Reading Tutor refresh observer', () => {
       const target = document.getElementById('target');
       if (!target) return;
       const paragraph = 'Это очень длинный текст. '.repeat(80);
-      target.innerHTML = Array.from({ length: 40 }, () => `<p>${paragraph}</p>`).join('');
+      target.innerHTML = Array.from({ length: 12 }, () => `<p>${paragraph}</p>`).join('');
     });
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);

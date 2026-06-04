@@ -1198,6 +1198,16 @@
 
                                 for (let batchIndex = resumeFromBatch; batchIndex < batches.length; batchIndex++) {
                                     if (isEnhanceAborted(abortToken)) break;
+
+                                    // Test-only hook: slow each batch so timing-dependent flows (e.g.
+                                    // pausing mid-analysis) have a deterministic window. Re-check the
+                                    // abort flag after the delay so a pause during it stops cleanly.
+                                    const slowEnhanceMs = Number(document.documentElement?.dataset?.rltkTestSlowEnhance || 0);
+                                    if (slowEnhanceMs > 0) {
+                                        await new Promise(resolve => setTimeout(resolve, slowEnhanceMs));
+                                        if (isEnhanceAborted(abortToken)) break;
+                                    }
+
                                     const batch = batches[batchIndex];
 
                                     try {
