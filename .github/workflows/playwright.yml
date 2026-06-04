@@ -7,7 +7,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
 
@@ -20,12 +20,34 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
 
       - name: List workspace files
         run: |
           echo "=== workspace files ==="
           find src/ | sort
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            pw-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        # Extraction occasionally stalls after the download finishes. `timeout`
+        # kills a stuck attempt (non-zero exit) so the `||` retry actually fires;
+        # the cached download means the retry only has to re-extract. The
+        # step-level timeout is a backstop in case both attempts wedge.
+        timeout-minutes: 9
+        run: |
+          timeout 240 npx playwright install --with-deps chromium \
+            || timeout 240 npx playwright install --with-deps chromium
 
       - name: Ensure models are present
         run: ./scripts/preflight-offscreen-resources.sh
