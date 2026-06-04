@@ -6,6 +6,11 @@ module.exports = defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
+  // Headed Chromium loading ~570MB of WASM models analyzes much slower on the
+  // single-worker CI runner than locally. The 30s Playwright default is too
+  // tight for reading-tutor analysis tests there; 60s is the floor. Individual
+  // tests still raise this further with test.setTimeout() as needed.
+  timeout: 60000,
   reporter: 'list',
   use: {
     trace: 'on-first-retry',

@@ -216,8 +216,14 @@ test.describe('Reading Tutor selection analysis', () => {
       { timeout: 60000 }
     );
 
+    // The "Это" span existing only means analysis has started streaming spans;
+    // the button's resting label doesn't stabilize until processing fully
+    // settles. Wait for that before asserting, or we catch a transient
+    // processing/dirty label ("Changes detected...").
+    await waitForAnalysis(page, sidePanelPage);
+
     // UI should be back to normal: refresh label, badge hidden.
-    await expect(refreshButton).toHaveAttribute('aria-label', 'Force re-analysis of page', { timeout: 5000 });
+    await expect(refreshButton).toHaveAttribute('aria-label', 'Force re-analysis of page', { timeout: 15000 });
     await expect(sidePanelPage.locator('#reading-tutor-selection-badge')).not.toHaveClass(/visible/);
   });
 });

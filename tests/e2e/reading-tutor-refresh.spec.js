@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, openFixture, openSidePanel, injectSlowEnhance } = require('./test-helpers');
 
 test.describe('Reading Tutor refresh observer', () => {
   test.beforeEach(async ({ serviceWorker }) => {
@@ -102,42 +102,34 @@ test.describe('Reading Tutor refresh observer', () => {
   });
 
   test('spinner reserves space when hidden', async ({ page, browserContext, extensionId }, testInfo) => {
-    const baseURL = testInfo.project.use.baseURL;
-    const fixtureUrl = `${baseURL}/tests/fixtures/reading-tutor-mutation.html`;
-
-    await page.goto(fixtureUrl);
+    const { tabId } = await openFixture(page, browserContext, testInfo, 'reading-tutor-mutation.html');
     await page.bringToFront();
 
-    await page.evaluate(() => {
-      document.documentElement.dataset.rltkTestSlowEnhance = '1500';
-      const target = document.getElementById('target');
-      if (!target) return;
-      const paragraph = 'Это очень длинный текст. '.repeat(80);
-      target.innerHTML = Array.from({ length: 12 }, () => `<p>${paragraph}</p>`).join('');
+    // Slow each batch and make the page large enough to split into several
+    // batches, so opening the side panel lands straight in a multi-batch
+    // processing state with a deterministic, ~seconds-long window to pause in.
+    await injectSlowEnhance(page, {
+      delayMs: 1500,
+      paragraphs: 12,
+      paragraphText: 'Это очень длинный текст. '.repeat(80),
     });
 
-    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+    // waitForReadingTutor:false — we deliberately want to catch the panel mid
+    // analysis, not wait for it to settle.
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId, { waitForReadingTutor: false });
 
-    const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage);
-
-    const refreshButton = sidePanelPage.locator('#reading-tutor-refresh');
     const pauseButton = sidePanelPage.locator('#reading-tutor-pause');
     const resumeButton = sidePanelPage.locator('#reading-tutor-resume');
     const spinner = sidePanelPage.locator('#reading-tutor-spinner');
     const progressLabel = sidePanelPage.locator('#reading-tutor-batch-progress');
 
-    await refreshButton.click();
-    await expect(progressLabel).toBeVisible({ timeout: 15000 });
-    await expect(spinner).toBeVisible({ timeout: 15000 });
-    await expect(pauseButton).toBeVisible({ timeout: 15000 });
+    // The injected page auto-enhances (slowed per batch), so the panel opens
+    // already processing. Pause during it — no refresh round-trip, and no race
+    // against analysis speed since the per-batch delay holds the window open.
+    await expect(progressLabel).toBeVisible({ timeout: 20000 });
+    await expect(spinner).toBeVisible({ timeout: 20000 });
+    await expect(pauseButton).toBeVisible({ timeout: 20000 });
 
-    // Anchor the pause to batch 2 beginning, so there are still batches left to
-    // pause regardless of runner speed. The multi-batch path has no artificial
-    // per-batch delay, so on a fast runner the whole job would otherwise finish
-    // before the pause click lands.
-    await expect(progressLabel).toHaveText(/^[2-9]\d*\/\d+$/, { timeout: 15000 });
     const beforeBox = await progressLabel.boundingBox();
     expect(beforeBox).not.toBeNull();
 
