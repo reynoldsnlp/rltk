@@ -225,6 +225,12 @@ test.describe('Reading Tutor refresh observer', () => {
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
     await waitForSidePanelReady(sidePanelPage);
 
+    // Settle the auto-enhancement first: the warning button's visibility is
+    // toggled by processing state (updateAnalysisWarningUI runs during
+    // setReadingTutorProcessing), so interacting while analysis is still cycling
+    // makes the button flicker and the click race a transient hidden state.
+    await waitForReadingTutorSettled(page, sidePanelPage);
+
     const warningButton = sidePanelPage.locator('#reading-tutor-analysis-warning');
     await expect(warningButton).toBeHidden();
 
