@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -30,13 +30,10 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await expect(sidePanelPage.locator('.tab-button[data-tab="reading-tutor"]')).toHaveClass(/active/);
     await expect(sidePanelPage.locator('.sub-tab-button[data-subtab="translations-and-tables"]')).toHaveClass(/active/);
 
-    // Wait for enhancement (Reading Tutor is auto-activated)
-    // Increase timeout just in case
-    await page.waitForSelector('.ʁ-reading-tutor', { timeout: 10000 });
+    // Wait for the reading tutor to finish analyzing before interacting.
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
-    // 2. Select a word
-    // Click the first word
-    await page.waitForTimeout(500);
+    // 2. Select a word — click the first word
     await page.evaluate(() => {
         const el = document.querySelector('.ʁ-reading-tutor');
         if (el) el.click();
@@ -80,8 +77,7 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await waitForSidePanelReady(sidePanelPage);
 
     // 1. Start in Reading Tutor, select a word
-    await page.waitForSelector('.ʁ-reading-tutor');
-    await page.waitForTimeout(500);
+    await waitForReadingTutorSettled(page, sidePanelPage);
     await page.evaluate(() => {
         const el = document.querySelector('.ʁ-reading-tutor');
         if (el) el.click();

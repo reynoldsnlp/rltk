@@ -3729,15 +3729,22 @@ ${errorMessage}`);
             };
             try {
                 const sendGenerateRequest = async (requestInput, useStress) => {
-                    const request = chrome.runtime.sendMessage({
-                        action: 'generate',
-                        input: requestInput,
-                        useStress
-                    });
-                    const timeout = new Promise(resolve => {
-                        setTimeout(() => resolve({ success: false, data: [] }), 5000);
-                    });
-                    return Promise.race([request, timeout]);
+                    // Await the real response. The offscreen document handshakes
+                    // every generate behind initWasmTools(), so a response always
+                    // arrives (success or error) — a previous fixed 5s race here
+                    // silently returned empty data when a cold WASM load ran long,
+                    // producing missing paradigm forms. Only fall back to empty on
+                    // an actual messaging failure.
+                    try {
+                        const response = await chrome.runtime.sendMessage({
+                            action: 'generate',
+                            input: requestInput,
+                            useStress
+                        });
+                        return response || { success: false, data: [] };
+                    } catch (e) {
+                        return { success: false, data: [] };
+                    }
                 };
 
                 // First attempt

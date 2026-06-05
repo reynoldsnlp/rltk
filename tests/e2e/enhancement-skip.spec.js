@@ -48,10 +48,14 @@ test.describe('Enhancement reuse avoids reprocessing', () => {
     const isConnectedBefore = await firstSpanHandle.evaluate(el => el.isConnected);
     expect(isConnectedBefore).toBe(true);
 
-    // Click enhance again - should skip and keep existing spans
+    // Click enhance again - should skip and keep existing spans.
     await sidePanelPage.click('#enhance-button');
-    // Allow time for enhance to potentially reprocess (it should skip)
-    await page.waitForTimeout(600);
+    // Flush with an awaited content-script round-trip instead of a fixed delay,
+    // and confirm the page is still enhanced (a reprocess would tear spans down).
+    const status = await sidePanelPage.evaluate((id) => new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'get_status', tabId: id }, resolve);
+    }), tabId);
+    expect(status?.data?.isEnhanced ?? status?.isEnhanced).toBe(true);
 
     const isConnectedAfter = await firstSpanHandle.evaluate(el => el.isConnected);
     expect(isConnectedAfter).toBe(true);

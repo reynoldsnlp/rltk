@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled } = require('./test-helpers');
 
 // Run serially so we can share the fixture server.
 test.describe.configure({ mode: 'serial' });
@@ -150,8 +150,9 @@ test.describe('Token selector respects layout heuristics and selection override'
 
     await sidePanelPage.click('.tab-button[data-tab="reading-tutor"]');
 
-    // Wait a bit longer for reading tutor to fully process
-    await page.waitForTimeout(2000);
+    // Wait for the reading tutor to finish analyzing the whole page before
+    // counting spans per region, instead of a fixed delay.
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     await page.waitForFunction(() => document.querySelectorAll('#post-content .ʁ-reading-tutor').length > 0, { timeout: 8000 });
 

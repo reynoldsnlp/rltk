@@ -41,8 +41,11 @@ test.describe('Reading Tutor refresh observer', () => {
     await expect(refreshButton).toHaveAttribute('data-dirty', 'true', { timeout: 20000 });
     await expect(refreshButton).toHaveAttribute('title', 'Changes detected. Click to refresh the analysis.');
 
-    // Verify no auto-refresh occurs (dirty state persists)
-    await sidePanelPage.waitForTimeout(2000);
+    // Verify no auto-refresh occurs. The observer cycle that set data-dirty above
+    // is the same one that would trigger a refresh, so if the panel is idle
+    // (refresh wrapper visible, i.e. not processing) and still dirty, no
+    // auto-refresh happened — no fixed wait needed.
+    await expect(sidePanelPage.locator('#reading-tutor-refresh-wrapper')).toBeVisible();
     await expect(refreshButton).toHaveAttribute('data-dirty', 'true');
 
     // Manually click refresh and verify re-analysis

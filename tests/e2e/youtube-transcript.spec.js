@@ -21,7 +21,9 @@ test.describe('YouTube transcript interaction', () => {
       });
     }, tabId);
 
-    await page.waitForTimeout(500);
+    // Wait for the injected content script to enhance the transcript (.ʁ spans
+    // appear) instead of guessing with a fixed delay.
+    await page.locator('.ʁ').first().waitFor({ state: 'attached', timeout: 15000 });
 
     await page.locator('.ʁ').first().click();
     const afterSpanClick = await page.evaluate(() => ({
