@@ -1,15 +1,13 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, openSidePanel } = require('./test-helpers');
 
 test.describe('Roots Activities', () => {
   test.afterEach(async ({ browserContext }) => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function openSidePanel(browserContext, extensionId, tabId) {
-    const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage);
+  async function openReadingActivitiesPanel(browserContext, extensionId, tabId) {
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await expect(sidePanelPage.locator('.tab-button.active[data-tab="reading-activities"]')).toBeVisible();
@@ -23,7 +21,7 @@ test.describe('Roots Activities', () => {
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
-    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
+    const sidePanelPage = await openReadingActivitiesPanel(browserContext, extensionId, tabId);
 
     await sidePanelPage.selectOption('#topic-menu', 'roots');
     await sidePanelPage.selectOption('#activity-menu', 'color');
@@ -53,7 +51,7 @@ test.describe('Roots Activities', () => {
     await page.goto(fixtureUrl);
 
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
-    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
+    const sidePanelPage = await openReadingActivitiesPanel(browserContext, extensionId, tabId);
 
     await sidePanelPage.selectOption('#topic-menu', 'roots');
     await sidePanelPage.selectOption('#activity-menu', 'mc');

@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, openSidePanel } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -15,9 +15,7 @@ test.describe('Nouns Click Activity', () => {
   });
 
   async function openSidePanelForActivity(browserContext, extensionId, tabId, topicValue, activityValue) {
-    const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage);
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', topicValue);

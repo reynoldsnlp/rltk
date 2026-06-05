@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForSidePanelReady } = require('./test-helpers');
+const { openSidePanel } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -26,9 +26,7 @@ test.describe('Sidepanel access modal', () => {
     });
     expect(tabId).not.toBeNull();
 
-    const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId, { waitForReadingTutor: false });
 
     const accessModal = sidePanelPage.locator('#access-modal');
     const chromeModal = sidePanelPage.locator('#chrome-access-modal');

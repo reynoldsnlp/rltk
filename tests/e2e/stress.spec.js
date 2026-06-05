@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, openSidePanel } = require('./test-helpers');
 
 // Run serially to share a single fixture server.
 test.describe.configure({ mode: 'serial' });
@@ -16,9 +16,7 @@ test.describe('Word Stress Activity', () => {
 
   async function openSidePanelForActivity(browserContext, extensionId, tabId, activityValue, options = {}) {
     const { clickEnhance = true } = options;
-    const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId, { waitForReadingTutor: false });
 
     await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
     await sidePanelPage.selectOption('#topic-menu', 'word-stress');

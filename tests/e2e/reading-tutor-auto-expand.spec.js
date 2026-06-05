@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, openSidePanel } = require('./test-helpers');
 
 test.describe('Reading Tutor auto expansion', () => {
   test.afterEach(async ({ browserContext }) => {
@@ -16,9 +16,7 @@ test.describe('Reading Tutor auto expansion', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    const sidePanelPage = await browserContext.newPage();
-    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
-    await waitForSidePanelReady(sidePanelPage);
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
 
     await sidePanelPage.click('.tab-button[data-tab="reading-tutor"]');
     await sidePanelPage.click('.sub-tab-button[data-subtab="translations-and-tables"]');
