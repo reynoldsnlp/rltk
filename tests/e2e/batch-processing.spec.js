@@ -54,18 +54,24 @@ test.describe('Batch Processing for Long Pages', () => {
     }
 
     async function waitForBatchProgress(pageToCheck, { timeout = 150000 } = {}) {
+        // Capture the full progress snapshot inside the poll. A separate re-read
+        // after polling can land on a moment where rltkBatchProcessed was just
+        // republished as 0 at the start of a (re)processing cycle, so the value
+        // we assert on must be the same atomic read the poll succeeded on.
+        let progress = { total: 0, processed: 0, failed: 0, completed: false, lastError: '' };
         await expect
-            .poll(async () => pageToCheck.evaluate(() => Number(document.documentElement.dataset.rltkBatchProcessed || 0)), { timeout })
+            .poll(async () => {
+                progress = await pageToCheck.evaluate(() => ({
+                    total: Number(document.documentElement.dataset.rltkBatchTotal || 0),
+                    processed: Number(document.documentElement.dataset.rltkBatchProcessed || 0),
+                    failed: Number(document.documentElement.dataset.rltkBatchFailed || 0),
+                    completed: document.documentElement.dataset.rltkBatchCompleted === 'true',
+                    lastError: document.documentElement.dataset.rltkBatchLastError || ''
+                }));
+                return progress.processed;
+            }, { timeout })
             .toBeGreaterThan(0);
 
-        const progress = await pageToCheck.evaluate(() => ({
-            total: Number(document.documentElement.dataset.rltkBatchTotal || 0),
-            processed: Number(document.documentElement.dataset.rltkBatchProcessed || 0),
-            failed: Number(document.documentElement.dataset.rltkBatchFailed || 0),
-            completed: document.documentElement.dataset.rltkBatchCompleted === 'true',
-            lastError: document.documentElement.dataset.rltkBatchLastError || ''
-        }));
-        expect(progress.processed).toBeGreaterThan(0);
         expect(progress.failed).toBe(0);
         return progress;
     }
