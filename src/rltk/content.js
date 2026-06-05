@@ -1717,6 +1717,18 @@
                 readingTutorForceDirty = false;
                 return;
             }
+            // "Dirty" should mean the page has Cyrillic text that still needs
+            // analysis. A full re-analysis mutates the DOM heavily (and an
+            // attribute mutation can flip forceDirty), which previously latched
+            // a spurious "Changes detected" immediately after a clean refresh —
+            // a real user-facing bug and a test flake. This check is debounced
+            // 600ms, so it runs after analysis mutations settle: if nothing is
+            // left unanalyzed, re-baseline and stay clean instead of firing.
+            if (!hasUnanalyzedCyrillicText(document.body)) {
+                readingTutorLastHash = nextHash;
+                readingTutorForceDirty = false;
+                return;
+            }
             if (readingTutorForceDirty) {
                 readingTutorLastHash = nextHash;
                 readingTutorForceDirty = false;
