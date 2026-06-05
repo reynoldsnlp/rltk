@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -40,7 +40,7 @@ test.describe('Reading Tutor stress select', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
 
     const sidePanelPage = await openReadingTutor(browserContext, extensionId, tabId);
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     await sidePanelPage.selectOption('#reading-tutor-stress', 'mark');
 
@@ -59,7 +59,7 @@ test.describe('Reading Tutor stress select', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
 
     const sidePanelPage = await openReadingTutor(browserContext, extensionId, tabId);
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     // Enable mark stress and wait for accents to appear.
     await sidePanelPage.selectOption('#reading-tutor-stress', 'mark');
@@ -85,7 +85,7 @@ test.describe('Reading Tutor stress select', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
 
     const sidePanelPage = await openReadingTutor(browserContext, extensionId, tabId);
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     await sidePanelPage.selectOption('#reading-tutor-stress', 'hover');
 
@@ -124,7 +124,7 @@ test.describe('Reading Tutor stress select', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
 
     const sidePanelPage = await openReadingTutor(browserContext, extensionId, tabId);
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     // Select Mark stress, then trigger a full re-analysis.
     await sidePanelPage.selectOption('#reading-tutor-stress', 'mark');
@@ -132,7 +132,7 @@ test.describe('Reading Tutor stress select', () => {
     await refreshButton.click();
 
     // Wait for the re-analysis to complete and produce new spans.
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     // Stress should be applied automatically — no further interaction required.
     await page.waitForFunction(

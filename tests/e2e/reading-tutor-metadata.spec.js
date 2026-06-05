@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled } = require('./test-helpers');
 
 test.describe('Reading Tutor metadata', () => {
   test.beforeEach(async ({ serviceWorker, browserContext }) => {
@@ -24,7 +24,9 @@ test.describe('Reading Tutor metadata', () => {
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
     await waitForSidePanelReady(sidePanelPage);
 
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    // Wait for analysis to fully settle so the cumulative token count matches
+    // the final DOM span count (mid-analysis both are partial).
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     const domCount = await page.locator('.ʁ-reading-tutor').count();
     expect(domCount).toBeGreaterThan(0);

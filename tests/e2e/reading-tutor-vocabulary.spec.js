@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled } = require('./test-helpers');
 
 test.describe('Reading Tutor vocabulary', () => {
   test.beforeEach(async ({ serviceWorker, browserContext }) => {
@@ -24,10 +24,7 @@ test.describe('Reading Tutor vocabulary', () => {
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
     await waitForSidePanelReady(sidePanelPage);
 
-    await page.waitForFunction(
-      () => document.querySelectorAll('.ʁ-reading-tutor').length > 0,
-      { timeout: 20000 }
-    );
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     const vocabButton = sidePanelPage.locator('.sub-tab-button[data-subtab="vocabulary"]');
     await vocabButton.click();
@@ -62,10 +59,7 @@ test.describe('Reading Tutor vocabulary', () => {
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
     await waitForSidePanelReady(sidePanelPage);
 
-    await page.waitForFunction(
-      () => document.querySelectorAll('.ʁ-reading-tutor').length > 0,
-      { timeout: 20000 }
-    );
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     await page.evaluate(() => {
       const addSpan = (text, lemma) => {

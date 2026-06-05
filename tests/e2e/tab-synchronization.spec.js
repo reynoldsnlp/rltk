@@ -109,7 +109,7 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await expect(page.locator('.ʁ-nouns')).toHaveCount(0);
 
     // Verify Reading Tutor restored
-    await page.waitForSelector('.ʁ-reading-tutor');
+    await waitForReadingTutorSettled(page, sidePanelPage);
 
     // Verify previous selection restored
     await expect(page.locator('.ʁ-reading-tutor >> nth=0')).toHaveClass(/ʁ-highlighted/);

@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady, openFixture, openSidePanel, injectSlowEnhance } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled, openFixture, openSidePanel, injectSlowEnhance } = require('./test-helpers');
 
 test.describe('Reading Tutor refresh observer', () => {
   test.beforeEach(async ({ serviceWorker }) => {
@@ -163,7 +163,9 @@ test.describe('Reading Tutor refresh observer', () => {
 
     const refreshButton = sidePanelPage.locator('#reading-tutor-refresh');
 
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-reading-tutor').length > 0, { timeout: 60000 });
+    // Settle fully so the button is in its clean resting state before asserting
+    // it is not dirty.
+    await waitForReadingTutorSettled(page, sidePanelPage);
     await expect(refreshButton).not.toHaveAttribute('data-dirty');
 
     await page.evaluate(() => {
