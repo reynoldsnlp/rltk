@@ -1,5 +1,9 @@
 # E2E Testing Best Practices
 
+> See [TEST_STRATEGY.md](TEST_STRATEGY.md) for the living strategy/flakiness doc:
+> shared helpers, the canonical "settled" signals, what's been tried, and what's
+> left. Read it before adding tests or chasing a flake.
+
 ## What works and why
 - Run Chromium headed: Chrome extensions do not load in headless, so all tests launch a headed persistent context.
 - One persistent context per spec file: created in `beforeAll`, reused, and cleaned in `beforeEach/afterEach` (clear storage, close pages). This removes relaunch overhead.
@@ -9,7 +13,7 @@
 
 ## How to run
 - From repo root: `npm test`
-- Tests run serially within each file to share the fixture server and context.
+- Parallelism is governed by `playwright.config.js`: local = 4 workers / 0 retries, CI = 1 worker / 2 retries. Files are no longer `mode: 'serial'` (see TEST_STRATEGY.md → "Remove serial mode").
 
 ## Patterns to follow
 - Start the fixture server once per file (`beforeAll`), close in `afterAll`.
