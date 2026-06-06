@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForActivitySettled } = require('./test-helpers');
 
 // Run serially so we can share one fixture server/port.
 test.describe.configure({ mode: 'serial' });
@@ -68,8 +68,8 @@ test.describe('Density controls', () => {
 
     await sidePanelPage.click('#enhance-button');
 
-    // Wait for MC spans to appear to confirm enhancement ran
-    await page.waitForFunction(() => document.querySelector('.ʁ-noun-mc'), { timeout: 12000 });
+    // Wait for enhancement to fully settle (MC spans rendered, processing done)
+    await waitForActivitySettled(page, sidePanelPage, { spanSelector: '.ʁ-noun-mc', timeout: 12000 });
     const mcSpan = page.locator('.ʁ-noun-mc').first();
     await expect(mcSpan).toBeVisible({ timeout: 12000 });
 

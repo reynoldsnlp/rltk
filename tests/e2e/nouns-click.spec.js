@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, openSidePanel } = require('./test-helpers');
+const { waitForFixtureTabId, openSidePanel, waitForActivitySettled } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -41,9 +41,10 @@ test.describe('Nouns Click Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'nouns', 'click');
+    const sidePanelPage = await openSidePanelForActivity(browserContext, extensionId, tabId, 'nouns', 'click');
 
-    // Wait for enhancement
+    // Wait for enhancement to fully settle before interacting.
+    await waitForActivitySettled(page, sidePanelPage, { spanSelector: 'span.ʁ-click-green' });
     const nounLocator = page.locator('span.ʁ-click-green').first();
     await expect(nounLocator).toBeVisible({ timeout: 20000 });
 

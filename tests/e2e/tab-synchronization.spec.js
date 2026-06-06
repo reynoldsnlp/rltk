@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled, waitForActivitySettled } = require('./test-helpers');
 
 test.describe.configure({ mode: 'serial' });
 
@@ -98,8 +98,8 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await sidePanelPage.selectOption('#activity-menu', 'color');
     await sidePanelPage.click('#enhance-button');
 
-    // Verify Nouns enhancement
-    await page.waitForSelector('.ʁ-noun');
+    // Verify Nouns enhancement settled
+    await waitForActivitySettled(page, sidePanelPage, { spanSelector: '.ʁ-noun' });
     await expect(page.locator('.ʁ-noun').first()).toBeVisible();
 
     // 4. Switch back to Reading Tutor

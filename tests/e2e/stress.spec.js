@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, openSidePanel } = require('./test-helpers');
+const { waitForFixtureTabId, openSidePanel, waitForActivitySettled } = require('./test-helpers');
 
 // Run serially to share a single fixture server.
 test.describe.configure({ mode: 'serial' });
@@ -14,7 +14,7 @@ test.describe('Word Stress Activity', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  async function openSidePanelForActivity(browserContext, extensionId, tabId, activityValue, options = {}) {
+  async function openSidePanelForActivity(page, browserContext, extensionId, tabId, activityValue, options = {}) {
     const { clickEnhance = true } = options;
     const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId, { waitForReadingTutor: false });
 
@@ -27,6 +27,8 @@ test.describe('Word Stress Activity', () => {
     await sidePanelPage.selectOption('#activity-menu', activityValue);
     if (clickEnhance) {
       await sidePanelPage.click('#enhance-button');
+      // Wait for the activity enhancement to fully settle before tests interact.
+      await waitForActivitySettled(page, sidePanelPage);
     }
     return sidePanelPage;
   }
@@ -39,7 +41,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    const sidePanelPage = await openSidePanelForActivity(browserContext, extensionId, tabId, 'click', { clickEnhance: false });
+    const sidePanelPage = await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'click', { clickEnhance: false });
 
     const note = sidePanelPage.locator('#word-stress-note');
     await expect(note).toBeVisible({ timeout: 5000 });
@@ -76,7 +78,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'color');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'color');
 
     await page.waitForFunction(() => document.documentElement.innerHTML.includes('\u0301'), { timeout: 8000 });
 
@@ -93,7 +95,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'color');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'color');
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress').length >= 5, { timeout: 8000 });
 
@@ -145,7 +147,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'click');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'click');
 
     const firstLetter = page.locator('.ʁ-stress-click .letter').first();
     await expect(firstLetter).toBeVisible({ timeout: 8000 });
@@ -161,7 +163,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'click');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'click');
 
     const targets = [
       { id: 'yo-no-acute', vowel: /[ёЁ]/, addAcute: false },
@@ -203,7 +205,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'click');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'click');
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-click').length >= 5, { timeout: 8000 });
 
@@ -272,7 +274,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'click');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'click');
 
     await page.waitForFunction(() => {
       const letters = document.querySelectorAll('.ʁ-stress-click .letter');
@@ -330,7 +332,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'mc');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'mc');
 
     const mcSelect = page.locator('.ʁ-stress-mc select').first();
     await expect(mcSelect).toBeVisible({ timeout: 12000 });
@@ -366,7 +368,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'hover');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'hover');
 
     await page.waitForFunction(() => {
       const spans = Array.from(document.querySelectorAll('.ʁ-stress-hover'));
@@ -390,7 +392,7 @@ test.describe('Word Stress Activity', () => {
     const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
     expect(tabId).not.toBeNull();
 
-    await openSidePanelForActivity(browserContext, extensionId, tabId, 'hover');
+    await openSidePanelForActivity(page, browserContext, extensionId, tabId, 'hover');
 
     await page.waitForFunction(() => document.querySelectorAll('.ʁ-stress-hover').length >= 5, { timeout: 8000 });
 

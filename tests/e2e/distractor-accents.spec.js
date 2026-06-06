@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForActivitySettled } = require('./test-helpers');
 
 // Follow the same serial pattern as the other e2e tests
 test.describe.configure({ mode: 'serial' });
@@ -49,9 +49,7 @@ test.describe('Distractor Accent Handling', () => {
 
     await sidePanelPage.click('#enhance-button');
 
-    await page.waitForFunction(() => {
-      return document.querySelectorAll('.ʁ-noun-mc select').length > 0;
-    }, { timeout: 20000 });
+    await waitForActivitySettled(page, sidePanelPage, { spanSelector: '.ʁ-noun-mc' });
 
     // Wait for MC enhancement to land inside the stressed example block
     const stressedCase = page.locator('.case', { hasText: 'Stressed example' });

@@ -76,6 +76,29 @@ async function waitForReadingTutorSettled(page, sidePanelPage, options = {}) {
   }
 }
 
+// Canonical "reading-activities enhancement has settled" wait — the activity
+// analog of waitForReadingTutorSettled. Reading activities have no refresh
+// wrapper, but after a successful enhance the side panel's setCompletedState()
+// enables #restore-button (it is disabled both initially and while processing)
+// and drops the enhance button's 'Processing...' label. Waiting on those — plus
+// the activity's spans existing — means all spans are rendered, not streaming.
+//
+// Pass spanSelector to assert a specific activity rendered (e.g. '.ʁ-noun-mc');
+// it defaults to '.ʁ' (any enhanced span). Intended for the small, non-batched
+// fixtures activity tests use; batched pages should poll rltkBatch* instead.
+async function waitForActivitySettled(page, sidePanelPage, options = {}) {
+  const { spanSelector = '.ʁ', timeout = 60000 } = options;
+  await page.waitForFunction(
+    (sel) => document.querySelectorAll(sel).length > 0,
+    spanSelector,
+    { timeout }
+  );
+  if (sidePanelPage) {
+    await expect(sidePanelPage.locator('#restore-button')).toBeEnabled({ timeout: 15000 });
+    await expect(sidePanelPage.locator('#enhance-button')).not.toHaveText('Processing...', { timeout: 15000 });
+  }
+}
+
 // Test-only hook: slow each analysis batch so timing-dependent flows (pausing
 // mid-analysis, observing batch progress) get a deterministic window instead of
 // racing real analysis speed. Optionally replace #target with `paragraphs`
@@ -99,5 +122,6 @@ module.exports = {
   openFixture,
   openSidePanel,
   waitForReadingTutorSettled,
+  waitForActivitySettled,
   injectSlowEnhance,
 };

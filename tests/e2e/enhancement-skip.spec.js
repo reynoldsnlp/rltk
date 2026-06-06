@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
+const { waitForFixtureTabId, waitForSidePanelReady, waitForActivitySettled } = require('./test-helpers');
 
 // Run serially so we can share one fixture server/port.
 test.describe.configure({ mode: 'serial' });
@@ -40,7 +40,7 @@ test.describe('Enhancement reuse avoids reprocessing', () => {
     await sidePanelPage.selectOption('#activity-menu', 'mc');
 
     await sidePanelPage.click('#enhance-button');
-    await page.waitForFunction(() => document.querySelectorAll('.ʁ-noun-mc').length > 0, { timeout: 12000 });
+    await waitForActivitySettled(page, sidePanelPage, { spanSelector: '.ʁ-noun-mc', timeout: 12000 });
 
     const firstSpanHandle = await page.$('.ʁ-noun-mc');
     expect(firstSpanHandle).not.toBeNull();
