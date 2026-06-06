@@ -1,8 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForSidePanelReady } = require('./test-helpers');
 
-// Run serially to share a single context.
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Chrome internal pages', () => {
   test.beforeEach(async ({ browserContext }) => {

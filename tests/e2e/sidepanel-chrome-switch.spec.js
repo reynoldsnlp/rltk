@@ -1,7 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForSidePanelReady } = require('./test-helpers');
 
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Sidepanel chrome:// switch modal', () => {
   test.afterEach(async ({ browserContext }) => {

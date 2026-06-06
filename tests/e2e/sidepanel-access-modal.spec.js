@@ -1,7 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { openSidePanel } = require('./test-helpers');
 
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Sidepanel access modal', () => {
   test.beforeEach(async ({ serviceWorker, browserContext }) => {

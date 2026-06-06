@@ -1,7 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled } = require('./test-helpers');
 
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Reading Tutor stress select', () => {
   test.beforeEach(async ({ serviceWorker, browserContext }) => {

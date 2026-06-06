@@ -1,6 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Memory access out of bounds fixture', () => {
   test.setTimeout(300000);

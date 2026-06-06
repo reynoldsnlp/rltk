@@ -23,8 +23,11 @@ fi
 # reuse the hung process and all page.goto() calls would time out.
 lsof -ti tcp:19876 | xargs kill 2>/dev/null || true
 
+# Let playwright.config.js govern workers and retries (CI: 1 worker / 2 retries;
+# local: 4 workers / 0 retries). Pass extra args through with "$@" so callers can
+# still override, e.g. `npm run test -- --workers=2`.
 if command -v xvfb-run >/dev/null 2>&1; then
-  xvfb-run -a npm exec playwright test -- --workers=1 --retries=1 "$@"
+  xvfb-run -a npm exec playwright test -- "$@"
 else
-  npm exec playwright test -- --workers=1 --retries=1 "$@"
+  npm exec playwright test -- "$@"
 fi

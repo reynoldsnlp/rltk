@@ -1,7 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, openSidePanel, waitForActivitySettled } = require('./test-helpers');
 
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Nouns Click Activity', () => {
   test.setTimeout(60000);

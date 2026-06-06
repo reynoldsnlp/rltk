@@ -1,8 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady, waitForActivitySettled } = require('./test-helpers');
 
-// Run serially so we can share one fixture server/port.
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Side panel density for MC/Cloze', () => {
   test.setTimeout(20000);

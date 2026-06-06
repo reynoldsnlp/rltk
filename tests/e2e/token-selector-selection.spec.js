@@ -1,8 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled } = require('./test-helpers');
 
-// Run serially so we can share the fixture server.
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Token selector respects layout heuristics and selection override', () => {
   test.setTimeout(20000);

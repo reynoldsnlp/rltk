@@ -1,8 +1,7 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
-// Run serially to share a single fixture server.
-test.describe.configure({ mode: 'serial', timeout: 180000 });
+test.describe.configure({ timeout: 180000 });
 
 /**
  * Tests for batch processing of long pages.

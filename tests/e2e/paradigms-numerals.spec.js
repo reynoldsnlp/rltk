@@ -1,7 +1,7 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
-test.describe.configure({ mode: 'serial', timeout: 120000 });
+test.describe.configure({ timeout: 120000 });
 
 test.describe('Paradigm Generation - Numerals', () => {
   test.beforeEach(async ({ serviceWorker, browserContext }) => {

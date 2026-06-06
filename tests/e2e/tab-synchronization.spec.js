@@ -1,7 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady, waitForReadingTutorSettled, waitForActivitySettled } = require('./test-helpers');
 
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Tab Synchronization and State Restoration', () => {
   test.beforeEach(async ({ serviceWorker, browserContext }) => {

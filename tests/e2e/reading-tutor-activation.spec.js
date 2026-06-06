@@ -1,7 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady } = require('./test-helpers');
 
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Reading Tutor activation', () => {
   test.beforeEach(async ({ serviceWorker, browserContext }) => {

@@ -1,8 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, waitForSidePanelReady, waitForActivitySettled } = require('./test-helpers');
 
-// Follow the same serial pattern as the other e2e tests
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Distractor Accent Handling', () => {
   test.setTimeout(60000);

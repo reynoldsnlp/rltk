@@ -1,8 +1,6 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
 const { waitForFixtureTabId, openSidePanel, waitForActivitySettled } = require('./test-helpers');
 
-// Run serially to share a single fixture server.
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Word Stress Activity', () => {
   test.beforeEach(async ({ serviceWorker, browserContext }) => {

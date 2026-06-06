@@ -1,5 +1,5 @@
 const { test, expect, closeNonKeepAlivePages } = require('./fixtures');
-const { waitForFixtureTabId, openSidePanel, waitForActivitySettled } = require('./test-helpers');
+const { waitForFixtureTabId, openSidePanel } = require('./test-helpers');
 
 test.describe('Roots Activities', () => {
   test.afterEach(async ({ browserContext }) => {
@@ -28,7 +28,9 @@ test.describe('Roots Activities', () => {
 
     await sidePanelPage.click('#enhance-button');
 
-    await waitForActivitySettled(page, sidePanelPage, { spanSelector: '.rltk-root-fragment' });
+    // roots is the heaviest activity; this test only needs the first fragment
+    // visible (and the summary below), so wait on those directly rather than on
+    // full-enhancement settle, which is needlessly slow here.
     const rootSpan = page.locator('.rltk-root-fragment').first();
     await expect(rootSpan).toBeVisible({ timeout: 30000 });
 
@@ -67,7 +69,8 @@ test.describe('Roots Activities', () => {
 
     await sidePanelPage.click('#enhance-button');
 
-    await waitForActivitySettled(page, sidePanelPage, { spanSelector: '.ʁ-root-mc' });
+    // Only the first MC container is asserted on, so wait for it directly
+    // instead of full-enhancement settle (slow for roots MC at max density).
     const mcContainer = page.locator('.ʁ-root-mc').first();
     await expect(mcContainer).toBeVisible({ timeout: 30000 });
     await expect(mcContainer).toContainText('Болт');

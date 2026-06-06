@@ -6,7 +6,6 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
   const skipParadigmExpansion = options.skipParadigmExpansion || false;
   const warmupId = options.warmupId || null;
 
-  test.describe.configure({ mode: 'serial' });
 
   test.describe(`Paradigm Generation - ${suiteLabel}`, () => {
     test.setTimeout(options.timeout ?? 90000);
