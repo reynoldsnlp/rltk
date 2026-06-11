@@ -1,3 +1,5 @@
+// E2E conventions, shared helpers, and flakiness notes: see ./README.md
+// (tests/e2e/README.md). Read it before adding or changing tests.
 const { test, expect } = require('@playwright/test');
 const { runCg3WithRecursiveSplit } = require('../../src/rltk/utils/cg3-batch');
 
