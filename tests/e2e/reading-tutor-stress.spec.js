@@ -140,4 +140,80 @@ test.describe('Reading Tutor stress select', () => {
       { timeout: 30000 }
     );
   });
+
+  test('Mark stress does not duplicate words split across per-character spans', async ({ page, browserContext, extensionId }, testInfo) => {
+    // Reproduces the Duolingo bug: each character of a word lives in its own
+    // span, so a token spans many text nodes. Stress mode must show each
+    // fragment's slice of the stressed form, not the whole word per fragment.
+    const fixtureUrl = `${testInfo.project.use.baseURL}/tests/fixtures/reading-tutor-split-spans.html`;
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await openReadingTutor(browserContext, extensionId, tabId);
+    await waitForReadingTutorSettled(page, sidePanelPage);
+
+    await sidePanelPage.selectOption('#reading-tutor-stress', 'mark');
+
+    // Wait for unambiguous stress to be applied to the split words.
+    await page.waitForFunction(
+      () => Array.from(document.querySelectorAll('.ʁ-reading-tutor'))
+        .some(s => s.dataset.stressStatus === 'unambiguous' && (s.textContent || '').includes('́')),
+      { timeout: 30000 }
+    );
+
+    // The visible text of the word should read once, correctly stressed —
+    // not repeated once per character (the bug produced "ча́сто" twice over).
+    const targetText = await page.evaluate(() => document.getElementById('target').textContent);
+    expect(targetText).toContain('ча́сто');
+    expect(targetText).not.toContain('ча́сточа́сто');
+    expect(targetText).toContain('све́жие');
+    expect(targetText).not.toContain('све́жиесве́жие');
+    // Whole-sentence sanity: no word appears back-to-back with itself.
+    expect(/(\p{L}{2,})\1/u.test(targetText.replace(/\s+/g, ''))).toBe(false);
+  });
+
+
+  test('Clicking one character of a split word highlights the whole word', async ({ page, browserContext, extensionId }, testInfo) => {
+    const fixtureUrl = `${testInfo.project.use.baseURL}/tests/fixtures/reading-tutor-split-spans.html`;
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await openReadingTutor(browserContext, extensionId, tabId);
+    await waitForReadingTutorSettled(page, sidePanelPage);
+
+    const result = await page.evaluate(() => {
+      const spans = Array.from(document.querySelectorAll('.ʁ-reading-tutor'));
+      const indexClassOf = (el) => Array.from(el.classList).find(c => /^ʁ[0-9]+$/.test(c));
+      const groups = {};
+      for (const s of spans) {
+        const cls = indexClassOf(s);
+        if (!cls) continue;
+        (groups[cls] = groups[cls] || []).push(s);
+      }
+      // A split word has more than one fragment sharing its cohort-index class.
+      const splitClass = Object.keys(groups).find(c => groups[c].length > 1);
+      if (!splitClass) return { ok: false, reason: 'no split word found' };
+      const group = groups[splitClass];
+
+      // Click a single character fragment.
+      group[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      const highlighted = group.filter(s => s.classList.contains('ʁ-highlighted')).length;
+
+      // Clicking the same word again should clear the whole group.
+      group[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      const afterToggleOff = group.filter(s => s.classList.contains('ʁ-highlighted')).length;
+
+      return { ok: true, total: group.length, highlighted, afterToggleOff };
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.total).toBeGreaterThan(1);
+    // Every fragment of the word is highlighted, not just the clicked character.
+    expect(result.highlighted).toBe(result.total);
+    // Clicking again clears the whole word.
+    expect(result.afterToggleOff).toBe(0);
+  });
+
 });

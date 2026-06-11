@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Reading Tutor Split-Spans Fixture</title>
+</head>
+<body>
+  <!--
+    Reproduces sites (e.g. Duolingo) that wrap every character of a word in its
+    own element, producing one text node per character. A single analyzer token
+    then spans many text nodes, which used to make stress mode repeat the whole
+    word once per character ("ча́сточа́сто..."). Built in script to keep the
+    markup readable; the extension analyzes the page after this runs.
+  -->
+  <main id="target"></main>
+  <script>
+    var sentence = 'Я часто покупаю свежие овощи у этого продавца.';
+    var target = document.getElementById('target');
+    for (var i = 0; i < sentence.length; i++) {
+      var ch = sentence[i];
+      if (ch === ' ') {
+        target.appendChild(document.createTextNode(' '));
+      } else {
+        var span = document.createElement('span');
+        span.textContent = ch;
+        target.appendChild(span);
+      }
+    }
+  </script>
+</body>
+</html>

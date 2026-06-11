@@ -110,6 +110,21 @@
     };
 
     /**
+     * Return all Reading Tutor spans belonging to one word.
+     *
+     * A single word can be rendered across several spans when a site wraps each
+     * character in its own element. Every fragment of a word shares the
+     * ʁ<cohortIndex> class, so this returns the whole group for a given index.
+     *
+     * @param {number|string} cohortIndex - The cohort index identifying the word.
+     * @returns {HTMLElement[]} The word's spans (empty if none found).
+     */
+    window.RLTKUtils.getReadingTutorWordSpans = function(cohortIndex) {
+        if (cohortIndex === null || cohortIndex === undefined) return [];
+        return Array.from(document.querySelectorAll(`.ʁ-reading-tutor.ʁ${cohortIndex}`));
+    };
+
+    /**
      * Applies a capitalization pattern to a string
      * @param {string} text - The text to modify
      * @param {string} pattern - The pattern to apply ('all-caps', 'title-case', 'lower-case')

@@ -283,8 +283,42 @@
     // Backward compatibility alias (if any config still requests cloze for word-stress)
     window.EnhanceFuncs["word-stress-cloze"] = window.EnhanceFuncs["word-stress-hover"];
 
+    /**
+     * When a single word is split across multiple DOM text nodes, each fragment
+     * gets its own enhanced span but shares the whole word's stressed form.
+     * Return only the portion of `form` that corresponds to this fragment, so the
+     * full word isn't repeated once per fragment.
+     *
+     * The stressed form differs from the source token only by combining accent
+     * marks (and е/ё), so its base characters align 1:1 with the token's
+     * characters. If that alignment doesn't hold, return null so callers can fall
+     * back safely.
+     *
+     * @param {string} form - The whole word's stressed form (e.g. "ча́сто").
+     * @param {string} tokenText - The whole word (e.g. "часто").
+     * @param {number} offset - This fragment's character offset within the word.
+     * @param {string} fragText - This fragment's original text (e.g. "ч").
+     * @returns {string|null} The fragment's slice of the stressed form, or null.
+     */
+    function sliceFormForFragment(form, tokenText, offset, fragText) {
+        if (!form || typeof tokenText !== 'string' || typeof fragText !== 'string') return null;
+        // Group each base character with any combining marks that follow it.
+        const groups = [];
+        for (const ch of form) {
+            if (/[\u0300\u0301]/.test(ch) && groups.length) {
+                groups[groups.length - 1] += ch;
+            } else {
+                groups.push(ch);
+            }
+        }
+        // Base characters must align 1:1 with the token's characters.
+        if (groups.length !== [...tokenText].length) return null;
+        const fragLen = [...fragText].length;
+        return groups.slice(offset, offset + fragLen).join('');
+    }
+
     // Expose helpers for use by reading-tutor.js
-    window.rltkStress = { analyzeStress, createAmbiguousTooltip };
+    window.rltkStress = { analyzeStress, createAmbiguousTooltip, sliceFormForFragment };
 
     // 4. Multiple Choice Activity
     function generateStressDistractors(surfaceForm) {

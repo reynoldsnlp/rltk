@@ -13,6 +13,26 @@
 
     let currentStressMode = 'none'; // 'none' | 'mark' | 'hover'
 
+    /**
+     * Resolve the stressed text to display in a span.
+     *
+     * When a word is split across multiple DOM nodes (e.g. sites that wrap each
+     * character in its own element), each fragment is its own span but shares the
+     * whole word's stressed `form`. Showing `form` in every fragment repeats the
+     * whole word once per fragment, so return only this fragment's slice. Falls
+     * back to the fragment's own text (no accent) rather than repeating the word
+     * if the form can't be aligned to the token.
+     */
+    function stressDisplayForm(span, form, originalText) {
+        const tokenText = span.dataset.tokenText;
+        if (tokenText === undefined || tokenText === originalText) return form;
+        const offset = parseInt(span.dataset.tokenOffset || '0', 10);
+        const slice = window.rltkStress && window.rltkStress.sliceFormForFragment
+            ? window.rltkStress.sliceFormForFragment(form, tokenText, offset, originalText)
+            : null;
+        return slice !== null ? slice : originalText;
+    }
+
     function applyStressModeToSpan(span, mode) {
         if (span.__rltkStressEnter) {
             span.removeEventListener('mouseenter', span.__rltkStressEnter);
@@ -40,7 +60,7 @@
         if (mode === 'mark') {
             if (status === 'unambiguous' && form) {
                 const cap = window.RLTKUtils.detectCapitalization(originalText);
-                span.textContent = window.RLTKUtils.matchCapitalization(form, cap);
+                span.textContent = window.RLTKUtils.matchCapitalization(stressDisplayForm(span, form, originalText), cap);
             } else if (status === 'ambiguous') {
                 span.style.cursor = 'help';
                 if (tooltip) span.title = tooltip;
@@ -56,7 +76,7 @@
             }
             if (status === 'unambiguous' && form && originalText !== undefined) {
                 const cap = window.RLTKUtils.detectCapitalization(originalText);
-                const cappedForm = window.RLTKUtils.matchCapitalization(form, cap);
+                const cappedForm = window.RLTKUtils.matchCapitalization(stressDisplayForm(span, form, originalText), cap);
                 const enterHandler = () => {
                     span.textContent = cappedForm;
                     span.classList.add('click-style-correct');
@@ -174,9 +194,16 @@
             const selectionState = window.__rltkReadingTutorSelection || { element: null, index: null };
             window.__rltkReadingTutorSelection = selectionState;
 
+            // A word may be split across several spans (sites that wrap each
+            // character in its own element). Every fragment shares the
+            // ʁ<cohortIndex> class, so highlight the whole word together rather
+            // than just the clicked fragment.
+            const wordSpans = window.RLTKUtils.getReadingTutorWordSpans(cohortIndex);
+            const group = wordSpans.length ? wordSpans : [this];
+
             if (this.classList.contains('ʁ-highlighted')) {
-                this.classList.remove('ʁ-highlighted');
-                if (selectionState.element === this) {
+                group.forEach(s => s.classList.remove('ʁ-highlighted'));
+                if (selectionState.index === cohortIndex) {
                     selectionState.element = null;
                     selectionState.index = null;
                 }
@@ -187,22 +214,29 @@
                     index: null
                 });
             } else {
-                // Highlight logic
-                if (selectionState.element && selectionState.element !== this) {
+                // Clear any previously selected word (which may also be a group).
+                if (selectionState.index !== null && selectionState.index !== undefined && selectionState.index !== cohortIndex) {
+                    window.RLTKUtils.getReadingTutorWordSpans(selectionState.index)
+                        .forEach(s => s.classList.remove('ʁ-highlighted'));
+                } else if (selectionState.element && selectionState.element !== this) {
                     selectionState.element.classList.remove('ʁ-highlighted');
                 }
-                this.classList.add('ʁ-highlighted');
+                group.forEach(s => s.classList.add('ʁ-highlighted'));
                 selectionState.element = this;
                 selectionState.index = cohortIndex;
 
                 const readings = JSON.parse(this.getAttribute('data-readings') || '[]');
 
+                // For words split across multiple nodes, this fragment carries the
+                // whole word in data-token-text; use it so the panel shows the word.
+                const word = this.dataset.tokenText || originalText;
+
                 // Send message to side panel with full cohort data
                 chrome.runtime.sendMessage({
                     action: 'reading_tutor_selection',
-                    text: originalText,
+                    text: word,
                     cohort: {
-                        w: originalText,
+                        w: word,
                         rs: readings
                     },
                     index: cohortIndex

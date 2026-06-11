@@ -815,6 +815,13 @@
                 mapping.plainTextStart < token.end && mapping.plainTextEnd > token.start
             );
 
+            // A single token can span multiple text nodes when a site wraps each
+            // character (or word part) in its own element. In that case each
+            // fragment becomes its own enhanced span; record the full token and
+            // this fragment's offset within it so stress display can show only
+            // this fragment's slice instead of repeating the whole word per span.
+            const fragmented = affectedMappings.length > 1;
+
             for (const mapping of affectedMappings) {
                 // Calculate the portion of the token that falls within this text node
                 const tokenStartInNode = Math.max(0, token.start - mapping.plainTextStart);
@@ -829,7 +836,9 @@
                         start: tokenStartInNode + (mapping.nodeStart || 0),
                         end: tokenEndInNode + (mapping.nodeStart || 0),
                         cohortIndex: token.cohortIndex,
-                        cohort: token.cohort
+                        cohort: token.cohort,
+                        tokenText: fragmented ? token.text : undefined,
+                        tokenOffset: fragmented ? Math.max(token.start, mapping.plainTextStart) - token.start : 0
                     });
                 }
             }
@@ -859,6 +868,13 @@
 
                 // Use the activity's createSpan method
                 const span = activity.createSpan(originalTokenText, mod.cohort, mod.cohortIndex);
+
+                // For tokens split across multiple nodes, tell the span which
+                // word it belongs to and where this fragment sits within it.
+                if (mod.tokenText !== undefined && span && span.nodeType === Node.ELEMENT_NODE) {
+                    span.dataset.tokenText = mod.tokenText;
+                    span.dataset.tokenOffset = String(mod.tokenOffset);
+                }
 
                 fragment.insertBefore(span, fragment.firstChild);
 
@@ -1478,27 +1494,33 @@
                 sendResponse({ success: true });
                 break;
 
-            case 'clear_reading_tutor_selection':
-                if (window.__rltkReadingTutorSelection && window.__rltkReadingTutorSelection.element) {
-                    window.__rltkReadingTutorSelection.element.classList.remove('ʁ-highlighted');
-                    window.__rltkReadingTutorSelection.element = null;
-                    window.__rltkReadingTutorSelection.index = null;
+            case 'clear_reading_tutor_selection': {
+                const sel = window.__rltkReadingTutorSelection;
+                // A word can span several spans; clear the whole group by index.
+                if (sel && sel.index !== null && sel.index !== undefined) {
+                    window.RLTKUtils.getReadingTutorWordSpans(sel.index)
+                        .forEach(el => el.classList.remove('ʁ-highlighted'));
+                    sel.element = null;
+                    sel.index = null;
                 } else {
                     document.querySelectorAll('.ʁ-reading-tutor').forEach(el => el.classList.remove('ʁ-highlighted'));
                 }
                 sendResponse({ success: true });
                 break;
+            }
 
             case 'restore_reading_tutor_selection':
                 if (request.index !== undefined && request.index !== null) {
-                    const el = document.querySelector(`.ʁ${request.index}`);
-                    if (el) {
-                        if (window.__rltkReadingTutorSelection && window.__rltkReadingTutorSelection.element && window.__rltkReadingTutorSelection.element !== el) {
-                            window.__rltkReadingTutorSelection.element.classList.remove('ʁ-highlighted');
+                    const els = window.RLTKUtils.getReadingTutorWordSpans(request.index);
+                    if (els.length) {
+                        const sel = window.__rltkReadingTutorSelection;
+                        if (sel && sel.index !== null && sel.index !== undefined && sel.index !== request.index) {
+                            window.RLTKUtils.getReadingTutorWordSpans(sel.index)
+                                .forEach(el => el.classList.remove('ʁ-highlighted'));
                         }
-                        el.classList.add('ʁ-highlighted');
+                        els.forEach(el => el.classList.add('ʁ-highlighted'));
                         window.__rltkReadingTutorSelection = window.__rltkReadingTutorSelection || { element: null, index: null };
-                        window.__rltkReadingTutorSelection.element = el;
+                        window.__rltkReadingTutorSelection.element = els[0];
                         window.__rltkReadingTutorSelection.index = request.index;
                     }
                 }
