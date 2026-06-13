@@ -131,6 +131,31 @@ The DOM signals the helpers rely on (use these directly only if a helper doesn't
 
 Newest first. Mark each ✅ worked / ❌ failed / 🔬 untried, and say **why**.
 
+### ✅ Annotator hardening for non-canonical DOM (`annotator-edge-cases.spec.js`)
+Pages don't always lay text out canonically, and the annotator made only two
+node-eligibility assumptions (skip `<script>`/`<style>`; exact `indexOf` of the
+analyzer token in the extracted text). Two product fixes in `content.js`:
+- **Skip what can't/shouldn't be annotated** in `shouldSkipNode`: foreign
+  namespaces (SVG/MathML — an HTML `<span>` won't render there), untaggable
+  elements (`textarea`, `select`/`option`, `title`, …), `contenteditable`
+  regions, and elements hidden via `display:none` or the `hidden` attribute.
+  `aria-hidden` is deliberately **not** skipped — that content is still visible
+  (e.g. Duolingo's lesson words). This also stops hidden *duplicate* copies from
+  being annotated.
+- **Normalize invisible in-word characters** (soft hyphen, zero-width
+  space/joiner, word joiner, BOM) out of the text the analyzer sees, so
+  `ча`+`U+00AD`+`сто` is recognized as "часто". The chars stay in the DOM, uncovered
+  between fragment spans (same mechanism as a word split across multiple nodes),
+  so layout/line-break hints are preserved and the position map stays aligned.
+
+### ✅ Whole-word handling for words split across nodes (`reading-tutor-stress.spec.js`)
+Sites that wrap each character in its own element (Duolingo) make one token span
+many text nodes. Stress display now shows each fragment its *slice* of the
+stressed form (not the whole word per fragment — which duplicated it), clicking
+any fragment highlights/selects the whole word (fragments share the
+`ʁ<cohortIndex>` class, which is globally unique across batches), and the side
+panel receives the whole word via `data-token-text`.
+
 ### ✅ Global timeout floor (60 s)
 30 s default was too tight for cold-WASM analysis on CI; it was the proximate cause
 of the *"pause shows resume during analysis"* timeout (`reading-tutor-refresh.spec.js`).
@@ -200,6 +225,18 @@ single-worker context past the timeout. Reverted roots to direct element waits.
 
 ## Known remaining issues / not yet attempted
 
+- 🔬 **Annotator: word split by *non-word* inline content.** `сло<sup>2</sup>во`
+  (footnote/citation markers, inline badges) concatenates to `сло2во`, which
+  mis-tokenizes. The invisible-char and per-character-span fixes don't help when a
+  *visible* foreign character is injected mid-word. Not yet handled.
+- 🔬 **Annotator: word split by a *block* element.** `shouldAddNewlineBefore`
+  injects `\n` before block elements, so a word straddling a block boundary becomes
+  two tokens and isn't recognized. Rare; not handled.
+- 🔬 **Annotator: `visibility:hidden` and clip-based `.sr-only`.** `shouldSkipNode`
+  prunes `display:none`/`hidden`, but not `visibility:hidden` (overridable by a
+  visible descendant, so pruning the subtree would be wrong) nor the
+  `clip:rect(0,0,0,0)` screen-reader technique (no reliable cheap signal). Hidden
+  duplicate text using these still gets annotated.
 - 🔬 **Context degradation over long single-worker runs.** Heavy late tests can crash on
   CI (1 worker). Parallelism mitigates locally; CI stays serial-in-one-worker for memory.
   Root cause (offscreen WASM leak/accumulation?) not investigated.

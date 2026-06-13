@@ -126,16 +126,51 @@
     /**
      * Shared function to determine if a node should be skipped during text processing
      */
+    const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml';
+
+    /**
+     * Tags whose text content we must not wrap in annotation spans, either because
+     * the element can't host child <span>s (form controls) or because rewriting it
+     * would break the page or the document head.
+     */
+    const UNTAGGABLE_TAGS = new Set([
+        'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'SELECT', 'OPTION', 'OPTGROUP', 'TITLE'
+    ]);
+
+    /**
+     * Elements the annotator must not descend into:
+     * - foreign namespaces (SVG/MathML) — an HTML <span> there won't render correctly;
+     * - untaggable elements (see UNTAGGABLE_TAGS);
+     * - editable regions — annotating would corrupt the user's document;
+     * - elements removed from rendering via the `hidden` attribute.
+     *
+     * `aria-hidden` is intentionally NOT treated as hidden: such content is still
+     * visually rendered (e.g. Duolingo's lesson words), so it must be annotated.
+     */
+    function isSkippableContainer(el) {
+        if (!el) return false;
+        if (el.namespaceURI && el.namespaceURI !== HTML_NAMESPACE) return true;
+        if (UNTAGGABLE_TAGS.has(el.tagName)) return true;
+        if (el.isContentEditable) return true;
+        if (el.hidden) return true;
+        return false;
+    }
+
     function shouldSkipNode(node) {
         if (!node) return true;
 
-        // Skip script and style elements
-        const parent = node.parentElement;
-        if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
-            return true;
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            if (isSkippableContainer(node)) return true;
+            // `display:none` removes the whole subtree from rendering and cannot be
+            // un-hidden by a descendant, so it's safe to prune here. (Rejecting an
+            // element prunes its subtree, so hidden text never reaches extraction.)
+            return getComputedStyle(node).display === 'none';
         }
 
-        return false;
+        // Text node: hidden/foreign/untaggable ancestors are already pruned at the
+        // element level by the SHOW_ELEMENT walkers; this is a cheap safety net for
+        // the direct parent (and for text-only walks like findCyrillicLCA).
+        return isSkippableContainer(node.parentElement);
     }
 
     /**
@@ -188,6 +223,69 @@
      * Regex to match Cyrillic characters (Russian and extended Cyrillic)
      */
     const CYRILLIC_REGEX = /[\u0400-\u04FF]/;
+
+    /**
+     * Invisible "in-word" characters that break tokenization and lemma/stress
+     * lookup when they appear inside a word: soft hyphen, zero-width space,
+     * zero-width non-joiner/joiner, word joiner, and BOM / zero-width no-break
+     * space. We drop these from the text the analyzer sees so a word like
+     * "\u043F\u0440\u0435\u0436\u00AD\u0434\u0435" is recognized as "\u043F\u0440\u0435\u0436\u0434\u0435". They are left untouched in the
+     * DOM \u2014 uncovered between the resulting fragment spans, exactly like ordinary
+     * text between two adjacent tokens.
+     */
+    const INVISIBLE_CHARS_REGEX = /[\u00AD\u200B\u200C\u200D\u2060\uFEFF]/;
+    const INVISIBLE_CHARS_REGEX_G = /[\u00AD\u200B\u200C\u200D\u2060\uFEFF]/g;
+
+    /**
+     * Append a text node's (clipped) text to the extracted plain text, dropping
+     * invisible in-word characters while keeping each emitted run length-aligned
+     * with the source node. Returns the cleaned text plus one position-map segment
+     * per contiguous clean run (`node` is filled in by the caller).
+     *
+     * Field shape matches the existing position map: `nodeStart` is the run's
+     * absolute start index in the node and `nodeEnd` is the run's *length*.
+     */
+    function cleanedTextSegments(clippedText, nodeStart, plainTextOffset) {
+        if (!INVISIBLE_CHARS_REGEX.test(clippedText)) {
+            // Fast path: nothing to strip \u2014 a single aligned segment (unchanged behavior).
+            return {
+                cleanText: clippedText,
+                segments: [{
+                    plainTextStart: plainTextOffset,
+                    plainTextEnd: plainTextOffset + clippedText.length,
+                    nodeStart,
+                    nodeEnd: clippedText.length
+                }]
+            };
+        }
+
+        let cleanText = '';
+        const segments = [];
+        let offset = plainTextOffset;
+        let runStart = -1;
+        for (let i = 0; i <= clippedText.length; i++) {
+            const atEnd = i === clippedText.length;
+            const invisible = !atEnd && INVISIBLE_CHARS_REGEX.test(clippedText[i]);
+            if (!atEnd && !invisible) {
+                if (runStart === -1) runStart = i;
+                continue;
+            }
+            // Boundary (invisible char or end of text): flush the current clean run.
+            if (runStart !== -1) {
+                const run = clippedText.substring(runStart, i);
+                segments.push({
+                    plainTextStart: offset,
+                    plainTextEnd: offset + run.length,
+                    nodeStart: nodeStart + runStart,
+                    nodeEnd: run.length
+                });
+                cleanText += run;
+                offset += run.length;
+                runStart = -1;
+            }
+        }
+        return { cleanText, segments };
+    }
 
     /**
      * Maximum text length per batch for WASM processing.
@@ -382,18 +480,18 @@
                 }
                 lastBoundaryElement = boundaryElement;
 
-                // Add to current batch
+                // Add to current batch, dropping invisible in-word characters so
+                // the analyzer sees clean words (segments stay node-aligned).
+                const { cleanText, segments } = cleanedTextSegments(clippedText, sliceStart, currentBatch.plainTextOffset);
+                if (cleanText.length === 0) continue;
                 currentBatch.textNodes.push(currentNode);
-                currentBatch.positionMap.push({
-                    plainTextStart: currentBatch.plainTextOffset,
-                    plainTextEnd: currentBatch.plainTextOffset + clippedText.length,
-                    node: currentNode,
-                    nodeStart: sliceStart,
-                    nodeEnd: sliceEnd - sliceStart
-                });
+                for (const seg of segments) {
+                    seg.node = currentNode;
+                    currentBatch.positionMap.push(seg);
+                }
 
-                currentBatch.text += clippedText;
-                currentBatch.plainTextOffset += clippedText.length;
+                currentBatch.text += cleanText;
+                currentBatch.plainTextOffset += cleanText.length;
 
             } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
                 // Add newline for block elements
@@ -578,18 +676,19 @@
 
                 const clippedText = nodeText.substring(sliceStart, sliceEnd);
 
+                // Drop invisible in-word characters so the analyzer sees clean
+                // words; emitted segments stay length-aligned with the node.
+                const { cleanText, segments } = cleanedTextSegments(clippedText, sliceStart, plainTextOffset);
+                if (cleanText.length === 0) continue;
+
                 textNodes.push(currentNode);
+                for (const seg of segments) {
+                    seg.node = currentNode;
+                    positionMap.push(seg);
+                }
 
-                positionMap.push({
-                    plainTextStart: plainTextOffset,
-                    plainTextEnd: plainTextOffset + clippedText.length,
-                    node: currentNode,
-                    nodeStart: sliceStart,
-                    nodeEnd: sliceEnd - sliceStart
-                });
-
-                plainText += clippedText;
-                plainTextOffset += clippedText.length;
+                plainText += cleanText;
+                plainTextOffset += cleanText.length;
             } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
                 // Add newline for block elements based on context
                 if (shouldAddNewlineBefore(currentNode, plainText)) {
@@ -656,7 +755,9 @@
                 }
 
                 if (sliceEnd > sliceStart) {
-                    plainText += nodeText.substring(sliceStart, sliceEnd);
+                    // Drop invisible in-word characters to match the position-mapping
+                    // extractors, so the analyzed text and the indexOf text agree.
+                    plainText += nodeText.substring(sliceStart, sliceEnd).replace(INVISIBLE_CHARS_REGEX_G, '');
                 }
             } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
                 // Add newline for block elements based on context

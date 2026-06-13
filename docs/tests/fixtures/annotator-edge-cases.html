@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Annotator Edge Cases Fixture</title>
+</head>
+<body>
+  <main id="target">
+    <!-- Plain baseline word. -->
+    <p id="visible">Я покупаю овощи.</p>
+
+    <!-- Invisible in-word characters: soft hyphen (&shy;) inside "часто",
+         zero-width space (&#8203;) inside "свежие". The annotator should treat
+         these as "часто"/"свежие" (recognized words), not drop them. -->
+    <p id="invisible-chars">Я ча&shy;сто ем све&#8203;жие овощи.</p>
+
+    <!-- Hidden duplicate: must NOT be annotated. -->
+    <div id="hidden" style="display:none">Скрытые овощи продавца.</div>
+
+    <!-- Untaggable form controls: must NOT be annotated (can't host spans). -->
+    <textarea id="ta">Текст в поле ввода.</textarea>
+    <select id="sel">
+      <option>Первый вариант</option>
+      <option>Второй вариант</option>
+    </select>
+
+    <!-- Foreign namespace (SVG): an HTML span would not render here. -->
+    <svg id="svg" width="200" height="24" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="18">Овощи на графике</text>
+    </svg>
+  </main>
+</body>
+</html>
