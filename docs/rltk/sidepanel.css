@@ -18,7 +18,8 @@ body {
 
 #rltk-sidepanel {
     padding: 1%;
-    height: 97%;
+    height: 100%;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     overflow: hidden;

@@ -135,6 +135,8 @@
 
         // content/sidepanel -> offscreen (WASM). offscreen wraps as {success,data}.
         if (OFFSCREEN_ACTIONS[action]) {
+            // Lazily create the offscreen frame (models load on first analysis).
+            try { if (typeof top.RLTK_ENSURE_OFFSCREEN === 'function') top.RLTK_ENSURE_OFFSCREEN(); } catch (e) {}
             var fwd = Object.assign({ target: 'offscreen' }, message);
             return bus.ensureContext('offscreen').then(function () {
                 return bus.dispatch('offscreen', fwd, senderInfo());

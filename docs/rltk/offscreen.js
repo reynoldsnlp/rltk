@@ -248,16 +248,39 @@ async function initHfst() {
     tokenizeSettings.hack_uncompose = true;
     console.log('Tokenize settings:', tokenizeSettings);
 
-    // Load transducers in parallel
+    // Load the primary transducers in parallel. g2p and the L2 analyser are
+    // intentionally excluded — they load on demand (ensureG2p / ensureL2Analyser).
     const loadPromises = [
         loadTransducer("rltk/resources/models/generator-gt-norm.hfstol", `generator`).then(res => generator = res),
         loadTransducer("rltk/resources/models/generator-gt-norm.accented.hfstol", `stressGenerator`).then(res => stressGenerator = res),
-        loadTransducer("rltk/resources/models/g2p.hfstol", `g2p`).then(res => g2p = res),
-        loadTransducer("rltk/resources/models/analyser-gt-desc-L2.hfstol", `l2Analyser`).then(res => l2Analyser = res),
         loadTokenizer("rltk/resources/models/tokeniser-disamb-gt-desc.pmhfst").then(res => tokenizer = res)
     ];
 
     await Promise.all(loadPromises);
+}
+
+// On-demand loaders for the models excluded from the primary batch. Each is
+// idempotent and guarded so concurrent callers share a single load.
+let g2pInitPromise = null;
+async function ensureG2p() {
+    if (g2p) return;
+    if (g2pInitPromise) return g2pInitPromise;
+    g2pInitPromise = (async () => {
+        if (!hfst) await initWasmTools();
+        g2p = await loadTransducer("rltk/resources/models/g2p.hfstol", `g2p`);
+    })().catch((e) => { g2pInitPromise = null; throw e; });
+    return g2pInitPromise;
+}
+
+let l2InitPromise = null;
+async function ensureL2Analyser() {
+    if (l2Analyser) return;
+    if (l2InitPromise) return l2InitPromise;
+    l2InitPromise = (async () => {
+        if (!hfst) await initWasmTools();
+        l2Analyser = await loadTransducer("rltk/resources/models/analyser-gt-desc-L2.hfstol", `l2Analyser`);
+    })().catch((e) => { l2InitPromise = null; throw e; });
+    return l2InitPromise;
 }
 
 /**
@@ -299,7 +322,11 @@ async function initCg3() {
 }
 
 async function initWasmTools() {
-    const hfstToolsReady = hfst !== null && generator !== null && stressGenerator !== null && g2p !== null && tokenizer !== null;
+    // g2p and the L2 analyser are NOT part of the primary batch — they are loaded
+    // on demand (see ensureG2p / ensureL2Analyser) because g2p is only used by the
+    // phonetics activity and the L2 analyser (the largest model) only by the
+    // Writing tutor.
+    const hfstToolsReady = hfst !== null && generator !== null && stressGenerator !== null && tokenizer !== null;
     const cg3Ready = cg3 !== null;
 
     if (hfstToolsReady && cg3Ready) return;
@@ -795,6 +822,9 @@ async function processTokenReadings(tokenText, readings) {
 async function handleGenerateRequest(input, mode = 'default') {
     console.log(`Handling generation request with...\n\tinput=${input}\n\tmode=${mode}`);
 
+    // g2p is loaded on demand (excluded from the primary batch).
+    if (mode === 'g2p') await ensureG2p();
+
     let transducer;
     switch (mode) {
         case 'stress':
@@ -848,6 +878,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         (async () => {
             try {
                 await initWasmTools();
+                await ensureL2Analyser(); // largest model — only needed by the Writing tutor
                 const result = await analyzeL2(request.text);
                 sendResponse({ success: true, data: result });
             } catch (error) {
@@ -894,4 +925,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-initWasmTools();
+// Models load lazily: the morph_analysis / analyze_l2 / generate handlers each
+// await initWasmTools() on first use, so the large transducers are only fetched
+// when analysis is actually requested (not merely when this document loads).
+// (get_model_data only reads small JSON maps and does not trigger WASM loading.)

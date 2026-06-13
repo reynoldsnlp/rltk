@@ -52,6 +52,10 @@
 
     // ---- Build the reading-frame document -----------------------------------
     function readingFrameSrcdoc(text) {
+        // NOTE: leave the body empty when there is no text. Any text here would be
+        // picked up by the reading tutor and trigger model loading on page load,
+        // defeating lazy loading — so the "paste text" hint lives in a parent
+        // overlay (#rltk-reading-hint), not inside this frame.
         var paragraphs = String(text || '')
             .split(/\n{2,}/)
             .map(function (block) {
@@ -59,9 +63,6 @@
                 return inner.trim() ? '<p>' + inner + '</p>' : '';
             })
             .join('\n');
-        if (!paragraphs) {
-            paragraphs = '<p class="rltk-web-placeholder">Paste Russian text above and press “Analyze”.</p>';
-        }
 
         var headScripts =
             '<link rel="stylesheet" href="' + abs(rltkBase, 'content.css') + '">' +
@@ -97,48 +98,187 @@
 
     function formatMB(bytes) { return (bytes / (1024 * 1024)).toFixed(0) + ' MB'; }
 
+    function showStatusRow() {
+        var row = document.getElementById('rltk-status-row');
+        if (row) row.style.display = 'flex';
+        if (barEl) { barEl.style.display = ''; barEl.classList.remove('rltk-status-done'); }
+        if (statusEl) statusEl.style.display = '';
+    }
+    function hideStatusRow() {
+        var row = document.getElementById('rltk-status-row');
+        if (row) row.style.display = 'none';
+    }
+
+    var doneTimer = null;
+
     function renderStatus() {
         if (!statusEl) return;
+
+        // Only consider the models that have actually started downloading in the
+        // current batch — the primary batch and the on-demand models (L2, g2p)
+        // are loaded at different times, so we can't assume a fixed total set.
+        var started = Object.keys(progress);
+        if (started.length === 0) { hideStatusRow(); return; }
+
         var loadedSum = 0, totalSum = 0, complete = 0;
-        modelNames.forEach(function (name) {
+        started.forEach(function (name) {
             var p = progress[name];
-            var sizeGuess = modelSizes[name] || 0;
-            if (p) {
-                loadedSum += p.loaded;
-                var t = p.total || sizeGuess;
-                totalSum += t;
-                if (t && p.loaded >= t) complete++;
-                else if (p.total === 1 && p.loaded === 1) { complete++; } // cache hit
-            } else {
-                totalSum += sizeGuess;
-            }
+            var t = p.total || modelSizes[name] || 0;
+            loadedSum += p.loaded;
+            totalSum += t;
+            if ((t && p.loaded >= t) || (p.total === 1 && p.loaded === 1)) complete++;
         });
 
-        if (complete >= modelNames.length && modelNames.length > 0) {
-            statusEl.textContent = 'Language models ready.';
+        var allDone = complete === started.length;
+
+        if (allDone) {
+            // Debounce: only declare "ready" if it stays done. A still-downloading
+            // model (e.g. the 396 MB tokeniser) reports again and cancels this.
+            statusEl.textContent = 'Language models ready — cached on this device.';
             if (barEl) barEl.classList.add('rltk-status-done');
-            setTimeout(function () {
-                if (barEl) barEl.style.display = 'none';
-                if (statusEl) statusEl.style.display = 'none';
-            }, 1500);
+            if (barFillEl) barFillEl.style.width = '100%';
+            if (!doneTimer) doneTimer = setTimeout(hideStatusRow, 2500);
             return;
         }
 
+        if (doneTimer) { clearTimeout(doneTimer); doneTimer = null; }
+        if (barEl) barEl.classList.remove('rltk-status-done');
         var pct = totalSum ? Math.min(99, Math.round((loadedSum / totalSum) * 100)) : 0;
-        statusEl.textContent = 'Loading language models… ' +
-            (totalSum ? (formatMB(loadedSum) + ' / ' + formatMB(totalSum) + ' (' + pct + '%)')
-                      : 'this happens once and may take a while');
+        var sizeNote = totalSum ? '~' + formatMB(totalSum) : 'a few hundred MB';
+        statusEl.textContent =
+            'Downloading language models (one-time ' + sizeNote + ' — cached on this device, ' +
+            'so you won’t download it again)' +
+            (totalSum ? ' — ' + formatMB(loadedSum) + ' / ' + formatMB(totalSum) + ' (' + pct + '%)' : '…');
         if (barFillEl) barFillEl.style.width = pct + '%';
     }
 
     function onModelProgress(message) {
         if (!message || message.action !== 'model_progress') return;
+        showStatusRow();
         progress[message.name] = { loaded: message.loaded || 0, total: message.total || 0 };
         renderStatus();
     }
 
     // ---- Orchestration ------------------------------------------------------
     var readingFrame, sidepanelFrame, offscreenFrame, pasteInput, analyzeBtn;
+    var offscreenCreated = false;
+    var sidepanelLoaded = false;
+
+    // Lazily create the hidden offscreen frame (which eager-loads the WASM models)
+    // only when analysis is actually requested. Exposed on window.top so the shim's
+    // offscreen-routing branch can trigger it on the first analysis message.
+    function ensureOffscreen() {
+        if (offscreenCreated) return;
+        offscreenCreated = true;
+        offscreenFrame.src = abs(rltkBase, 'offscreen.html');
+    }
+    window.RLTK_ENSURE_OFFSCREEN = ensureOffscreen;
+
+    // ---- Hamburger menu + "Refresh models" ----------------------------------
+    function setupMenu() {
+        var btn = document.getElementById('rltk-menu-btn');
+        var menu = document.getElementById('rltk-menu-dropdown');
+        var refresh = document.getElementById('rltk-refresh-models');
+        if (!btn || !menu) return;
+
+        function close() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+        function toggle() {
+            var open = menu.hidden;
+            menu.hidden = !open;
+            btn.setAttribute('aria-expanded', String(open));
+        }
+        btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(); });
+        document.addEventListener('click', function (e) {
+            if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) close();
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+
+        if (refresh) {
+            refresh.addEventListener('click', async function () {
+                close();
+                try { if (typeof caches !== 'undefined') await caches.delete('rltk-models'); } catch (e) {}
+                // Discard the current offscreen context so the (now uncached) models
+                // are fetched fresh the next time analysis runs (lazy re-download).
+                offscreenCreated = false;
+                progress = {};
+                try { offscreenFrame.src = 'about:blank'; } catch (e) {}
+                if (statusEl) {
+                    showStatusRow();
+                    if (barFillEl) barFillEl.style.width = '0%';
+                    statusEl.textContent = 'Model cache cleared — models will re-download next time you analyze.';
+                    setTimeout(hideStatusRow, 4000);
+                }
+            });
+        }
+    }
+
+    // ---- Draggable splitter between left column and side panel --------------
+    var SPLIT_KEY = 'rltk-sidepanel-width';
+    var MIN_W = 300; // matches the extension side panel's min-width
+
+    function setupSplitter() {
+        var layout = document.querySelector('.rltk-layout');
+        var splitter = document.getElementById('rltk-splitter');
+        if (!layout || !splitter) return;
+
+        // Restore a previously chosen width.
+        try {
+            var saved = parseInt(localStorage.getItem(SPLIT_KEY), 10);
+            if (saved) applyWidth(saved, layout);
+        } catch (e) {}
+
+        function applyWidth(w, lay) {
+            var max = Math.max(MIN_W, lay.getBoundingClientRect().width - 360);
+            w = Math.min(Math.max(w, MIN_W), max);
+            lay.style.setProperty('--rltk-sidepanel-width', w + 'px');
+            return w;
+        }
+
+        function widthFromEvent(clientX) {
+            // Side panel is on the right: width = layout's right edge − cursor X.
+            return layout.getBoundingClientRect().right - clientX;
+        }
+
+        function onMove(e) {
+            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            applyWidth(widthFromEvent(clientX), layout);
+        }
+
+        function stop() {
+            document.body.classList.remove('rltk-resizing');
+            splitter.classList.remove('rltk-dragging');
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', stop);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', stop);
+            try {
+                var w = parseInt(getComputedStyle(layout).getPropertyValue('--rltk-sidepanel-width'), 10);
+                if (w) localStorage.setItem(SPLIT_KEY, String(w));
+            } catch (e) {}
+        }
+
+        function start(e) {
+            e.preventDefault();
+            document.body.classList.add('rltk-resizing');
+            splitter.classList.add('rltk-dragging');
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', stop);
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', stop);
+        }
+
+        splitter.addEventListener('mousedown', start);
+        splitter.addEventListener('touchstart', start, { passive: false });
+
+        // Keyboard resize (separator role).
+        splitter.addEventListener('keydown', function (e) {
+            var cur = parseInt(getComputedStyle(layout).getPropertyValue('--rltk-sidepanel-width'), 10) || 380;
+            if (e.key === 'ArrowLeft') { applyWidth(cur + 24, layout); e.preventDefault(); }
+            else if (e.key === 'ArrowRight') { applyWidth(cur - 24, layout); e.preventDefault(); }
+            else return;
+            try { localStorage.setItem(SPLIT_KEY, getComputedStyle(layout).getPropertyValue('--rltk-sidepanel-width').trim().replace('px', '')); } catch (e2) {}
+        });
+    }
 
     function rebuildReadingFrame(text) {
         readingFrame.srcdoc = readingFrameSrcdoc(text);
@@ -159,23 +299,35 @@
         sidepanelFrame = document.getElementById('rltk-sidepanel-frame');
         offscreenFrame = document.getElementById('rltk-offscreen-frame');
 
+        // Wire up the draggable splitter and the hamburger menu.
+        setupSplitter();
+        setupMenu();
+
+        // Models load lazily (on first analysis), so the status row starts hidden.
+        hideStatusRow();
+
         // Listen for model-download progress from the offscreen context.
         chrome.runtime.onMessage.addListener(function (message) { onModelProgress(message); });
 
-        // 1. Start the hidden offscreen frame → eager WASM + model load begins.
-        offscreenFrame.src = abs(rltkBase, 'offscreen.html');
-        renderStatus();
+        // Build the (empty) reading frame. The side panel and offscreen frame are
+        // NOT loaded yet: the side panel auto-analyzes the page on load, which would
+        // pull the models. Both are created lazily on the first Analyze instead.
+        rebuildReadingFrame('');
 
-        // 2. Build the (empty) reading frame, then 3. load the side panel.
-        rebuildReadingFrame('').then(function () {
-            sidepanelFrame.src = abs(rltkBase, 'sidepanel.html');
-        });
+        var hint = document.getElementById('rltk-reading-hint');
 
-        // Analyze: render pasted text and re-run the content-script bundle.
+        // Analyze: render pasted text, then (first time) load the side panel — which
+        // activates the reading tutor and triggers model loading on demand.
         analyzeBtn.addEventListener('click', function () {
             var text = pasteInput.value || '';
+            ensureOffscreen(); // start loading models now (lazy until first analysis)
+            if (hint) hint.style.display = 'none';
             analyzeBtn.disabled = true;
             rebuildReadingFrame(text).then(function () {
+                if (!sidepanelLoaded) {
+                    sidepanelLoaded = true;
+                    sidepanelFrame.src = abs(rltkBase, 'sidepanel.html');
+                }
                 analyzeBtn.disabled = false;
             }, function () {
                 analyzeBtn.disabled = false;
