@@ -11,13 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Create WASM symlinks
-        run: |
-          mv -f src/rltk/resources/js/libhfst-optimized.js src/rltk/resources/js/libhfst.js
-          mv -f src/rltk/resources/js/libhfst-optimized.wasm src/rltk/resources/js/libhfst.wasm
-          mv -f src/rltk/resources/js/libcg3-optimized.js src/rltk/resources/js/libcg3.js
-          mv -f src/rltk/resources/js/libcg3-optimized.wasm src/rltk/resources/js/libcg3.wasm
-
       - uses: actions/setup-node@v6
         with:
           node-version: 22
