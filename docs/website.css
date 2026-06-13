@@ -1,0 +1,235 @@
+/* RLTK companion website — branding uses the extension icon palette:
+   slate blue #3A5269, golden yellow #FBCC0C, white #FCFCFC.
+   Subtle Ukrainian-flag nod: blue-accented header, yellow-accented footer. */
+
+:root {
+    --rltk-blue: #3A5269;
+    --rltk-blue-dark: #2c3f52;
+    --rltk-yellow: #FBCC0C;
+    --rltk-white: #FCFCFC;
+    --rltk-ink: #1d2b36;
+    --rltk-muted: #6b7a88;
+    --rltk-sidepanel-width: 380px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--rltk-ink);
+    background: var(--rltk-white);
+}
+
+/* ---- Header (subtle blue) ---- */
+.rltk-header {
+    background: linear-gradient(180deg, #f3f7fa 0%, var(--rltk-white) 100%);
+    border-bottom: 3px solid var(--rltk-blue);
+    padding: 16px 20px 12px;
+    box-shadow: 0 1px 4px rgba(58, 82, 105, 0.08);
+}
+
+.rltk-header-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.rltk-logo {
+    border-radius: 10px;
+    flex: 0 0 auto;
+}
+
+.rltk-title-block h1 {
+    margin: 0;
+    font-size: 1.45rem;
+    color: var(--rltk-blue);
+    letter-spacing: 0.2px;
+}
+
+.rltk-tagline {
+    margin: 2px 0 0;
+    color: var(--rltk-muted);
+    font-size: 0.92rem;
+}
+
+.rltk-paste-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    max-width: 1400px;
+    margin: 12px auto 0;
+}
+
+.rltk-paste {
+    flex: 1 1 auto;
+    min-height: 64px;
+    max-height: 200px;
+    resize: vertical;
+    padding: 10px 12px;
+    font-size: 1rem;
+    font-family: Georgia, "Times New Roman", serif;
+    border: 1px solid #c4d2dd;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--rltk-ink);
+}
+
+.rltk-paste:focus {
+    outline: none;
+    border-color: var(--rltk-blue);
+    box-shadow: 0 0 0 3px rgba(58, 82, 105, 0.15);
+}
+
+.rltk-analyze {
+    flex: 0 0 auto;
+    align-self: stretch;
+    padding: 0 22px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--rltk-white);
+    background: var(--rltk-blue);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rltk-analyze:hover:not(:disabled) {
+    background: var(--rltk-blue-dark);
+    box-shadow: 0 0 0 3px rgba(251, 204, 12, 0.45);
+}
+
+.rltk-analyze:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* ---- Model-loading status ---- */
+.rltk-status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 1400px;
+    margin: 8px auto 0;
+}
+
+.rltk-status-bar {
+    flex: 0 0 160px;
+    height: 6px;
+    border-radius: 3px;
+    background: #e2eaf0;
+    overflow: hidden;
+}
+
+.rltk-status-bar-fill {
+    height: 100%;
+    width: 0;
+    background: var(--rltk-yellow);
+    transition: width 0.2s ease;
+}
+
+.rltk-status-bar.rltk-status-done .rltk-status-bar-fill {
+    width: 100%;
+    background: #5aa469;
+}
+
+.rltk-status-text {
+    font-size: 0.85rem;
+    color: var(--rltk-muted);
+}
+
+/* ---- Main two-pane layout ---- */
+.rltk-main {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.rltk-reading-pane {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: #fff;
+}
+
+.rltk-sidepanel-pane {
+    flex: 0 0 var(--rltk-sidepanel-width);
+    border-left: 1px solid #d9e2e9;
+    background: var(--rltk-white);
+}
+
+.rltk-main iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+#rltk-offscreen-frame {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border: 0;
+}
+
+/* ---- Footer (subtle yellow) ---- */
+.rltk-footer {
+    background: #fffbea;
+    border-top: 3px solid var(--rltk-yellow);
+    padding: 14px 20px;
+    text-align: center;
+}
+
+.rltk-footer-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rltk-footer-links a {
+    color: var(--rltk-blue);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.rltk-footer-links a:hover {
+    text-decoration: underline;
+}
+
+.rltk-sep { color: #c9b15a; }
+
+.rltk-footer-note {
+    margin: 6px 0 0;
+    font-size: 0.82rem;
+    color: var(--rltk-muted);
+}
+
+/* ---- Responsive: stack panes on narrow screens ---- */
+@media (max-width: 860px) {
+    .rltk-main {
+        flex-direction: column;
+    }
+    .rltk-reading-pane {
+        min-height: 50vh;
+    }
+    .rltk-sidepanel-pane {
+        flex: 1 1 auto;
+        border-left: 0;
+        border-top: 1px solid #d9e2e9;
+        min-height: 50vh;
+    }
+}

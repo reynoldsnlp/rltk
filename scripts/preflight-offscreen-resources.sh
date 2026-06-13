@@ -17,7 +17,8 @@ EOF
 }
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RES_DIR="$ROOT_DIR/src/rltk/resources/models"
+# Shared resources are canonical under docs/rltk (src/rltk/resources is a symlink).
+RES_DIR="$ROOT_DIR/docs/rltk/resources/models"
 
 FORCE=0
 ONLINE=0

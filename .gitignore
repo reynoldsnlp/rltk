@@ -5,12 +5,19 @@ playwright-report/
 test-results/
 
 rltk.zip
-src/rltk/resources/models/*.cg3
-src/rltk/resources/models/*.hfstol
-src/rltk/resources/models/*.pmhfst
-src/rltk/resources/js/lib*.js
-src/rltk/resources/js/lib*.wasm
-src/rltk/resources/js/lib*.wasm.map
+
+# Shared extension/website code is canonical under docs/rltk/ (src/rltk/ holds
+# symlinks into it). Large language-model binaries are fetched by
+# scripts/preflight-offscreen-resources.sh for the extension and served remotely
+# for the website (see docs/web/config.js) — never committed.
+docs/rltk/resources/models/*.cg3
+docs/rltk/resources/models/*.hfstol
+docs/rltk/resources/models/*.pmhfst
+# Debug WASM builds are large; the optimized builds are committed under the
+# non-suffixed names (libhfst.js/.wasm, libcg3.js/.wasm).
+docs/rltk/resources/js/*-debug.js
+docs/rltk/resources/js/*-debug.wasm
+docs/rltk/resources/js/*-debug.wasm.map
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

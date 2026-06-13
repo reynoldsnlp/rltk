@@ -22,9 +22,11 @@ fi
 # Create build directory
 mkdir -p "$BUILD_DIR"
 
-# Copy src to build directory
+# Copy src to build directory. Shared files in src/rltk are symlinks into
+# docs/rltk (the website-canonical location); -L dereferences them so the zip
+# contains real files rather than dangling relative symlinks.
 echo "Copying src to $BUILD_DIR..."
-cp -r src "$BUILD_DIR/"
+cp -RL src "$BUILD_DIR/"
 
 # Remove host_permissions
 python3 scripts/remove_host_permissions.py "$MANIFEST_PATH"
@@ -32,7 +34,7 @@ python3 scripts/remove_host_permissions.py "$MANIFEST_PATH"
 # Zip
 echo "Zipping..."
 cd "$BUILD_DIR"
-zip -r "$ROOT_DIR/$ZIP_NAME" src -x "src/rltk/resources/models/morphberta-k/*" -x "src/rltk/resources/models/old/*" -x "*/.DS_Store"
+zip -r "$ROOT_DIR/$ZIP_NAME" src -x "src/rltk/resources/models/old/*" -x "*/.DS_Store"
 
 # Clean up
 cd "$ROOT_DIR"

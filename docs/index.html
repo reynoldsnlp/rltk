@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLTK — Russian Language ToolKit</title>
+    <meta name="description" content="Paste Russian text and explore it with the Russian Language ToolKit: morphological analysis, translations, stress, grammar highlighting, and reading activities.">
+    <link rel="icon" type="image/png" href="rltk/resources/img/RLTK-128x128.png">
+    <link rel="stylesheet" href="website.css">
+</head>
+<body>
+    <header class="rltk-header">
+        <div class="rltk-header-bar">
+            <img class="rltk-logo" src="rltk/resources/img/RLTK-128x128.png" alt="RLTK logo" width="48" height="48">
+            <div class="rltk-title-block">
+                <h1>Russian Language ToolKit</h1>
+                <p class="rltk-tagline">Paste any Russian text below to analyze it — translations, stress, grammar, and reading activities.</p>
+            </div>
+        </div>
+
+        <div class="rltk-paste-row">
+            <textarea id="rltk-paste" class="rltk-paste"
+                placeholder="Вставьте русский текст сюда…  (Paste Russian text here…)"></textarea>
+            <button id="rltk-analyze" class="rltk-analyze" type="button">Analyze ▸</button>
+        </div>
+
+        <div class="rltk-status-row">
+            <div id="rltk-model-bar" class="rltk-status-bar"><div id="rltk-model-bar-fill" class="rltk-status-bar-fill"></div></div>
+            <span id="rltk-model-status" class="rltk-status-text">Loading language models…</span>
+        </div>
+    </header>
+
+    <main class="rltk-main">
+        <section class="rltk-reading-pane" aria-label="Reading text">
+            <iframe id="rltk-reading-frame" title="Reading text"></iframe>
+        </section>
+        <aside class="rltk-sidepanel-pane" aria-label="RLTK tools">
+            <iframe id="rltk-sidepanel-frame" title="RLTK side panel"></iframe>
+        </aside>
+    </main>
+
+    <iframe id="rltk-offscreen-frame" title="RLTK processing (hidden)" hidden aria-hidden="true"></iframe>
+
+    <footer class="rltk-footer">
+        <nav class="rltk-footer-links">
+            <a href="tests/index.html">Manual test fixtures</a>
+            <span class="rltk-sep">·</span>
+            <a href="https://github.com/reynoldsnlp/rltk">GitHub</a>
+            <span class="rltk-sep">·</span>
+            <a href="https://github.com/reynoldsnlp/rltk/blob/main/LICENSE">License</a>
+        </nav>
+        <p class="rltk-footer-note">RLTK is also available as a <a href="https://chromewebstore.google.com/detail/hofbpcgdhdaihhlcjegbfdnmaplnjnco?utm_source=item-share-cb">browser extension</a>. Built with finite-state morphology (HFST) and constraint grammar (CG3).</p>
+    </footer>
+
+    <script src="web/config.js"></script>
+    <script src="web/chrome-shim.js"></script>
+    <script src="web/bootstrap.js"></script>
+</body>
+</html>
