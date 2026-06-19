@@ -145,6 +145,17 @@ function reportModelProgress(name, loaded, total) {
 }
 
 /**
+ * Emits a model-download failure event so the website's status UI can surface
+ * it (instead of failing silently in the console). No-op in the extension.
+ */
+function reportModelError(name, message) {
+    try {
+        const p = chrome.runtime.sendMessage({ action: 'model_error', name, message: String(message || '') });
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (e) { /* no receiver — ignore */ }
+}
+
+/**
  * Fetches a single URL, streaming the body to report download progress.
  * Returns a Response backed by the fully-buffered bytes (so callers can still
  * call .text()/.arrayBuffer()).
@@ -194,33 +205,52 @@ async function loadModelResponse(path) {
     const name = path.split('/').pop();
     const urls = resolveModelUrls(path);
 
+    // Register this model as pending the moment loading begins, before the first
+    // byte arrives. This makes the status UI appear immediately (and show the
+    // model's expected size) even on slow connections or while waiting on TTFB —
+    // otherwise nothing is shown until streaming starts, and a failed fetch
+    // (CORS / network / 404) would never produce any progress event at all.
+    reportModelProgress(name, 0, 0);
+
+    console.log(`[RLTK model] "${name}": loading — ${urls.length} candidate URL(s) in order:`, urls);
+
     let cache = null;
     if (typeof caches !== 'undefined' && urls.some(u => /^https?:/i.test(u))) {
         try { cache = await caches.open('rltk-models'); } catch (e) { cache = null; }
     }
 
     let lastError = null;
-    for (const url of urls) {
+    for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        const attempt = `[RLTK model] "${name}" [${i + 1}/${urls.length}]`;
         const isHttp = /^https?:/i.test(url);
         try {
             if (cache && isHttp) {
                 const cached = await cache.match(url);
                 if (cached) {
+                    console.log(`${attempt}: cache HIT — ${url}`);
                     reportModelProgress(name, 1, 1);
                     return cached;
                 }
             }
+            console.log(`${attempt}: fetching — ${url}`);
             const response = await fetchModelResponse(url, name);
             if (cache && isHttp) {
                 try { await cache.put(url, response.clone()); } catch (e) { /* quota — ignore */ }
             }
+            console.log(`${attempt}: SUCCESS — ${url}`);
             return response;
         } catch (error) {
             lastError = error;
-            console.warn(`Model fetch failed for ${url}:`, error.message);
+            // Per-URL failures are expected (fallback chain) — log but stay quiet
+            // in the UI. Only surface an error once EVERY candidate has failed.
+            console.warn(`${attempt}: FAILED — ${url}:`, error.message);
         }
     }
-    throw lastError || new Error(`Failed to load model ${name}`);
+    const finalError = lastError || new Error(`Failed to load model ${name}`);
+    console.error(`[RLTK model] "${name}": ALL ${urls.length} candidate URL(s) failed. Last error: ${finalError.message}`, urls);
+    reportModelError(name, finalError.message);
+    throw finalError;
 }
 
 /**

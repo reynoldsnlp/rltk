@@ -165,8 +165,8 @@
             });
         }
 
-        // offscreen -> parent: model download progress (drives the status UI).
-        if (action === 'model_progress') {
+        // offscreen -> parent: model download progress / failure (status UI).
+        if (action === 'model_progress' || action === 'model_error') {
             bus.dispatch('parent', message, senderInfo());
             return Promise.resolve(undefined);
         }

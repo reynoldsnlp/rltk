@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Russian Language ToolKit (RLTK)",
-  "version": "0.0.0.8",
+  "version": "0.0.0.9",
   "description": "Toolbar for Russian language learning, including automatic exercise generation and text analysis.",
   "icons": {
     "16":  "rltk/resources/img/RLTK-16x16.png",
@@ -37,5 +37,17 @@
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "rltk/resources/models/*.hfstol",
+        "rltk/resources/models/*.pmhfst",
+        "rltk/resources/models/*.cg3"
+      ],
+      "matches": [
+        "https://reynoldsnlp.github.io/*"
+      ]
+    }
+  ]
 }

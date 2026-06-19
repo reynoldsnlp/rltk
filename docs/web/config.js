@@ -19,15 +19,28 @@
     var BACKUP = 'https://icall.byu.edu/lang-rus';
     var CG3_PRIMARY = 'https://raw.githubusercontent.com/giellalt/lang-rus/refs/heads/main/src/cg3/disambiguator.cg3';
 
+    // The published browser extension already bundles every model. On Chromium
+    // browsers where the extension is installed, those files are reachable at a
+    // stable chrome-extension:// URL (the extension declares them as
+    // web_accessible_resources for this site — see src/manifest.json). We try
+    // this FIRST: for users with the extension it loads instantly from local
+    // disk and sidesteps the cross-origin (CORS) fetches entirely; for everyone
+    // else the fetch fails immediately and falls through to the remote hosts.
+    // (Firefox uses a per-install random moz-extension:// origin, so this only
+    // helps on Chromium — it degrades gracefully elsewhere.)
+    var EXT_ID = 'hofbpcgdhdaihhlcjegbfdnmaplnjnco';
+    var EXT = 'chrome-extension://' + EXT_ID + '/rltk/resources/models';
+    function urls(basename, remote) { return [EXT + '/' + basename].concat(remote); }
+
     window.RLTK_WEB_CONFIG = {
         // basename -> ordered list of candidate URLs (first that succeeds wins)
         MODEL_URLS: {
-            'generator-gt-norm.hfstol':          [GIELLA + '/generator-gt-norm.hfstol',          BACKUP + '/generator-gt-norm.hfstol'],
-            'generator-gt-norm.accented.hfstol': [GIELLA + '/generator-gt-norm.accented.hfstol', BACKUP + '/generator-gt-norm.accented.hfstol'],
-            'g2p.hfstol':                        [GIELLA + '/g2p.hfstol',                        BACKUP + '/g2p.hfstol'],
-            'analyser-gt-desc-L2.hfstol':        [GIELLA + '/analyser-gt-desc-L2.hfstol',        BACKUP + '/analyser-gt-desc-L2.hfstol'],
-            'tokeniser-disamb-gt-desc.pmhfst':   [GIELLA + '/tokeniser-disamb-gt-desc.pmhfst',   BACKUP + '/tokeniser-disamb-gt-desc.pmhfst'],
-            'disambiguator.cg3':                 [CG3_PRIMARY,                                   BACKUP + '/disambiguator.cg3']
+            'generator-gt-norm.hfstol':          urls('generator-gt-norm.hfstol',          [GIELLA + '/generator-gt-norm.hfstol',          BACKUP + '/generator-gt-norm.hfstol']),
+            'generator-gt-norm.accented.hfstol': urls('generator-gt-norm.accented.hfstol', [GIELLA + '/generator-gt-norm.accented.hfstol', BACKUP + '/generator-gt-norm.accented.hfstol']),
+            'g2p.hfstol':                        urls('g2p.hfstol',                        [GIELLA + '/g2p.hfstol',                        BACKUP + '/g2p.hfstol']),
+            'analyser-gt-desc-L2.hfstol':        urls('analyser-gt-desc-L2.hfstol',        [GIELLA + '/analyser-gt-desc-L2.hfstol',        BACKUP + '/analyser-gt-desc-L2.hfstol']),
+            'tokeniser-disamb-gt-desc.pmhfst':   urls('tokeniser-disamb-gt-desc.pmhfst',   [GIELLA + '/tokeniser-disamb-gt-desc.pmhfst',   BACKUP + '/tokeniser-disamb-gt-desc.pmhfst']),
+            'disambiguator.cg3':                 urls('disambiguator.cg3',                 [CG3_PRIMARY,                                   BACKUP + '/disambiguator.cg3'])
         },
 
         // Human-readable sizes for the loading UI (bytes are approximate).

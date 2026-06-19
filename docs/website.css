@@ -252,6 +252,16 @@ body.rltk-resizing iframe {
     color: rgba(252, 252, 252, 0.85);
 }
 
+.rltk-status-text.rltk-status-error {
+    color: #ffd9d6;
+    font-weight: 600;
+}
+
+.rltk-status-text.rltk-status-error a {
+    color: #fff;
+    text-decoration: underline;
+}
+
 /* ---- Reading pane (left column, fills space between header and footer) ---- */
 .rltk-reading-pane {
     position: relative;

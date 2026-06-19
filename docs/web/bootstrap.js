@@ -102,7 +102,7 @@
         var row = document.getElementById('rltk-status-row');
         if (row) row.style.display = 'flex';
         if (barEl) { barEl.style.display = ''; barEl.classList.remove('rltk-status-done'); }
-        if (statusEl) statusEl.style.display = '';
+        if (statusEl) { statusEl.style.display = ''; statusEl.classList.remove('rltk-status-error'); }
     }
     function hideStatusRow() {
         var row = document.getElementById('rltk-status-row');
@@ -110,9 +110,34 @@
     }
 
     var doneTimer = null;
+    var errored = false;
+
+    // A model exhausted every candidate URL. Surface it (don't fail silently in
+    // the console) and point users to the browser extension, which ships the
+    // models so it works without these downloads.
+    function showModelError() {
+        errored = true;
+        if (doneTimer) { clearTimeout(doneTimer); doneTimer = null; }
+        var row = document.getElementById('rltk-status-row');
+        if (row) row.style.display = 'flex';
+        if (barEl) { barEl.style.display = 'none'; barEl.classList.remove('rltk-status-done'); }
+        if (!statusEl) return;
+        statusEl.style.display = '';
+        statusEl.classList.add('rltk-status-error');
+        statusEl.innerHTML =
+            'Couldn’t load a language model (the download server may be ' +
+            'unreachable). Installing the ' +
+            '<a href="https://chromewebstore.google.com/detail/' +
+            'hofbpcgdhdaihhlcjegbfdnmaplnjnco?utm_source=item-share-cb" ' +
+            'target="_blank" rel="noopener">RLTK browser extension</a> ' +
+            'bundles all the models and lets this website use them directly, ' +
+            'so loading is guaranteed to work even when the download server is ' +
+            'down. Otherwise, check your connection and use “Refresh models” in ' +
+            'the menu to retry.';
+    }
 
     function renderStatus() {
-        if (!statusEl) return;
+        if (!statusEl || errored) return;
 
         // Only consider the models that have actually started downloading in the
         // current batch — the primary batch and the on-demand models (L2, g2p)
@@ -152,8 +177,11 @@
         if (barFillEl) barFillEl.style.width = pct + '%';
     }
 
-    function onModelProgress(message) {
-        if (!message || message.action !== 'model_progress') return;
+    function onModelMessage(message) {
+        if (!message) return;
+        if (message.action === 'model_error') { showModelError(); return; }
+        if (message.action !== 'model_progress') return;
+        if (errored) return; // a failure is already shown; don't clobber it
         showStatusRow();
         progress[message.name] = { loaded: message.loaded || 0, total: message.total || 0 };
         renderStatus();
@@ -201,6 +229,7 @@
                 // are fetched fresh the next time analysis runs (lazy re-download).
                 offscreenCreated = false;
                 progress = {};
+                errored = false;
                 try { offscreenFrame.src = 'about:blank'; } catch (e) {}
                 if (statusEl) {
                     showStatusRow();
@@ -306,8 +335,8 @@
         // Models load lazily (on first analysis), so the status row starts hidden.
         hideStatusRow();
 
-        // Listen for model-download progress from the offscreen context.
-        chrome.runtime.onMessage.addListener(function (message) { onModelProgress(message); });
+        // Listen for model-download progress/errors from the offscreen context.
+        chrome.runtime.onMessage.addListener(function (message) { onModelMessage(message); });
 
         // Build the (empty) reading frame. The side panel and offscreen frame are
         // NOT loaded yet: the side panel auto-analyzes the page on load, which would
@@ -320,6 +349,20 @@
         // activates the reading tutor and triggers model loading on demand.
         analyzeBtn.addEventListener('click', function () {
             var text = pasteInput.value || '';
+            // Give immediate feedback the instant analysis is requested — before
+            // the offscreen frame loads and the first byte arrives — so the user
+            // always sees that something is happening, even on a slow first byte.
+            // Only when loading is actually about to (re)start: the first analysis
+            // (no offscreen frame yet) or a retry after a prior failure. On a
+            // normal repeat click the models are already loaded and no progress
+            // events follow, so we must not leave a "Preparing…" message stuck.
+            if ((!offscreenCreated || errored) && statusEl) {
+                errored = false;
+                statusEl.classList.remove('rltk-status-error');
+                showStatusRow();
+                statusEl.textContent = 'Preparing language models…';
+                if (barFillEl) barFillEl.style.width = '0%';
+            }
             ensureOffscreen(); // start loading models now (lazy until first analysis)
             if (hint) hint.style.display = 'none';
             analyzeBtn.disabled = true;
