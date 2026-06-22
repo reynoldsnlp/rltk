@@ -15,6 +15,13 @@ test.describe('Sidepanel access modal', () => {
   });
 
   test('shows Access Required modal for regular pages without access', async ({ page, browserContext, extensionId, serviceWorker }) => {
+    // Stub example.com so the test doesn't depend on external DNS/network (it
+    // otherwise fails offline with ERR_NAME_NOT_RESOLVED). The page content is
+    // irrelevant — we only need a tab whose URL is an origin the extension has
+    // no host access to, which is still https://example.com/ after fulfilling.
+    await page.route(/^https:\/\/example\.com\//, (route) =>
+      route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Example</title><h1>Example Domain</h1>' })
+    );
     await page.goto('https://example.com');
     await expect.poll(async () => {
       return serviceWorker.evaluate(() => {

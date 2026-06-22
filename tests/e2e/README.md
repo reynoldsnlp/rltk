@@ -24,9 +24,31 @@ rule something out.
 
 ---
 
+## Companion-website tests (the exception to everything below)
+
+Most of the suite drives the **extension** (unpacked `src/`, `chrome-extension://`
+pages). Three specs instead test the **companion website** (`docs/index.html` +
+`docs/web/*`), which runs the same code on a plain page via `chrome-shim.js`:
+
+- `website-model-loading.spec.js` — the model-download status UI. Intercepts
+  model URLs with `page.route()` to simulate failure/fallback **without** any
+  real download, so it's fast and deterministic.
+- `website-functional.spec.js` — one non-trivial end-to-end check (paste Russian
+  → Analyze → the reading tutor annotates + stress-marks the text). Serves the
+  **real** on-disk models from the same-origin test server (see
+  `website-helpers.js`); piping a 396 MB body through `route.fulfill` is far too
+  slow, so it rewrites `web/config.js` to local `/rltk/resources/models/` paths.
+- `website-helpers.js` — shared setup (`openWebsite`, `analyze`,
+  `serveLocalModels`, `failAllModels`).
+
+These do **not** load the extension — they use the default `@playwright/test`
+`page`/`baseURL`, so they run headless and don't need the extension fixtures.
+
+---
+
 ## Environment & constraints (the hard facts)
 
-These shape every decision below:
+These shape every decision below (they apply to the extension suite):
 
 - **Headed Chromium only.** Chrome extensions do **not** load in headless mode, so
   every test launches a headed persistent context.

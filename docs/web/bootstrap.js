@@ -111,6 +111,7 @@
 
     var doneTimer = null;
     var errored = false;
+    var modelsReady = false; // set once a batch finishes; gates the "Preparing…" hint
 
     // A model exhausted every candidate URL. Surface it (don't fail silently in
     // the console) and point users to the browser extension, which ships the
@@ -159,6 +160,7 @@
         if (allDone) {
             // Debounce: only declare "ready" if it stays done. A still-downloading
             // model (e.g. the 396 MB tokeniser) reports again and cancels this.
+            modelsReady = true;
             statusEl.textContent = 'Language models ready — cached on this device.';
             if (barEl) barEl.classList.add('rltk-status-done');
             if (barFillEl) barFillEl.style.width = '100%';
@@ -230,6 +232,7 @@
                 offscreenCreated = false;
                 progress = {};
                 errored = false;
+                modelsReady = false;
                 try { offscreenFrame.src = 'about:blank'; } catch (e) {}
                 if (statusEl) {
                     showStatusRow();
@@ -350,13 +353,15 @@
         analyzeBtn.addEventListener('click', function () {
             var text = pasteInput.value || '';
             // Give immediate feedback the instant analysis is requested — before
-            // the offscreen frame loads and the first byte arrives — so the user
-            // always sees that something is happening, even on a slow first byte.
-            // Only when loading is actually about to (re)start: the first analysis
-            // (no offscreen frame yet) or a retry after a prior failure. On a
-            // normal repeat click the models are already loaded and no progress
-            // events follow, so we must not leave a "Preparing…" message stuck.
-            if ((!offscreenCreated || errored) && statusEl) {
+            // the first byte arrives — so the user always sees that something is
+            // happening, even on a slow first byte. Show it whenever the models
+            // aren't loaded yet and there's text to analyze (which is what
+            // triggers the download). Gating on readiness — not on whether the
+            // offscreen frame exists (it's created eagerly on page load) — means
+            // this fires on the first real analysis and on a retry after failure,
+            // but never leaves a stuck message on a repeat click once models are
+            // ready (no progress events would follow to clear it).
+            if (text.trim() && !modelsReady && statusEl) {
                 errored = false;
                 statusEl.classList.remove('rltk-status-error');
                 showStatusRow();
