@@ -5,11 +5,14 @@ set -e
 ROOT_DIR=$(pwd)
 BUILD_DIR="build_tmp"
 MANIFEST_PATH="$BUILD_DIR/src/manifest.json"
-ZIP_NAME="rltk.zip"
 
-# Clean up previous build
+# Embed the manifest version in the zip name (e.g. rltk-0.0.0.10.zip).
+VERSION=$(python3 -c "import json; print(json.load(open('src/manifest.json'))['version'])")
+ZIP_NAME="rltk-${VERSION}.zip"
+
+# Clean up previous build (including any older versioned zips and the legacy name).
 rm -rf "$BUILD_DIR"
-rm -f "$ZIP_NAME"
+rm -f rltk.zip rltk-*.zip
 
 # Check version against Chrome Web Store
 echo "Checking version..."

@@ -5,6 +5,7 @@ playwright-report/
 test-results/
 
 rltk.zip
+rltk-*.zip
 
 # Shared extension/website code is canonical under docs/rltk/ (src/rltk/ holds
 # symlinks into it). Large language-model binaries are fetched by
