@@ -341,6 +341,22 @@
         // Listen for model-download progress/errors from the offscreen context.
         chrome.runtime.onMessage.addListener(function (message) { onModelMessage(message); });
 
+        // When a token is selected in the reading frame, bring the reading pane
+        // to the top of the page so the clicked word (and the side panel below it)
+        // are in view. Only meaningful on mobile, where the page scrolls; on
+        // desktop the body doesn't scroll, so scrollIntoView is a no-op.
+        chrome.runtime.onMessage.addListener(function (message) {
+            if (!message || message.action !== 'reading_tutor_selection') return;
+            if (message.text == null && message.cohort == null) return; // deselection
+            var pane = document.querySelector('.rltk-reading-pane');
+            if (!pane) return;
+            // Stop 8px short so the pane's top margin stays visible (matches the
+            // .rltk-reading-pane margin in website.css), rather than flush to the
+            // very top of the viewport.
+            var PANE_MARGIN = 8;
+            window.scrollBy({ top: pane.getBoundingClientRect().top - PANE_MARGIN, behavior: 'smooth' });
+        });
+
         // Build the (empty) reading frame. The side panel and offscreen frame are
         // NOT loaded yet: the side panel auto-analyzes the page on load, which would
         // pull the models. Both are created lazily on the first Analyze instead.

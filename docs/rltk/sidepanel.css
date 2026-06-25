@@ -1265,6 +1265,36 @@ th[aria-sort="descending"] .vocab-sort-icon::before {
     color: #ccc;
 }
 
+/* The paradigm-table form(s) matching the selected word. A class (not an inline
+   style) so the panel can find them after rendering (see updateMatchHint). */
+.rltk-paradigm-match {
+    background-color: #fff3cd;
+    border-bottom: 2px solid #ffc107;
+}
+
+/* Off-screen indicator: when a matching form is scrolled out of view, a short
+   line at the form's projected position on the clipped edge plus a chevron
+   pointing toward it (a diagonal chevron in the corner when off on both axes).
+   Same color as the highlight. JS positions/sizes/rotates these and toggles
+   display; both are hidden once the form is fully visible. */
+.rltk-match-hint-line,
+.rltk-match-hint-chevron {
+    position: fixed;
+    z-index: 50;
+    color: #ffc107;
+    pointer-events: none;
+    display: none;
+}
+
+.rltk-match-hint-line {
+    background: currentColor;
+    border-radius: 2px;
+}
+
+.rltk-match-hint-chevron {
+    transform-origin: center center;
+}
+
 /* When the panel is embedded in a short viewport — e.g. the companion website's
    mobile layout, where the side panel is only ~half the screen tall — don't pin
    the footer to the bottom. Let the whole panel scroll so the footer flows after

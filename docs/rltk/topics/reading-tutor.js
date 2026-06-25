@@ -14,6 +14,39 @@
     let currentStressMode = 'none'; // 'none' | 'mark' | 'hover'
 
     /**
+     * Scroll the minimum amount needed to make `el` fully visible, scrolling ONLY
+     * within its own document's scroll container. Deliberately avoids
+     * Element.scrollIntoView(), which also scrolls ancestor frames — on the
+     * website the reading content is an iframe, and we must not scroll the
+     * embedding page. A no-op when `el` is already visible or nothing can scroll.
+     */
+    function ensureSpanVisible(el) {
+        const doc = el.ownerDocument;
+        const view = doc.defaultView;
+        let node = el.parentElement;
+        let container = null;
+        while (node && node !== doc.body && node !== doc.documentElement) {
+            const oy = view.getComputedStyle(node).overflowY;
+            if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) {
+                container = node;
+                break;
+            }
+            node = node.parentElement;
+        }
+        const er = el.getBoundingClientRect();
+        if (container) {
+            const cr = container.getBoundingClientRect();
+            if (er.top < cr.top) container.scrollTop += er.top - cr.top;
+            else if (er.bottom > cr.bottom) container.scrollTop += er.bottom - cr.bottom;
+        } else {
+            const se = doc.scrollingElement || doc.documentElement;
+            const vh = view.innerHeight || doc.documentElement.clientHeight;
+            if (er.top < 0) se.scrollTop += er.top;
+            else if (er.bottom > vh) se.scrollTop += er.bottom - vh;
+        }
+    }
+
+    /**
      * Resolve the stressed text to display in a span.
      *
      * When a word is split across multiple DOM nodes (e.g. sites that wrap each
@@ -222,6 +255,9 @@
                     selectionState.element.classList.remove('ʁ-highlighted');
                 }
                 group.forEach(s => s.classList.add('ʁ-highlighted'));
+                // Keep the highlighted word fully visible within the reading area
+                // itself (not the embedding page). No-op when already visible.
+                ensureSpanVisible(this);
                 selectionState.element = this;
                 selectionState.index = cohortIndex;
 

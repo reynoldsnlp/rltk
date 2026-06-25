@@ -3051,6 +3051,7 @@ ${errorMessage}`);
 
         const container = document.getElementById('reading-tutor-results');
         if (container) container.innerHTML = '';
+        this.hideMatchHint();
 
         const instructions = document.getElementById('reading-tutor-instructions');
         if (instructions && showInstructions && !this.readingTutorInstructionsDismissed) {
@@ -3570,8 +3571,212 @@ ${errorMessage}`);
 
             this.bindCaseTooltips(container);
 
+            // Bring the analysis to the top of the panel's own scroll area so the
+            // user sees it without manual scrolling (helpful on mobile, where the
+            // panel is short). A no-op when there isn't enough content to scroll.
+            // The auto-expanded paradigm renders asynchronously and only then is
+            // the panel tall enough to scroll, so re-apply via a ResizeObserver
+            // until the content settles (it fires on content growth, not on user
+            // scroll, so it won't fight manual scrolling). The target position is
+            // constant (.word-analysis is the first result), so re-applying is
+            // idempotent.
+            const firstWord = container.querySelector('.word-analysis');
+            if (firstWord) {
+                if (this.readingTutorScrollObserver) {
+                    this.readingTutorScrollObserver.disconnect();
+                    this.readingTutorScrollObserver = null;
+                }
+                // Put the analysis at the top. The paradigm expands
+                // asynchronously, so re-apply on resize until it settles. We do
+                // NOT auto-scroll to the matching form; instead, when it's below
+                // the fold we show an off-screen indicator (a colored underline at
+                // its horizontal position with a down-chevron) that disappears
+                // once it's scrolled into view — see updateMatchHint(). That's
+                // also why the match is a queryable class, not an inline style.
+                this.ensureMatchHintListeners();
+                const applyScroll = () => {
+                    this.scrollPanelToTop(firstWord);
+                    this.updateMatchHint();
+                };
+                applyScroll();
+                if (typeof ResizeObserver === 'function') {
+                    const ro = new ResizeObserver(applyScroll);
+                    ro.observe(container);
+                    this.readingTutorScrollObserver = ro;
+                    setTimeout(() => {
+                        if (this.readingTutorScrollObserver === ro) {
+                            ro.disconnect();
+                            this.readingTutorScrollObserver = null;
+                        }
+                    }, 2000);
+                }
+            }
+
         } catch (error) {
             container.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+        }
+    }
+
+    /**
+     * Scroll `el` to the top of the panel's own scroll container. Scrolls ONLY
+     * within this document — deliberately not Element.scrollIntoView(), which
+     * also scrolls ancestor frames (the website embeds the panel in an iframe and
+     * must not be scrolled). A no-op when there's nothing to scroll.
+     */
+    scrollPanelToTop(el) {
+        const doc = el.ownerDocument;
+        const view = doc.defaultView;
+        let node = el.parentElement;
+        while (node && node !== doc.body && node !== doc.documentElement) {
+            const oy = view.getComputedStyle(node).overflowY;
+            if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) {
+                node.scrollTop += el.getBoundingClientRect().top - node.getBoundingClientRect().top;
+                return;
+            }
+            node = node.parentElement;
+        }
+        const se = doc.scrollingElement || doc.documentElement;
+        se.scrollTop += el.getBoundingClientRect().top;
+    }
+
+    /**
+     * Register one-time scroll/resize listeners that keep the off-screen match
+     * indicator in sync. Capture-phase 'scroll' catches both the panel's inner
+     * scroll container (extension) and the document scroll (website mobile).
+     */
+    ensureMatchHintListeners() {
+        if (this.matchHintListenersAdded) return;
+        this.matchHintListenersAdded = true;
+        const schedule = () => {
+            if (this.matchHintRaf) return;
+            this.matchHintRaf = requestAnimationFrame(() => {
+                this.matchHintRaf = null;
+                this.updateMatchHint();
+            });
+        };
+        document.addEventListener('scroll', schedule, true);
+        window.addEventListener('resize', schedule);
+    }
+
+    hideMatchHint() {
+        if (this.matchHintLine) this.matchHintLine.style.display = 'none';
+        if (this.matchHintChevron) this.matchHintChevron.style.display = 'none';
+    }
+
+    ensureMatchHintEls(doc) {
+        if (this.matchHintChevron) return;
+        const line = doc.createElement('div');
+        line.className = 'rltk-match-hint-line';
+        const chev = doc.createElement('div');
+        chev.className = 'rltk-match-hint-chevron';
+        // Base chevron points down; updateMatchHint rotates it per direction.
+        chev.innerHTML =
+            '<svg width="100%" height="100%" viewBox="0 0 16 16" aria-hidden="true">' +
+            '<path d="M4 6 L8 10 L12 6" fill="none" stroke="currentColor" stroke-width="2.5" ' +
+            'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        doc.body.appendChild(line);
+        doc.body.appendChild(chev);
+        this.matchHintLine = line;
+        this.matchHintChevron = chev;
+    }
+
+    /**
+     * Indicate where the highlighted matching form is when it's scrolled out of
+     * view, in any direction (adjective tables, for instance, are often wider
+     * than a phone screen). A short underline at the form's projected position
+     * on the clipped edge plus a chevron pointing toward it; when the form is
+     * off on both axes, a diagonal chevron in the corner instead. Hidden once
+     * the form is fully visible. We mark rather than auto-scroll so the analysis
+     * can stay pinned to the top.
+     */
+    updateMatchHint() {
+        const results = document.getElementById('reading-tutor-results');
+        const match = results ? results.querySelector('.rltk-paradigm-match') : null;
+        if (!match) { this.hideMatchHint(); return; }
+
+        const doc = match.ownerDocument;
+        const view = doc.defaultView;
+
+        // Visible region = the window intersected with every clipping ancestor
+        // (covers the panel's vertical scroll AND any horizontally-scrolled wide
+        // table, in both the extension and the website iframe).
+        let cL = 0, cT = 0, cR = view.innerWidth, cB = view.innerHeight;
+        for (let n = match.parentElement; n && n !== doc.documentElement; n = n.parentElement) {
+            const cs = view.getComputedStyle(n);
+            if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
+                const r = n.getBoundingClientRect();
+                cL = Math.max(cL, r.left); cT = Math.max(cT, r.top);
+                cR = Math.min(cR, r.right); cB = Math.min(cB, r.bottom);
+            }
+        }
+
+        const t = match.getBoundingClientRect();
+        const tol = 1;
+        const above = cT - t.top, below = t.bottom - cB;
+        const left = cL - t.left, right = t.right - cR;
+        let vDir = null, hDir = null;
+        if (above > tol && below > tol) vDir = above >= below ? 'up' : 'down';
+        else if (above > tol) vDir = 'up';
+        else if (below > tol) vDir = 'down';
+        if (left > tol && right > tol) hDir = left >= right ? 'left' : 'right';
+        else if (left > tol) hDir = 'left';
+        else if (right > tol) hDir = 'right';
+
+        if (!vDir && !hDir) { this.hideMatchHint(); return; } // fully visible
+
+        this.ensureMatchHintEls(doc);
+        const line = this.matchHintLine, chev = this.matchHintChevron;
+        const ROT = { up: 180, down: 0, left: 90, right: 270,
+            'up-left': 135, 'up-right': 225, 'down-left': 45, 'down-right': 315 };
+        const THICK = 3, CHB = 16, PAD = 3, GAP = 2, MIN = 20, CORNER = 20;
+        const box = (el, l, tp, w, h) => {
+            el.style.left = Math.round(l) + 'px'; el.style.top = Math.round(tp) + 'px';
+            el.style.width = Math.round(w) + 'px'; el.style.height = Math.round(h) + 'px';
+            el.style.display = 'block';
+        };
+
+        if (vDir && hDir) {
+            // Off on both axes: just a diagonal chevron tucked into the corner.
+            line.style.display = 'none';
+            const cx = hDir === 'left' ? cL + PAD + CORNER / 2 : cR - PAD - CORNER / 2;
+            const cy = vDir === 'up' ? cT + PAD + CORNER / 2 : cB - PAD - CORNER / 2;
+            box(chev, cx - CORNER / 2, cy - CORNER / 2, CORNER, CORNER);
+            chev.style.transform = 'rotate(' + ROT[vDir + '-' + hDir] + 'deg)';
+            return;
+        }
+
+        if (vDir) {
+            // Horizontal underline on the top/bottom edge, at the form's x-extent.
+            const x0 = Math.max(t.left, cL), x1 = Math.min(t.right, cR);
+            const w = Math.max(MIN, x1 - x0);
+            const lx = Math.max(cL, Math.min((x0 + x1) / 2 - w / 2, cR - w));
+            const cxc = lx + w / 2;
+            if (vDir === 'down') {
+                const chevTop = cB - PAD - CHB;
+                box(chev, cxc - CHB / 2, chevTop, CHB, CHB);
+                box(line, lx, chevTop - GAP - THICK, w, THICK);
+            } else {
+                const chevTop = cT + PAD;
+                box(chev, cxc - CHB / 2, chevTop, CHB, CHB);
+                box(line, lx, chevTop + CHB + GAP, w, THICK);
+            }
+            chev.style.transform = 'rotate(' + ROT[vDir] + 'deg)';
+        } else {
+            // Vertical line on the left/right edge, at the form's y-extent.
+            const y0 = Math.max(t.top, cT), y1 = Math.min(t.bottom, cB);
+            const h = Math.max(MIN, y1 - y0);
+            const ly = Math.max(cT, Math.min((y0 + y1) / 2 - h / 2, cB - h));
+            const cyc = ly + h / 2;
+            if (hDir === 'right') {
+                const chevLeft = cR - PAD - CHB;
+                box(chev, chevLeft, cyc - CHB / 2, CHB, CHB);
+                box(line, chevLeft - GAP - THICK, ly, THICK, h);
+            } else {
+                const chevLeft = cL + PAD;
+                box(chev, chevLeft, cyc - CHB / 2, CHB, CHB);
+                box(line, chevLeft + CHB + GAP, ly, THICK, h);
+            }
+            chev.style.transform = 'rotate(' + ROT[hDir] + 'deg)';
         }
     }
 
@@ -3828,9 +4033,9 @@ ${errorMessage}`);
                     return form;
                 }
                 if (matchResult.showSurface && !suppressSurfaceVariant) {
-                    return `${form}<br><span class="surface-variant" style="font-size: 0.8em; color: #666; background-color: #fff3cd; border-bottom: 2px solid #ffc107;">(${surfaceFormForDisplay})</span>`;
+                    return `${form}<br><span class="surface-variant rltk-paradigm-match" style="font-size: 0.8em; color: #666;">(${surfaceFormForDisplay})</span>`;
                 }
-                return `<span style="background-color: #fff3cd; border-bottom: 2px solid #ffc107;">${form}</span>`;
+                return `<span class="rltk-paradigm-match">${form}</span>`;
             }
             return form;
         };

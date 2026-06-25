@@ -174,6 +174,12 @@
         // content -> sidepanel notifications (fire-and-forget).
         if (NOTIFICATION_ACTIONS[action]) {
             bus.dispatch('sidepanel', message, senderInfo());
+            // The website page also reacts to token selection (it scrolls the
+            // reading pane to the top of the page), so deliver this one to the
+            // parent context too.
+            if (action === 'reading_tutor_selection') {
+                bus.dispatch('parent', message, senderInfo());
+            }
             return Promise.resolve(undefined);
         }
 
