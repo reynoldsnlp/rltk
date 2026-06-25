@@ -19,18 +19,33 @@
     var BACKUP = 'https://icall.byu.edu/lang-rus';
     var CG3_PRIMARY = 'https://raw.githubusercontent.com/giellalt/lang-rus/refs/heads/main/src/cg3/disambiguator.cg3';
 
-    // The published browser extension already bundles every model. On Chromium
-    // browsers where the extension is installed, those files are reachable at a
-    // stable chrome-extension:// URL (the extension declares them as
+    // The browser extension already bundles every model. On Chromium browsers
+    // where it's installed, those files are reachable at a stable
+    // chrome-extension:// URL (the extension declares them as
     // web_accessible_resources for this site — see src/manifest.json). We try
-    // this FIRST: for users with the extension it loads instantly from local
+    // these FIRST: for users with the extension it loads instantly from local
     // disk and sidesteps the cross-origin (CORS) fetches entirely; for everyone
     // else the fetch fails immediately and falls through to the remote hosts.
     // (Firefox uses a per-install random moz-extension:// origin, so this only
     // helps on Chromium — it degrades gracefully elsewhere.)
-    var EXT_ID = 'hofbpcgdhdaihhlcjegbfdnmaplnjnco';
-    var EXT = 'chrome-extension://' + EXT_ID + '/rltk/resources/models';
-    function urls(basename, remote) { return [EXT + '/' + basename].concat(remote); }
+    //
+    // Two IDs are tried so the store build and a local unpacked dev build can be
+    // installed side by side and either one satisfies the website:
+    //   - the Chrome Web Store build (Google-assigned, stable), and
+    //   - the unpacked dev build, whose ID is pinned by the manifest "key"
+    //     (src/manifest.json; stripped from the store zip by build_zip.sh).
+    // Whichever is installed serves the models; the other resolves to
+    // chrome-extension://invalid/ and is skipped.
+    var EXT_IDS = [
+        'hofbpcgdhdaihhlcjegbfdnmaplnjnco', // Chrome Web Store build
+        'mcgnenhejkplimjljoephcmjkepcaeij'  // local unpacked dev build (pinned via manifest "key")
+    ];
+    function extUrls(basename) {
+        return EXT_IDS.map(function (id) {
+            return 'chrome-extension://' + id + '/rltk/resources/models/' + basename;
+        });
+    }
+    function urls(basename, remote) { return extUrls(basename).concat(remote); }
 
     window.RLTK_WEB_CONFIG = {
         // basename -> ordered list of candidate URLs (first that succeeds wins)

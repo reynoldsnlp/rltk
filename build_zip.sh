@@ -31,13 +31,13 @@ mkdir -p "$BUILD_DIR"
 echo "Copying src to $BUILD_DIR..."
 cp -RL src "$BUILD_DIR/"
 
-# Remove host_permissions
-python3 scripts/remove_host_permissions.py "$MANIFEST_PATH"
+# Strip dev-only manifest fields (host_permissions + the dev-ID "key")
+python3 scripts/prepare_store_manifest.py "$MANIFEST_PATH"
 
 # Zip
 echo "Zipping..."
 cd "$BUILD_DIR"
-zip -r "$ROOT_DIR/$ZIP_NAME" src -x "src/rltk/resources/models/old/*" -x "*/.DS_Store"
+zip -r "$ROOT_DIR/$ZIP_NAME" src -x "src/rltk/resources/models/old/*" -x "*/.DS_Store" -x "*/RLTK-dev-*"
 
 # Clean up
 cd "$ROOT_DIR"
