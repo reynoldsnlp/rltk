@@ -1282,7 +1282,7 @@ th[aria-sort="descending"] .vocab-sort-icon::before {
     position: fixed;
     z-index: 50;
     color: #ffc107;
-    pointer-events: none;
+    cursor: pointer; /* hoverable + clickable: scrolls the form into view */
     display: none;
 }
 
@@ -1293,6 +1293,14 @@ th[aria-sort="descending"] .vocab-sort-icon::before {
 
 .rltk-match-hint-chevron {
     transform-origin: center center;
+}
+
+/* Hover state is shared: hovering the line or the chevron highlights both
+   (JS toggles .rltk-match-hint-hover on both — see ensureMatchHintEls). */
+.rltk-match-hint-line.rltk-match-hint-hover,
+.rltk-match-hint-chevron.rltk-match-hint-hover {
+    color: #e0a800;
+    filter: drop-shadow(0 0 3px rgba(251, 204, 12, 0.9));
 }
 
 /* When the panel is embedded in a short viewport — e.g. the companion website's

@@ -3051,7 +3051,7 @@ ${errorMessage}`);
 
         const container = document.getElementById('reading-tutor-results');
         if (container) container.innerHTML = '';
-        this.hideMatchHint();
+        this.clearMatchHints();
 
         const instructions = document.getElementById('reading-tutor-instructions');
         if (instructions && showInstructions && !this.readingTutorInstructionsDismissed) {
@@ -3626,17 +3626,20 @@ ${errorMessage}`);
     scrollPanelToTop(el) {
         const doc = el.ownerDocument;
         const view = doc.defaultView;
+        // Smooth scroll to an ABSOLUTE target so the ResizeObserver's repeated
+        // calls during paradigm expansion converge on the same spot instead of
+        // fighting each other (the target is invariant as the scroll animates).
         let node = el.parentElement;
         while (node && node !== doc.body && node !== doc.documentElement) {
             const oy = view.getComputedStyle(node).overflowY;
             if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) {
-                node.scrollTop += el.getBoundingClientRect().top - node.getBoundingClientRect().top;
+                const delta = el.getBoundingClientRect().top - node.getBoundingClientRect().top;
+                node.scrollTo({ top: node.scrollTop + delta, behavior: 'smooth' });
                 return;
             }
             node = node.parentElement;
         }
-        const se = doc.scrollingElement || doc.documentElement;
-        se.scrollTop += el.getBoundingClientRect().top;
+        view.scrollTo({ top: view.scrollY + el.getBoundingClientRect().top, behavior: 'smooth' });
     }
 
     /**
@@ -3658,50 +3661,127 @@ ${errorMessage}`);
         window.addEventListener('resize', schedule);
     }
 
-    hideMatchHint() {
-        if (this.matchHintLine) this.matchHintLine.style.display = 'none';
-        if (this.matchHintChevron) this.matchHintChevron.style.display = 'none';
+    clearMatchHints() {
+        if (!this.matchHints) return;
+        this.matchHints.forEach((pair) => { pair.line.remove(); pair.chev.remove(); });
+        this.matchHints.clear();
     }
 
-    ensureMatchHintEls(doc) {
-        if (this.matchHintChevron) return;
+    /**
+     * Create a line+chevron indicator pair bound to one specific matched form.
+     * The pair closes over `matchEl`, so clicking it scrolls THAT form into view
+     * and hovering highlights only this pair — correct even when several matched
+     * forms are off-screen at once (ambiguous words, syncretic cells).
+     */
+    createMatchHintPair(doc, matchEl) {
         const line = doc.createElement('div');
         line.className = 'rltk-match-hint-line';
         const chev = doc.createElement('div');
         chev.className = 'rltk-match-hint-chevron';
-        // Base chevron points down; updateMatchHint rotates it per direction.
+        // Base chevron points down; positionMatchHint rotates it per direction.
         chev.innerHTML =
             '<svg width="100%" height="100%" viewBox="0 0 16 16" aria-hidden="true">' +
             '<path d="M4 6 L8 10 L12 6" fill="none" stroke="currentColor" stroke-width="2.5" ' +
             'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        const activate = (e) => { e.preventDefault(); this.scrollMatchIntoView(matchEl); };
+        line.addEventListener('click', activate);
+        chev.addEventListener('click', activate);
+        // Hovering either part highlights both of THIS pair (separate elements,
+        // so a plain :hover can't link them).
+        const setHover = (on) => {
+            line.classList.toggle('rltk-match-hint-hover', on);
+            chev.classList.toggle('rltk-match-hint-hover', on);
+        };
+        line.addEventListener('mouseenter', () => setHover(true));
+        line.addEventListener('mouseleave', () => setHover(false));
+        chev.addEventListener('mouseenter', () => setHover(true));
+        chev.addEventListener('mouseleave', () => setHover(false));
         doc.body.appendChild(line);
         doc.body.appendChild(chev);
-        this.matchHintLine = line;
-        this.matchHintChevron = chev;
+        return { line, chev };
     }
 
     /**
-     * Indicate where the highlighted matching form is when it's scrolled out of
-     * view, in any direction (adjective tables, for instance, are often wider
-     * than a phone screen). A short underline at the form's projected position
-     * on the clipped edge plus a chevron pointing toward it; when the form is
-     * off on both axes, a diagonal chevron in the corner instead. Hidden once
-     * the form is fully visible. We mark rather than auto-scroll so the analysis
-     * can stay pinned to the top.
+     * Scroll `el` fully into view on BOTH axes, scrolling each scrollable
+     * ancestor within this document (innermost first) and finally the document
+     * itself — never an ancestor frame (the website embeds the panel in an
+     * iframe and must not be scrolled). Leaves a small margin.
+     */
+    scrollMatchIntoView(el) {
+        const doc = el.ownerDocument;
+        const view = doc.defaultView;
+        const margin = 8;
+        // Compute each container's needed move from the form's current position
+        // and apply them all with smooth behavior. Deltas are derived once (not
+        // re-read between scrolls) so the animations can run together; nested
+        // scrollers in this UI are on separate axes, so they don't interfere.
+        const er = el.getBoundingClientRect();
+        const deltas = (top, bottom, left, right) => {
+            let dy = 0, dx = 0;
+            if (er.top < top + margin) dy = er.top - (top + margin);
+            else if (er.bottom > bottom - margin) dy = er.bottom - (bottom - margin);
+            if (er.left < left + margin) dx = er.left - (left + margin);
+            else if (er.right > right - margin) dx = er.right - (right - margin);
+            return { dy, dx };
+        };
+        for (let n = el.parentElement; n && n !== doc.documentElement; n = n.parentElement) {
+            const cs = view.getComputedStyle(n);
+            const sx = (cs.overflowX === 'auto' || cs.overflowX === 'scroll') && n.scrollWidth > n.clientWidth;
+            const sy = (cs.overflowY === 'auto' || cs.overflowY === 'scroll') && n.scrollHeight > n.clientHeight;
+            if (!sx && !sy) continue;
+            const cr = n.getBoundingClientRect();
+            const { dy, dx } = deltas(cr.top, cr.bottom, cr.left, cr.right);
+            if ((sy && dy) || (sx && dx)) {
+                n.scrollBy({ top: sy ? dy : 0, left: sx ? dx : 0, behavior: 'smooth' });
+            }
+        }
+        const { dy, dx } = deltas(0, view.innerHeight, 0, view.innerWidth);
+        if (dy || dx) view.scrollBy({ top: dy, left: dx, behavior: 'smooth' });
+    }
+
+    /**
+     * Refresh the off-screen indicators for every highlighted matched form.
+     * Each form gets its own line+chevron pair (created on demand); pairs whose
+     * form is gone (re-render / deselection) are removed. Runs on scroll/resize
+     * and after rendering.
      */
     updateMatchHint() {
         const results = document.getElementById('reading-tutor-results');
-        const match = results ? results.querySelector('.rltk-paradigm-match') : null;
-        if (!match) { this.hideMatchHint(); return; }
+        const matches = results
+            ? Array.prototype.slice.call(results.querySelectorAll('.rltk-paradigm-match'))
+            : [];
+        const map = this.matchHints || (this.matchHints = new Map());
+        map.forEach((pair, el) => {
+            if (!el.isConnected || matches.indexOf(el) === -1) {
+                pair.line.remove(); pair.chev.remove(); map.delete(el);
+            }
+        });
+        if (!matches.length) return;
+        const doc = matches[0].ownerDocument;
+        matches.forEach((m) => {
+            let pair = map.get(m);
+            if (!pair) { pair = this.createMatchHintPair(doc, m); map.set(m, pair); }
+            this.positionMatchHint(pair, m);
+        });
+    }
 
-        const doc = match.ownerDocument;
+    /**
+     * Position one indicator pair for its matched form `m`: a short line at the
+     * form's projected position on the clipped edge plus a chevron pointing
+     * toward it (a diagonal chevron in the corner when off on both axes — e.g.
+     * the wide adjective tables). Hidden when the form is fully visible. We mark
+     * rather than auto-scroll so the analysis can stay pinned to the top.
+     */
+    positionMatchHint(pair, m) {
+        const line = pair.line, chev = pair.chev;
+        const doc = m.ownerDocument;
         const view = doc.defaultView;
 
         // Visible region = the window intersected with every clipping ancestor
         // (covers the panel's vertical scroll AND any horizontally-scrolled wide
         // table, in both the extension and the website iframe).
         let cL = 0, cT = 0, cR = view.innerWidth, cB = view.innerHeight;
-        for (let n = match.parentElement; n && n !== doc.documentElement; n = n.parentElement) {
+        for (let n = m.parentElement; n && n !== doc.documentElement; n = n.parentElement) {
             const cs = view.getComputedStyle(n);
             if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
                 const r = n.getBoundingClientRect();
@@ -3710,7 +3790,7 @@ ${errorMessage}`);
             }
         }
 
-        const t = match.getBoundingClientRect();
+        const t = m.getBoundingClientRect();
         const tol = 1;
         const above = cT - t.top, below = t.bottom - cB;
         const left = cL - t.left, right = t.right - cR;
@@ -3722,10 +3802,8 @@ ${errorMessage}`);
         else if (left > tol) hDir = 'left';
         else if (right > tol) hDir = 'right';
 
-        if (!vDir && !hDir) { this.hideMatchHint(); return; } // fully visible
+        if (!vDir && !hDir) { line.style.display = 'none'; chev.style.display = 'none'; return; }
 
-        this.ensureMatchHintEls(doc);
-        const line = this.matchHintLine, chev = this.matchHintChevron;
         const ROT = { up: 180, down: 0, left: 90, right: 270,
             'up-left': 135, 'up-right': 225, 'down-left': 45, 'down-right': 315 };
         const THICK = 3, CHB = 16, PAD = 3, GAP = 2, MIN = 20, CORNER = 20;
