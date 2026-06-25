@@ -351,7 +351,10 @@
         // Analyze: render pasted text, then (first time) load the side panel — which
         // activates the reading tutor and triggers model loading on demand.
         analyzeBtn.addEventListener('click', function () {
-            var text = pasteInput.value || '';
+            // Strip surrounding whitespace before analyzing, and reflect it back
+            // into the textarea so what's analyzed matches what the user sees.
+            var text = (pasteInput.value || '').trim();
+            pasteInput.value = text;
             // Give immediate feedback the instant analysis is requested — before
             // the first byte arrives — so the user always sees that something is
             // happening, even on a slow first byte. Show it whenever the models
@@ -361,7 +364,7 @@
             // this fires on the first real analysis and on a retry after failure,
             // but never leaves a stuck message on a repeat click once models are
             // ready (no progress events would follow to clear it).
-            if (text.trim() && !modelsReady && statusEl) {
+            if (text && !modelsReady && statusEl) {
                 errored = false;
                 statusEl.classList.remove('rltk-status-error');
                 showStatusRow();

@@ -1264,3 +1264,18 @@ th[aria-sort="descending"] .vocab-sort-icon::before {
     margin: 0 5px;
     color: #ccc;
 }
+
+/* When the panel is embedded in a short viewport — e.g. the companion website's
+   mobile layout, where the side panel is only ~half the screen tall — don't pin
+   the footer to the bottom. Let the whole panel scroll so the footer flows after
+   the content instead of permanently eating the limited vertical space. The
+   extension's full-height side panel is unaffected. */
+@media (max-height: 520px) {
+    html, body { height: auto; }
+    #rltk-sidepanel {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+    }
+    .sidepanel-main { overflow-y: visible; }
+}

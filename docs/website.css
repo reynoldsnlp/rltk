@@ -197,7 +197,7 @@ body.rltk-resizing iframe {
 .rltk-analyze {
     flex: 0 0 auto;
     align-self: stretch;
-    padding: 0 22px;
+    padding: 0 14px;
     font-size: 1rem;
     font-weight: 700;
     color: var(--rltk-blue-dark);
@@ -346,24 +346,41 @@ body.rltk-resizing iframe {
     color: var(--rltk-muted);
 }
 
-/* ---- Responsive: stack columns on narrow screens ---- */
+/* ---- Responsive: stack on narrow screens ---- */
 @media (max-width: 860px) {
-    body { overflow: auto; }
+    /* The page itself scrolls. The reading pane and side panel each take ~half
+       the viewport and sit a little narrower than the screen, so the darker
+       body margin around them is touchable to scroll the page, while touching a
+       pane scrolls within it (its iframe). The site footer moves below the side
+       panel. */
+    body {
+        overflow: auto;
+        background: var(--rltk-blue-dark);
+    }
     .rltk-layout {
         flex-direction: column;
+        align-items: center;
         height: auto;
         min-height: 100vh;
     }
-    .rltk-left {
-        min-height: 60vh;
-    }
-    .rltk-splitter {
-        display: none;
-    }
+    /* Unwrap the left column so its footer can be ordered after the side panel. */
+    .rltk-left { display: contents; }
+    .rltk-splitter { display: none; }
+
+    .rltk-header        { order: 1; width: 100%; }
+    .rltk-reading-pane  { order: 2; }
+    .rltk-sidepanel-pane { order: 3; }
+    .rltk-footer        { order: 4; width: 100%; margin-top: 8px; }
+
+    .rltk-reading-pane,
     .rltk-sidepanel-pane {
-        flex: 1 1 auto;
-        width: auto;
-        border-top: 3px solid var(--rltk-yellow);
-        min-height: 60vh;
+        flex: 0 0 auto;
+        width: 92%;
+        height: 48vh;
+        min-width: 0;            /* override the desktop min-width so 92% wins */
+        margin: 8px 0;
+        border-radius: 10px;
+        overflow: hidden;        /* the iframe inside provides the inner scroll */
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 }
