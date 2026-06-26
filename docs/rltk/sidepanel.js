@@ -3766,16 +3766,18 @@ ${errorMessage}`);
     }
 
     /**
-     * Position one indicator pair for its matched form `m`: a short line at the
-     * form's projected position on the clipped edge plus a chevron pointing
-     * toward it (a diagonal chevron in the corner when off on both axes — e.g.
-     * the wide adjective tables). Hidden when the form is fully visible. We mark
-     * rather than auto-scroll so the analysis can stay pinned to the top.
+     * Point one indicator pair at its matched form `m`. JS only MEASURES — it
+     * works out the off-screen direction and a few geometry numbers, then hands
+     * them to CSS via a direction class (rltk-dir-*) and custom properties
+     * (--edge/--start/--len, or --cx/--cy for corners). All positioning, sizing,
+     * and chevron rotation live in the stylesheet (see sidepanel.css). Hidden
+     * (no direction class) when the form is fully visible.
      */
     positionMatchHint(pair, m) {
         const line = pair.line, chev = pair.chev;
         const doc = m.ownerDocument;
         const view = doc.defaultView;
+        const PAD = 3, CORNER = 20, MIN = 20;
 
         // Visible region = the window intersected with every clipping ancestor
         // (covers the panel's vertical scroll AND any horizontally-scrolled wide
@@ -3802,60 +3804,46 @@ ${errorMessage}`);
         else if (left > tol) hDir = 'left';
         else if (right > tol) hDir = 'right';
 
-        if (!vDir && !hDir) { line.style.display = 'none'; chev.style.display = 'none'; return; }
-
-        const ROT = { up: 180, down: 0, left: 90, right: 270,
-            'up-left': 135, 'up-right': 225, 'down-left': 45, 'down-right': 315 };
-        const THICK = 3, CHB = 16, PAD = 3, GAP = 2, MIN = 20, CORNER = 20;
-        const box = (el, l, tp, w, h) => {
-            el.style.left = Math.round(l) + 'px'; el.style.top = Math.round(tp) + 'px';
-            el.style.width = Math.round(w) + 'px'; el.style.height = Math.round(h) + 'px';
-            el.style.display = 'block';
+        const DIRS = ['up', 'down', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right']
+            .map((d) => 'rltk-dir-' + d);
+        const setDir = (el, d) => {
+            el.classList.remove.apply(el.classList, DIRS);
+            if (d) el.classList.add('rltk-dir-' + d);
+        };
+        const setVars = (el, vars) => {
+            for (const k in vars) el.style.setProperty(k, Math.round(vars[k]) + 'px');
         };
 
+        if (!vDir && !hDir) { setDir(line, null); setDir(chev, null); return; } // fully visible
+
         if (vDir && hDir) {
-            // Off on both axes: just a diagonal chevron tucked into the corner.
-            line.style.display = 'none';
-            const cx = hDir === 'left' ? cL + PAD + CORNER / 2 : cR - PAD - CORNER / 2;
-            const cy = vDir === 'up' ? cT + PAD + CORNER / 2 : cB - PAD - CORNER / 2;
-            box(chev, cx - CORNER / 2, cy - CORNER / 2, CORNER, CORNER);
-            chev.style.transform = 'rotate(' + ROT[vDir + '-' + hDir] + 'deg)';
+            // Off on both axes: a single diagonal chevron in the corner, no line.
+            setDir(line, null);
+            setVars(chev, {
+                '--cx': hDir === 'left' ? cL + PAD : cR - PAD - CORNER,
+                '--cy': vDir === 'up' ? cT + PAD : cB - PAD - CORNER
+            });
+            setDir(chev, vDir + '-' + hDir);
             return;
         }
 
+        // Single axis: a line spanning the form's clamped cross-axis extent, at
+        // the clipped edge, with the chevron centered on it.
+        let start, len, edge;
         if (vDir) {
-            // Horizontal underline on the top/bottom edge, at the form's x-extent.
             const x0 = Math.max(t.left, cL), x1 = Math.min(t.right, cR);
-            const w = Math.max(MIN, x1 - x0);
-            const lx = Math.max(cL, Math.min((x0 + x1) / 2 - w / 2, cR - w));
-            const cxc = lx + w / 2;
-            if (vDir === 'down') {
-                const chevTop = cB - PAD - CHB;
-                box(chev, cxc - CHB / 2, chevTop, CHB, CHB);
-                box(line, lx, chevTop - GAP - THICK, w, THICK);
-            } else {
-                const chevTop = cT + PAD;
-                box(chev, cxc - CHB / 2, chevTop, CHB, CHB);
-                box(line, lx, chevTop + CHB + GAP, w, THICK);
-            }
-            chev.style.transform = 'rotate(' + ROT[vDir] + 'deg)';
+            len = Math.max(MIN, x1 - x0);
+            start = Math.max(cL, Math.min((x0 + x1) / 2 - len / 2, cR - len));
+            edge = vDir === 'down' ? cB : cT;
         } else {
-            // Vertical line on the left/right edge, at the form's y-extent.
             const y0 = Math.max(t.top, cT), y1 = Math.min(t.bottom, cB);
-            const h = Math.max(MIN, y1 - y0);
-            const ly = Math.max(cT, Math.min((y0 + y1) / 2 - h / 2, cB - h));
-            const cyc = ly + h / 2;
-            if (hDir === 'right') {
-                const chevLeft = cR - PAD - CHB;
-                box(chev, chevLeft, cyc - CHB / 2, CHB, CHB);
-                box(line, chevLeft - GAP - THICK, ly, THICK, h);
-            } else {
-                const chevLeft = cL + PAD;
-                box(chev, chevLeft, cyc - CHB / 2, CHB, CHB);
-                box(line, chevLeft + CHB + GAP, ly, THICK, h);
-            }
-            chev.style.transform = 'rotate(' + ROT[hDir] + 'deg)';
+            len = Math.max(MIN, y1 - y0);
+            start = Math.max(cT, Math.min((y0 + y1) / 2 - len / 2, cB - len));
+            edge = hDir === 'right' ? cR : cL;
         }
+        const vars = { '--edge': edge, '--start': start, '--len': len };
+        setVars(line, vars); setVars(chev, vars);
+        setDir(line, vDir || hDir); setDir(chev, vDir || hDir);
     }
 
     async generateParadigm(lemma, pos, tags, currentReadings = [], surfaceForm = null) {

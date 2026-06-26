@@ -1275,10 +1275,26 @@ th[aria-sort="descending"] .vocab-sort-icon::before {
 /* Off-screen indicator: when a matching form is scrolled out of view, a short
    line at the form's projected position on the clipped edge plus a chevron
    pointing toward it (a diagonal chevron in the corner when off on both axes).
-   Same color as the highlight. JS positions/sizes/rotates these and toggles
-   display; both are hidden once the form is fully visible. */
+   Same color as the highlight; hidden once the form is fully visible.
+
+   JS only MEASURES — it sets a direction class (rltk-dir-*) plus the geometry
+   custom properties below — and CSS does all positioning/sizing/rotation. This
+   is per element, so any number of indicators (one per matched form) render
+   independently.
+
+   Custom properties set by JS (positionMatchHint):
+     --edge   : px coordinate of the clipped edge (top/bottom for up/down,
+                left/right for left/right)
+     --start  : px start of the line along that edge's cross axis
+     --len    : px length of the line
+     --cx,--cy: px top-left of the corner chevron (corner directions only) */
 .rltk-match-hint-line,
 .rltk-match-hint-chevron {
+    --thick: 3px;
+    --chev: 16px;
+    --pad: 3px;
+    --gap: 2px;
+    --corner: 20px;
     position: fixed;
     z-index: 50;
     color: #ffc107;
@@ -1295,8 +1311,88 @@ th[aria-sort="descending"] .vocab-sort-icon::before {
     transform-origin: center center;
 }
 
+/* An indicator part is shown only while it carries a direction class. */
+.rltk-match-hint-line[class*="rltk-dir-"],
+.rltk-match-hint-chevron[class*="rltk-dir-"] {
+    display: block;
+}
+
+/* ---- Edge lines (span the form's cross-axis extent at the clipped edge) ---- */
+.rltk-match-hint-line.rltk-dir-up,
+.rltk-match-hint-line.rltk-dir-down {
+    left: var(--start);
+    width: var(--len);
+    height: var(--thick);
+}
+.rltk-match-hint-line.rltk-dir-down {
+    top: calc(var(--edge) - var(--pad) - var(--chev) - var(--gap) - var(--thick));
+}
+.rltk-match-hint-line.rltk-dir-up {
+    top: calc(var(--edge) + var(--pad) + var(--chev) + var(--gap));
+}
+.rltk-match-hint-line.rltk-dir-left,
+.rltk-match-hint-line.rltk-dir-right {
+    top: var(--start);
+    height: var(--len);
+    width: var(--thick);
+}
+.rltk-match-hint-line.rltk-dir-right {
+    left: calc(var(--edge) - var(--pad) - var(--chev) - var(--gap) - var(--thick));
+}
+.rltk-match-hint-line.rltk-dir-left {
+    left: calc(var(--edge) + var(--pad) + var(--chev) + var(--gap));
+}
+
+/* ---- Edge chevrons (centered on the line, just outside it, pointing out) ---- */
+.rltk-match-hint-chevron.rltk-dir-up,
+.rltk-match-hint-chevron.rltk-dir-down,
+.rltk-match-hint-chevron.rltk-dir-left,
+.rltk-match-hint-chevron.rltk-dir-right {
+    width: var(--chev);
+    height: var(--chev);
+}
+.rltk-match-hint-chevron.rltk-dir-up,
+.rltk-match-hint-chevron.rltk-dir-down {
+    left: calc(var(--start) + var(--len) / 2 - var(--chev) / 2);
+}
+.rltk-match-hint-chevron.rltk-dir-left,
+.rltk-match-hint-chevron.rltk-dir-right {
+    top: calc(var(--start) + var(--len) / 2 - var(--chev) / 2);
+}
+.rltk-match-hint-chevron.rltk-dir-down {
+    top: calc(var(--edge) - var(--pad) - var(--chev));
+    transform: rotate(0deg);
+}
+.rltk-match-hint-chevron.rltk-dir-up {
+    top: calc(var(--edge) + var(--pad));
+    transform: rotate(180deg);
+}
+.rltk-match-hint-chevron.rltk-dir-right {
+    left: calc(var(--edge) - var(--pad) - var(--chev));
+    transform: rotate(270deg);
+}
+.rltk-match-hint-chevron.rltk-dir-left {
+    left: calc(var(--edge) + var(--pad));
+    transform: rotate(90deg);
+}
+
+/* ---- Corner chevrons (diagonal, off on both axes; no line) ---- */
+.rltk-match-hint-chevron.rltk-dir-up-left,
+.rltk-match-hint-chevron.rltk-dir-up-right,
+.rltk-match-hint-chevron.rltk-dir-down-left,
+.rltk-match-hint-chevron.rltk-dir-down-right {
+    left: var(--cx);
+    top: var(--cy);
+    width: var(--corner);
+    height: var(--corner);
+}
+.rltk-match-hint-chevron.rltk-dir-down-right { transform: rotate(315deg); }
+.rltk-match-hint-chevron.rltk-dir-down-left  { transform: rotate(45deg); }
+.rltk-match-hint-chevron.rltk-dir-up-right   { transform: rotate(225deg); }
+.rltk-match-hint-chevron.rltk-dir-up-left    { transform: rotate(135deg); }
+
 /* Hover state is shared: hovering the line or the chevron highlights both
-   (JS toggles .rltk-match-hint-hover on both — see ensureMatchHintEls). */
+   (JS toggles .rltk-match-hint-hover on both — see createMatchHintPair). */
 .rltk-match-hint-line.rltk-match-hint-hover,
 .rltk-match-hint-chevron.rltk-match-hint-hover {
     color: #e0a800;
