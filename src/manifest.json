@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DEV Russian Language ToolKit (RLTK)",
-  "version": "0.0.0.10",
+  "version": "0.0.0.11",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu3O2sxZTwJP6+2Xy6MNpqQlsMyLyxlxmVJreQO+qrJyc0nOysY16eFZvjzfC8wHWeW01l+3KwaFsP/SpFmRbwXXjoWVs6bvfDH5MyOhFWcCTimHe5mG7FVYMPPwWR+krXGLvoixP/1vtXeaBCgxIvqkduyK7uwYJcXD5D44eeM55i4+yylNN70Ren88mE62GhVx4SeMC0zse/2ctpOvxUQ8jVgk5f5RZGY2ghjOo2/pMnsEAFLC2GWGYw/KMnnvuHRAvCmc9tryd7dJNR0zKWXaaqhlxJMAHWdqRnQRbtbc3hRkPI/jAX38kh+hUlXUtx5PlTVcn1pKymDc58RrJywIDAQAB",
   "description": "Toolbar for Russian language learning, including automatic exercise generation and text analysis.",
   "icons": {
