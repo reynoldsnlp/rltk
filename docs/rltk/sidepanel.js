@@ -54,7 +54,8 @@ class RussianToolsSidePanel {
             rows: [],
             sortKey: 'keyness',
             sortDir: 'desc',
-            totalTokens: 0
+            totalTokens: 0,
+            quizMode: false
         };
         this.freqDictTotal = null;
 
@@ -601,6 +602,150 @@ class RussianToolsSidePanel {
         });
     }
 
+    /**
+     * The table-header help icons (?) carry their text in title/aria-label,
+     * which only appears on hover. Wire them up so a click toggles a tooltip,
+     * matching the other help icons in the panel. A single fixed-position
+     * tooltip is reused so the table wrapper's overflow/sticky header can't clip it.
+     */
+    setupVocabHelpTooltips() {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'vocab-help-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        tooltip.style.display = 'none';
+        document.body.appendChild(tooltip);
+
+        let activeButton = null;
+
+        const hide = () => {
+            tooltip.style.display = 'none';
+            if (activeButton) activeButton.setAttribute('aria-expanded', 'false');
+            activeButton = null;
+        };
+
+        const show = (button) => {
+            tooltip.textContent = button.getAttribute('aria-label') || button.getAttribute('title') || '';
+            tooltip.style.display = 'block';
+            const rect = button.getBoundingClientRect();
+            const margin = 6;
+            const maxLeft = window.innerWidth - tooltip.offsetWidth - margin;
+            tooltip.style.left = `${Math.max(margin, Math.min(rect.left, maxLeft))}px`;
+            tooltip.style.top = `${rect.bottom + 4}px`;
+            button.setAttribute('aria-expanded', 'true');
+            activeButton = button;
+        };
+
+        document.addEventListener('click', (e) => {
+            const button = e.target.closest('.vocab-help');
+            if (button) {
+                e.stopPropagation();
+                if (activeButton === button) hide();
+                else show(button);
+                return;
+            }
+            if (activeButton && !tooltip.contains(e.target)) hide();
+        });
+
+        window.addEventListener('resize', hide);
+        document.querySelector('.vocabulary-table-wrapper')?.addEventListener('scroll', hide);
+    }
+
+    setupVocabularyQuizToggle() {
+        const button = document.getElementById('vocab-quiz-toggle');
+        if (!button) return;
+        button.addEventListener('click', () => {
+            this.vocabularyState.quizMode = !this.vocabularyState.quizMode;
+            const active = this.vocabularyState.quizMode;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+            button.textContent = active ? 'Show' : 'Quiz';
+            this.renderVocabularyTable();
+        });
+    }
+
+    /**
+     * Looks up an English gloss and part of speech for a lemma using the
+     * OpenRussian translation data. Returns null when nothing is available.
+     */
+    getVocabularyTranslation(lemma) {
+        if (!this.translations || !lemma) return null;
+        const cleanLemma = lemma.replace(/\d+/g, '').replace(/́/g, '').toLowerCase();
+        const data = this.translations[cleanLemma];
+        if (!data) return null;
+
+        const preferredOrder = ['noun', 'verb', 'adjective', 'adverb', 'expression', 'other'];
+        let posKey = preferredOrder.find(key => data[key]) || Object.keys(data)[0] || null;
+        if (!posKey) return null;
+
+        const html = data[posKey];
+        if (typeof html !== 'string') return null;
+
+        // Strip the POS badge and audio button to leave just the gloss text.
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        temp.querySelectorAll('.rltk-pos, .rltk-audio-btn').forEach(el => el.remove());
+        const gloss = (temp.textContent || '').trim();
+        if (!gloss) return null;
+
+        return { gloss, pos: posKey };
+    }
+
+    /**
+     * Builds a multiple-choice <select> for a vocabulary row: the correct gloss
+     * plus up to 4 distractors drawn from other rows that share the same POS
+     * (falling back to any POS when there aren't enough same-POS candidates).
+     */
+    buildVocabularyQuizSelect(row, allRows) {
+        const select = document.createElement('select');
+        select.className = 'vocab-quiz-select';
+
+        const distractorPool = allRows.filter(r =>
+            r !== row && r.translation && r.translation !== row.translation);
+        const samePos = distractorPool.filter(r => r.pos && r.pos === row.pos);
+        const otherPos = distractorPool.filter(r => !r.pos || r.pos !== row.pos);
+
+        const shuffle = (arr) => {
+            const copy = arr.slice();
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        };
+
+        const distractors = [];
+        const seen = new Set([row.translation]);
+        for (const candidate of shuffle(samePos).concat(shuffle(otherPos))) {
+            if (distractors.length >= 4) break;
+            if (seen.has(candidate.translation)) continue;
+            seen.add(candidate.translation);
+            distractors.push(candidate.translation);
+        }
+
+        const options = shuffle([row.translation, ...distractors]);
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'choose...';
+        placeholder.selected = true;
+        select.appendChild(placeholder);
+
+        options.forEach(text => {
+            const option = document.createElement('option');
+            option.value = text;
+            option.textContent = text;
+            select.appendChild(option);
+        });
+
+        select.addEventListener('change', () => {
+            const correct = select.value === row.translation;
+            select.classList.toggle('correct', !!select.value && correct);
+            select.classList.toggle('incorrect', !!select.value && !correct);
+        });
+
+        return select;
+    }
+
     computeLogLikelihood(observedDoc, observedRef, totalDoc, totalRef) {
         const total = totalDoc + totalRef;
         const observedTotal = observedDoc + observedRef;
@@ -614,12 +759,6 @@ class RussianToolsSidePanel {
         };
 
         return 2 * (term(observedDoc, expectedDoc) + term(observedRef, expectedRef));
-    }
-
-    formatVocabularyValue(value) {
-        if (!Number.isFinite(value) || value <= 0) return '0';
-        if (value < 0.01) return value.toFixed(3);
-        return value.toFixed(2);
     }
 
     sortVocabularyRows(rows) {
@@ -659,16 +798,21 @@ class RussianToolsSidePanel {
             wordCell.textContent = row.lemma;
             tr.appendChild(wordCell);
 
+            const translationCell = document.createElement('td');
+            translationCell.className = 'vocab-translation-cell';
+            if (this.vocabularyState.quizMode && row.translation) {
+                translationCell.appendChild(this.buildVocabularyQuizSelect(row, sortedRows));
+            } else {
+                translationCell.textContent = row.translation || '';
+            }
+            tr.appendChild(translationCell);
+
             const freqCell = document.createElement('td');
             freqCell.textContent = String(row.count);
             tr.appendChild(freqCell);
 
-            const expectedCell = document.createElement('td');
-            expectedCell.textContent = this.formatVocabularyValue(row.expected);
-            tr.appendChild(expectedCell);
-
             const keynessCell = document.createElement('td');
-            keynessCell.textContent = this.formatVocabularyValue(row.keyness);
+            keynessCell.textContent = String(Math.round(row.keyness || 0));
             tr.appendChild(keynessCell);
 
             tbody.appendChild(tr);
@@ -723,11 +867,11 @@ class RussianToolsSidePanel {
         const items = Array.isArray(response.items) ? response.items : [];
         const totalTokens = Number(response.totalTokens) || 0;
 
+        await this.loadFreqDict();
         const hasFreqDict = !!this.freqDict;
-        if (!hasFreqDict) {
-            this.loadFreqDict();
-        }
         const refTotal = Number(this.freqDictTotal) || 0;
+
+        await this.loadTranslations();
 
         this.vocabularyState.totalTokens = totalTokens;
         this.vocabularyState.rows = items.map(item => {
@@ -735,13 +879,14 @@ class RussianToolsSidePanel {
             const count = Number(item.count) || 0;
             const lemmaKey = lemma.toLowerCase();
             const refFreq = hasFreqDict ? Number(this.freqDict?.[lemmaKey]) || 0 : 0;
-            const expected = (hasFreqDict && refTotal > 0 && totalTokens > 0) ? (refFreq / refTotal) * totalTokens : 0;
             const keyness = hasFreqDict ? this.computeLogLikelihood(count, refFreq, totalTokens, refTotal) : 0;
+            const translationInfo = this.getVocabularyTranslation(lemma);
             return {
                 lemma,
                 count,
-                expected,
-                keyness
+                keyness,
+                translation: translationInfo ? translationInfo.gloss : '',
+                pos: translationInfo ? translationInfo.pos : null
             };
         });
 
@@ -1562,6 +1707,8 @@ class RussianToolsSidePanel {
         });
 
         this.setupVocabularySortButtons();
+        this.setupVocabularyQuizToggle();
+        this.setupVocabHelpTooltips();
 
         this.initializeWritingTab();
 

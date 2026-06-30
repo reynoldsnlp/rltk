@@ -854,7 +854,8 @@ datalist#density-ticks option {
 }
 
 .vocabulary-table-wrapper {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: 70vh;
 }
 
 .vocabulary-table {
@@ -878,6 +879,69 @@ datalist#density-ticks option {
 .vocabulary-table th {
     background: #f7f7f7;
     font-weight: 600;
+}
+
+.vocabulary-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* Translation column may hold long glosses, so allow it to wrap. The width is
+   pinned so the column doesn't reflow when toggling between text and the quiz
+   <select>. */
+.vocabulary-table .vocab-translation-th,
+.vocabulary-table .vocab-translation-cell {
+    white-space: normal;
+    width: 240px;
+    min-width: 240px;
+    max-width: 240px;
+}
+
+.vocab-quiz-button {
+    margin-left: 6px;
+    border: 1px solid #c5c5c5;
+    background: #fff;
+    color: #2c5aa0;
+    border-radius: 3px;
+    font: inherit;
+    font-size: 0.9em;
+    padding: 1px 6px;
+    cursor: pointer;
+}
+
+.vocab-quiz-button:hover {
+    background: #eef3fb;
+}
+
+.vocab-quiz-button.active {
+    background: #2c5aa0;
+    color: #fff;
+    border-color: #2c5aa0;
+}
+
+/* Scoped under .vocabulary-table to override the broader `.panel-section select`
+   rule (which would otherwise force padding and a 14px font-size). */
+.vocabulary-table .vocab-quiz-select {
+    font-family: inherit;
+    font-size: inherit;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    /* Negative vertical margin offsets the select's 1px top+bottom border so it
+       doesn't make quiz-mode rows 2px taller than plain-text rows. */
+    margin: -1px 0;
+    line-height: 1.2;
+}
+
+.vocab-quiz-select.correct {
+    border-color: #2e7d32;
+    background: #eaf6ea;
+}
+
+.vocab-quiz-select.incorrect {
+    border-color: #c62828;
+    background: #fbeaea;
 }
 
 .vocab-sort-button {
@@ -922,7 +986,21 @@ th[aria-sort="descending"] .vocab-sort-icon::before {
     line-height: 16px;
     padding: 0;
     margin-left: 4px;
-    cursor: help;
+    cursor: pointer;
+}
+
+.vocab-help-tooltip {
+    position: fixed;
+    width: 240px;
+    max-width: calc(100vw - 12px);
+    background: #fff;
+    color: #444;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.75em;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
 }
 
 .vocabulary-empty {
