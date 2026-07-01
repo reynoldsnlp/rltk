@@ -27,12 +27,16 @@ test.describe('Tab Synchronization and State Restoration', () => {
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
     await waitForSidePanelReady(sidePanelPage);
 
-    // 1. Initial State: Reading Tutor active, Translations sub-tab active
+    // 1. Initial State: Reading Tutor active, Vocabulary sub-tab active (default)
     await expect(sidePanelPage.locator('.tab-button[data-tab="reading-tutor"]')).toHaveClass(/active/);
-    await expect(sidePanelPage.locator('.sub-tab-button[data-subtab="translations-and-tables"]')).toHaveClass(/active/);
+    await expect(sidePanelPage.locator('.sub-tab-button[data-subtab="vocabulary"]')).toHaveClass(/active/);
 
     // Wait for the reading tutor to finish analyzing before interacting.
     await waitForReadingTutorSettled(page, sidePanelPage);
+
+    // Switch to Translations to exercise the word-selection flow below.
+    await sidePanelPage.click('.sub-tab-button[data-subtab="translations-and-tables"]');
+    await expect(sidePanelPage.locator('.sub-tab-button[data-subtab="translations-and-tables"]')).toHaveClass(/active/);
 
     // 2. Select a word — click the first word
     await page.evaluate(() => {
@@ -79,6 +83,9 @@ test.describe('Tab Synchronization and State Restoration', () => {
 
     // 1. Start in Reading Tutor, select a word
     await waitForReadingTutorSettled(page, sidePanelPage);
+    // Word selection lives on the Translations sub-tab (Vocabulary is the
+    // default), and the selected sub-tab is what gets restored on return.
+    await sidePanelPage.click('.sub-tab-button[data-subtab="translations-and-tables"]');
     await page.evaluate(() => {
         const el = document.querySelector('.ʁ-reading-tutor');
         if (el) el.click();

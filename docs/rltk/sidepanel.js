@@ -66,7 +66,7 @@ class RussianToolsSidePanel {
         this.hasSelection = false;
         this.userHasInteracted = false;
         this.operationLock = Promise.resolve();
-        this.lastReadingTutorSubTab = 'translations-and-tables';
+        this.lastReadingTutorSubTab = 'vocabulary';
 
         this.init();
     }
@@ -349,17 +349,17 @@ class RussianToolsSidePanel {
             order: 20,
             capture: () => ({
                 activeTab: this.currentTab || document.querySelector('.tab-button.active')?.dataset.tab || 'reading-tutor',
-                readingTutorSubTab: this.lastReadingTutorSubTab || document.querySelector('.sub-tab-button.active')?.dataset.subtab || 'translations-and-tables'
+                readingTutorSubTab: this.lastReadingTutorSubTab || document.querySelector('.sub-tab-button.active')?.dataset.subtab || 'vocabulary'
             }),
             apply: async (value) => {
                 const next = value || {};
-                this.lastReadingTutorSubTab = next.readingTutorSubTab || 'translations-and-tables';
+                this.lastReadingTutorSubTab = next.readingTutorSubTab || 'vocabulary';
                 const nextTab = next.activeTab || 'reading-tutor';
                 await this.switchTab(nextTab, { persist: false, restoreOnExit: false });
             },
             defaultValue: () => ({
                 activeTab: 'reading-tutor',
-                readingTutorSubTab: 'translations-and-tables'
+                readingTutorSubTab: 'vocabulary'
             })
         });
 
@@ -594,7 +594,7 @@ class RussianToolsSidePanel {
                     this.vocabularyState.sortDir = this.vocabularyState.sortDir === 'asc' ? 'desc' : 'asc';
                 } else {
                     this.vocabularyState.sortKey = key;
-                    this.vocabularyState.sortDir = key === 'lemma' ? 'asc' : 'desc';
+                    this.vocabularyState.sortDir = (key === 'lemma' || key === 'pos') ? 'asc' : 'desc';
                 }
 
                 this.renderVocabularyTable();
@@ -726,7 +726,7 @@ class RussianToolsSidePanel {
 
         const placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = 'choose...';
+        placeholder.textContent = `Define "${row.lemma}"`;
         placeholder.selected = true;
         select.appendChild(placeholder);
 
@@ -768,6 +768,8 @@ class RussianToolsSidePanel {
             let comparison = 0;
             if (sortKey === 'lemma') {
                 comparison = a.lemma.localeCompare(b.lemma, 'ru');
+            } else if (sortKey === 'pos') {
+                comparison = (a.pos || '').localeCompare(b.pos || '');
             } else {
                 comparison = (a[sortKey] || 0) - (b[sortKey] || 0);
             }
@@ -797,6 +799,11 @@ class RussianToolsSidePanel {
             const wordCell = document.createElement('td');
             wordCell.textContent = row.lemma;
             tr.appendChild(wordCell);
+
+            const posCell = document.createElement('td');
+            posCell.className = 'vocab-pos-cell';
+            posCell.textContent = row.pos || '';
+            tr.appendChild(posCell);
 
             const translationCell = document.createElement('td');
             translationCell.className = 'vocab-translation-cell';
@@ -828,7 +835,11 @@ class RussianToolsSidePanel {
         });
     }
 
-    async updateVocabularyTable() {
+    async updateVocabularyTable({ resetSort = false } = {}) {
+        if (resetSort) {
+            this.vocabularyState.sortKey = 'keyness';
+            this.vocabularyState.sortDir = 'desc';
+        }
         const summary = document.getElementById('vocabulary-summary');
         const empty = document.getElementById('vocabulary-empty');
         if (summary) summary.textContent = '';
@@ -1192,7 +1203,7 @@ class RussianToolsSidePanel {
         }
         this.updateAnalysisWarningUI();
         if (!isProcessing && this.currentTab === 'reading-tutor' && this.lastReadingTutorSubTab === 'vocabulary') {
-            this.updateVocabularyTable();
+            this.updateVocabularyTable({ resetSort: true });
         }
         if (wasProcessing && !isProcessing && !this.isApplyingTabState && this.readingTutorStressMode !== 'none') {
             this.setReadingTutorStressMode(this.readingTutorStressMode);

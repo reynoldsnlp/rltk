@@ -56,6 +56,13 @@ test.describe('Sidepanel chrome:// switch modal', () => {
     await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html`);
     await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
 
+    // The sidepanel registers its onActivated listener late in init() (after
+    // loadTabState). Wait for it before firing, rather than racing init.
+    await sidePanelPage.waitForFunction(
+      () => (window.__sidepanelListenerStore || []).length > 0,
+      { timeout: 10000 }
+    );
+
     await sidePanelPage.evaluate(() => {
       const listeners = window.__sidepanelListenerStore || [];
       listeners.forEach((listener) => listener({ tabId: 42 }));

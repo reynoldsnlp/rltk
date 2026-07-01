@@ -154,6 +154,12 @@ test.describe('Sidepanel access and reset flow', () => {
     await expect(accessModal).toBeVisible();
     await expect(chromeModal).toBeHidden();
     await expect(readingTutorResults).toBeEmpty();
+    // Vocabulary is the default sub-tab, so the Translations panel (which holds
+    // the instructions) starts hidden. Switch to it to confirm it was reset —
+    // dispatched programmatically since the access modal overlays the buttons.
+    await sidePanelPage.evaluate(() =>
+      document.querySelector('.sub-tab-button[data-subtab="translations-and-tables"]').click()
+    );
     await expect(readingTutorInstructions).toBeVisible();
   });
 

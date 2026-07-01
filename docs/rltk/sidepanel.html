@@ -49,12 +49,12 @@
                     <button class="font-size-btn font-size-up" title="Increase font size" aria-label="Increase font size"><span class="fsize-A">A</span><span class="fsize-arrow" aria-hidden="true">▲</span></button>
                     <button class="font-size-btn font-size-down" title="Decrease font size" aria-label="Decrease font size"><span class="fsize-A">A</span><span class="fsize-arrow" aria-hidden="true">▼</span></button>
                 </div>
-                <button class="sub-tab-button active" data-subtab="translations-and-tables">Translations and tables</button>
-                <button class="sub-tab-button" data-subtab="grammar-highlighter">Grammar highlighter</button>
-                <button class="sub-tab-button" data-subtab="vocabulary">Vocabulary</button>
+                <button class="sub-tab-button active" data-subtab="vocabulary">① Vocabulary</button>
+                <button class="sub-tab-button" data-subtab="translations-and-tables">② Translations and tables</button>
+                <button class="sub-tab-button" data-subtab="grammar-highlighter">③ Grammar highlighter</button>
             </div>
 
-            <div id="translations-and-tables-subtab" class="sub-tab-content active">
+            <div id="translations-and-tables-subtab" class="sub-tab-content" style="display: none;">
                 <div id="reading-tutor-actions" class="reading-tutor-actions">
                     <div class="reading-tutor-toggle-row">
                         <label class="reading-tutor-toggle">
@@ -85,7 +85,7 @@
                 </div>
             </div>
 
-            <div id="vocabulary-subtab" class="sub-tab-content" style="display: none;">
+            <div id="vocabulary-subtab" class="sub-tab-content active">
                 <div class="panel-section">
                     <div id="vocabulary-summary" class="vocabulary-summary"></div>
                     <div class="vocabulary-table-wrapper">
@@ -98,6 +98,13 @@
                                             <span class="vocab-sort-icon" aria-hidden="true"></span>
                                         </button>
                                             <button type="button" class="vocab-help" aria-label="The dictionary form (i.e. &quot;lemma&quot;) of words in the webpage." title="The dictionary form (i.e. &quot;lemma&quot;) of words in the webpage.">?</button>
+                                    </th>
+                                    <th data-sort-key="pos" aria-sort="none">
+                                        <button type="button" class="vocab-sort-button" data-sort="pos">
+                                            POS
+                                            <span class="vocab-sort-icon" aria-hidden="true"></span>
+                                        </button>
+                                        <button type="button" class="vocab-help" aria-label="Part of speech (e.g. noun, verb, adjective)." title="Part of speech (e.g. noun, verb, adjective).">?</button>
                                     </th>
                                     <th class="vocab-translation-th">
                                         Translation

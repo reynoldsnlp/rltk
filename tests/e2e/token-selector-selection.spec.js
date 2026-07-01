@@ -136,6 +136,10 @@ test.describe('Token selector respects layout heuristics and selection override'
   // so users can click on any word to see translations and grammar tables.
   // This is different from Reading Activities which focus on main content.
   test('reading tutor annotates across the full page when main/article is insufficient', async ({ page, browserContext, extensionId }, testInfo) => {
+    // Unlike the other cases in this block, this fixture forces whole-page
+    // annotation, which is far slower — raise past the block's 20s cap to the
+    // suite's documented 60s cold-WASM floor (see README).
+    test.setTimeout(60000);
     const baseURL = testInfo.project.use.baseURL;
     const fixtureUrl = `${baseURL}/tests/fixtures/selection-targeting-fallback.html`;
     await page.goto(fixtureUrl);
