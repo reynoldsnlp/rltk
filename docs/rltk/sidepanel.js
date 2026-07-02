@@ -3298,6 +3298,34 @@ ${errorMessage}`);
         });
     }
 
+    // A token is out-of-vocabulary when the analyzer had no dictionary entry for
+    // it. Such words come back either with no readings at all or with a single
+    // "unknown" reading the analyzer marks with a lone "?" tag.
+    isOutOfVocabulary(cohort) {
+        const readings = Array.isArray(cohort && cohort.rs) ? cohort.rs : [];
+        if (readings.length === 0) return true;
+        return readings.every(r => {
+            const tags = (r.ts || []).filter(t => !t.startsWith('<W:'));
+            return tags.length === 1 && tags[0] === '?';
+        });
+    }
+
+    // Render the explanatory placeholder shown when an out-of-vocabulary token
+    // is selected (a word the analyzer had no dictionary entry for).
+    renderReadingTutorNotFound(container, token) {
+        container.innerHTML = '';
+
+        const wordDiv = document.createElement('div');
+        wordDiv.className = 'word-analysis';
+
+        const lemmaDiv = document.createElement('div');
+        lemmaDiv.className = 'lemma-group';
+        lemmaDiv.textContent = `${token} not found in dictionary. Most likely a name, an acronym, a new word, or specialized terminology`;
+
+        wordDiv.appendChild(lemmaDiv);
+        container.appendChild(wordDiv);
+    }
+
     async handleReadingTutorSelection(data) {
         if (data.text === null && data.cohort === null) {
             this.clearReadingTutorSelectionState({ showInstructions: true });
@@ -3335,9 +3363,14 @@ ${errorMessage}`);
             if (typeof data === 'object' && data.cohort) {
                 // We have the cohort directly from the click event
                 cohorts = [data.cohort];
-                const hasReadings = Array.isArray(cohorts[0]?.rs) && cohorts[0].rs.length > 0;
-                if (!hasReadings) {
-                    cohorts = null;
+                if (this.isOutOfVocabulary(cohorts[0])) {
+                    // Out-of-vocabulary token: re-analyzing the same word would only
+                    // repeat the "unknown" result, so show a short explanation
+                    // instead of an empty (or "?"-tagged) analysis.
+                    const token = (data.cohort && data.cohort.w) || data.text || '';
+                    this.renderReadingTutorNotFound(container, token);
+                    this.clearAnalysisWarning();
+                    return;
                 }
             }
 
