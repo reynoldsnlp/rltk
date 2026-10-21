@@ -6,13 +6,12 @@
     <title>RLTK Options</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; padding: 16px; color: #111; line-height: 1.5; }
-        .box { border: 1px solid #ddd; border-radius: 6px; padding: 16px; background: #fafafa; }
+        .hint { color: #555; font-size: 0.9em; margin: 4px 0 0 24px; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <strong>Density controls now live in the side panel.</strong>
-        <div>Open RLTK from the toolbar, pick an activity, and adjust spacing there.</div>
-    </div>
+    <label><input type="checkbox" id="dev-mode"> Dev mode</label>
+    <p class="hint">Shows developer and research tools in the side panel.</p>
+    <script src="options.js"></script>
 </body>
 </html>

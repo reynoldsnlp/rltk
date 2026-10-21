@@ -31,7 +31,8 @@ class RussianToolsSidePanel {
         this.tabStateHandlersInitialized = false;
         this.isApplyingTabState = false;
         this.saveStateTimer = null;
-        this.grammarHighlighterState = { activeTags: [], ignoreAmbiguity: false };
+        this.grammarHighlighterState = { activeTags: [], ignoreAmbiguity: false, highlightAmbiguity: false };
+        this.devMode = false;
         this.lastWritingInput = '';
         this.lastWritingTokens = null;
         this.lastWritingSelectedErrorIndex = null;
@@ -428,7 +429,7 @@ class RussianToolsSidePanel {
             apply: async (value) => {
                 await this.applyGrammarHighlighterState(value);
             },
-            defaultValue: { activeTags: [], ignoreAmbiguity: false }
+            defaultValue: { activeTags: [], ignoreAmbiguity: false, highlightAmbiguity: false }
         });
 
         this.registerTabState('writing', {
@@ -498,20 +499,27 @@ class RussianToolsSidePanel {
             : (this.grammarHighlighterState?.activeTags || []);
         const ignoreAmbiguityCheckbox = document.getElementById('ignore-ambiguity');
         const ignoreAmbiguity = ignoreAmbiguityCheckbox ? ignoreAmbiguityCheckbox.checked : (this.grammarHighlighterState?.ignoreAmbiguity || false);
-        this.grammarHighlighterState = { activeTags, ignoreAmbiguity };
+        const highlightAmbiguityCheckbox = document.getElementById('highlight-ambiguity');
+        const highlightAmbiguity = highlightAmbiguityCheckbox ? highlightAmbiguityCheckbox.checked : (this.grammarHighlighterState?.highlightAmbiguity || false);
+        this.grammarHighlighterState = { activeTags, ignoreAmbiguity, highlightAmbiguity };
         return this.grammarHighlighterState;
     }
 
     async applyGrammarHighlighterState(value) {
-        const next = value || { activeTags: [], ignoreAmbiguity: false };
+        const next = value || { activeTags: [], ignoreAmbiguity: false, highlightAmbiguity: false };
         this.grammarHighlighterState = {
             activeTags: Array.isArray(next.activeTags) ? next.activeTags : [],
-            ignoreAmbiguity: !!next.ignoreAmbiguity
+            ignoreAmbiguity: !!next.ignoreAmbiguity,
+            highlightAmbiguity: !!next.highlightAmbiguity
         };
 
         const ignoreAmbiguityCheckbox = document.getElementById('ignore-ambiguity');
         if (ignoreAmbiguityCheckbox) {
             ignoreAmbiguityCheckbox.checked = this.grammarHighlighterState.ignoreAmbiguity;
+        }
+        const highlightAmbiguityCheckbox = document.getElementById('highlight-ambiguity');
+        if (highlightAmbiguityCheckbox) {
+            highlightAmbiguityCheckbox.checked = this.grammarHighlighterState.highlightAmbiguity;
         }
 
         if (document.getElementById('grammar-highlighter-filters')) {
@@ -1669,6 +1677,7 @@ class RussianToolsSidePanel {
         this.initializeActivitySelectors();
         this.registerDefaultTabStateHandlers();
         this.initFontSize();
+        this.initDevMode();
 
         const urlParams = new URLSearchParams(window.location.search);
         const debugTabIdParam = urlParams.get('debugTabId');
@@ -1947,6 +1956,26 @@ class RussianToolsSidePanel {
         }
     }
 
+    /**
+     * Dev mode (set on the extension options page, or `?dev=true` in the URL, e.g. on
+     * the website) reveals `.dev-only` elements. Toggling it re-applies Grammar
+     * Highlighter styles so dev-only highlights follow.
+     */
+    initDevMode() {
+        const urlDevMode = new URLSearchParams(window.location.search).get('dev') === 'true';
+        const apply = (on) => {
+            this.devMode = urlDevMode || !!on;
+            document.body.classList.toggle('dev-mode', this.devMode);
+            if (this.currentTab === 'reading-tutor' && this.lastReadingTutorSubTab === 'grammar-highlighter') {
+                this.updateGrammarHighlighterHighlighting();
+            }
+        };
+        chrome.storage.local.get(['rltk_dev_mode'], (res) => apply(res.rltk_dev_mode));
+        chrome.storage.onChanged.addListener((changes, area) => {
+            if (area === 'local' && changes.rltk_dev_mode) apply(changes.rltk_dev_mode.newValue);
+        });
+    }
+
     initFontSize() {
         const ids = ['translations-and-tables-subtab', 'grammar-highlighter-subtab', 'vocabulary-subtab'];
         const MIN = 10;
@@ -1997,14 +2026,15 @@ class RussianToolsSidePanel {
         this.initializeWritingTab();
 
         // Morphology settings
-        const ignoreAmbiguityCheckbox = document.getElementById('ignore-ambiguity');
-        if (ignoreAmbiguityCheckbox) {
-            ignoreAmbiguityCheckbox.addEventListener('change', () => {
+        ['ignore-ambiguity', 'highlight-ambiguity'].forEach(id => {
+            const checkbox = document.getElementById(id);
+            if (!checkbox) return;
+            checkbox.addEventListener('change', () => {
                 this.updateGrammarHighlighterHighlighting();
                 this.syncGrammarHighlighterStateFromUI();
                 this.saveTabState();
             });
-        }
+        });
 
         // Auto-enhance checkbox (only if it exists)
         const autoEnhanceCheckbox = document.getElementById('auto-enhance');
@@ -2902,6 +2932,9 @@ ${errorMessage}`);
         if (tagSelectors.length > 0) {
             const fullSelector = tagSelectors.join('');
             css = `${fullSelector} { background-color: rgba(255, 255, 0, 0.3); border-bottom: 2px solid #ffc107; }`;
+        }
+        if (this.devMode && document.getElementById('highlight-ambiguity')?.checked) {
+            css += '.rltk-ambiguous { outline: 2px dashed #dc3545; }';
         }
 
         const targetTabId = await this.getTargetTabId();

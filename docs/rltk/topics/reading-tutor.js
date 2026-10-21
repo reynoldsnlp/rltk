@@ -179,6 +179,8 @@
 
         // Add tag classes for Grammar Highlighter view
         const readings = cohort.rs || [];
+        // Still ambiguous after CG (dev-mode "Highlight ambiguous tokens").
+        if (readings.length > 1) span.classList.add('rltk-ambiguous');
         if (readings.length > 0) {
             const allTagsCount = {};
             readings.forEach(r => {

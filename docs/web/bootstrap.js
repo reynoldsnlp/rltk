@@ -393,7 +393,9 @@
             rebuildReadingFrame(text).then(function () {
                 if (!sidepanelLoaded) {
                     sidepanelLoaded = true;
-                    sidepanelFrame.src = abs(rltkBase, 'sidepanel.html');
+                    // Forward ?dev=true so the side panel shows dev-only features.
+                    var dev = new URLSearchParams(location.search).get('dev') === 'true';
+                    sidepanelFrame.src = abs(rltkBase, 'sidepanel.html' + (dev ? '?dev=true' : ''));
                 }
                 analyzeBtn.disabled = false;
             }, function () {

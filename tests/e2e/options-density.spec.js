@@ -17,18 +17,6 @@ test.describe('Density controls', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
-  test('options page points users to side panel', async ({ browserContext, extensionId }) => {
-    const optionsPage = await browserContext.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/rltk/options/options.html`);
-
-    await expect(optionsPage.locator('.box strong')).toHaveText('Density controls now live in the side panel.');
-    await expect(optionsPage.getByText('Open RLTK from the toolbar, pick an activity, and adjust spacing there.')).toBeVisible();
-
-    // No density slider lives on options anymore
-    await expect(optionsPage.locator('input[type="range"]')).toHaveCount(0);
-    await expect(optionsPage.locator('#density-slider')).toHaveCount(0);
-  });
-
   test('side panel saves density and applies to MC/Cloze', async ({ page, browserContext, extensionId }, testInfo) => {
     // 1) Open nouns fixture
     const baseURL = testInfo.project.use.baseURL;

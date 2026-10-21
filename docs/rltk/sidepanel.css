@@ -77,6 +77,11 @@ header h2 {
     color: #333;
 }
 
+/* Developer/research features, shown only when Dev mode is on (extension options). */
+body:not(.dev-mode) .dev-only {
+    display: none;
+}
+
 #density-section input[type="range"] {
     width: 100%;
 }

@@ -27,6 +27,10 @@
   "side_panel": {
     "default_path": "rltk/sidepanel.html"
   },
+  "options_ui": {
+    "page": "rltk/options/options.html",
+    "open_in_tab": false
+  },
   "action": {
     "default_title": "RLTK",
     "default_icon": {

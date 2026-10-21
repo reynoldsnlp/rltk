@@ -35,8 +35,8 @@ function modelBasename(url) {
 }
 
 // Open the website entry point and wait for the bootstrap UI to be wired up.
-async function openWebsite(page, baseURL) {
-  await page.goto(`${baseURL}/index.html`);
+async function openWebsite(page, baseURL, query = '') {
+  await page.goto(`${baseURL}/index.html${query}`);
   await page.waitForSelector('#rltk-analyze');
 }
 
