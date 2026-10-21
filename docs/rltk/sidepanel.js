@@ -2088,8 +2088,7 @@ class RussianToolsSidePanel {
         // Listen for reading tutor selection
         chrome.runtime.onMessage.addListener((message) => {
             if (message.action === 'reading_tutor_selection') {
-                // Handle both direct cohort data and text selection
-                this.handleReadingTutorSelection(message);
+                this.handleReadingTutorTokenClick(message);
             }
         });
 
@@ -3634,6 +3633,22 @@ ${errorMessage}`);
 
         wordDiv.appendChild(lemmaDiv);
         container.appendChild(wordDiv);
+    }
+
+    /**
+     * A word clicked on the page. While the Reading Tutor is open, jump to the
+     * Translations sub-tab to show it (deselecting a word doesn't switch).
+     */
+    async handleReadingTutorTokenClick(message) {
+        if (message.cohort && this.currentTab === 'reading-tutor' &&
+            this.lastReadingTutorSubTab !== 'translations-and-tables') {
+            // Forget the previous word first, or the switch would restore it (on the
+            // page and in the panel) over the one just clicked.
+            this.lastReadingTutorSelectionData = null;
+            this.lastReadingTutorSelectionIndex = null;
+            await this.switchSubTab('translations-and-tables');
+        }
+        await this.handleReadingTutorSelection(message);
     }
 
     async handleReadingTutorSelection(data) {
