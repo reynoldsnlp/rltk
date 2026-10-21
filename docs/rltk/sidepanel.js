@@ -52,12 +52,15 @@ class RussianToolsSidePanel {
         this.analysisWarning = null;
         this.vocabularyState = {
             rows: [],
-            sortKey: 'keyness',
+            sortKey: 'll',
             sortDir: 'desc',
             totalTokens: 0,
-            quizMode: false
+            significanceElbow: null,
+            quizMode: false,
+            hideFunctionWords: false
         };
         this.freqDictTotal = null;
+        this.freqLemmaTotals = null;
 
         const urlParams = new URLSearchParams(window.location.search);
         this.debugTabId = urlParams.get('debugTabId') ? parseInt(urlParams.get('debugTabId')) : null;
@@ -554,21 +557,42 @@ class RussianToolsSidePanel {
 
     async loadFreqDict() {
         if (this.freqDict) {
-            if (this.freqDictTotal === null) {
-                this.freqDictTotal = 1_000_000;
-            }
+            if (this.freqDictTotal === null) this.indexFreqDict();
             return;
         }
         try {
-            const url = chrome.runtime.getURL('rltk/resources/models/Sharoff_lem_freq_dict.json');
+            const url = chrome.runtime.getURL('rltk/resources/models/Sharoff_frqc_lempos_freq.json');
             const response = await fetch(url);
             this.freqDict = await response.json();
-            this.freqDictTotal = 1_000_000;
+            this.indexFreqDict();
         } catch (e) {
             console.error('Failed to load frequency dictionary:', e);
             this.freqDict = {};
             this.freqDictTotal = 0;
+            this.freqLemmaTotals = {};
         }
+    }
+
+    /**
+     * Index the POS-keyed frequency dict: derive the reference total (ipm) and, per lemma,
+     * the summed frequency across all its POS. Keyness uses the lemma total rather than the
+     * POS-specific value because the frqc corpora and the gt-desc analyzer often disagree on
+     * a lemma's POS category (e.g. `почему`/`куда` are Pron in frqc but Adv in gt-desc, `также`
+     * is Pcle vs CC). A strict lemma+POS lookup would then miss and wrongly treat a common
+     * word as out-of-vocabulary, inflating its significance.
+     */
+    indexFreqDict() {
+        const lemmaTotals = {};
+        let total = 0;
+        for (const [key, value] of Object.entries(this.freqDict)) {
+            const v = Number(value) || 0;
+            total += v;
+            const plus = key.lastIndexOf('+');
+            const lemma = plus === -1 ? key : key.slice(0, plus);
+            lemmaTotals[lemma] = (lemmaTotals[lemma] || 0) + v;
+        }
+        this.freqDictTotal = total;
+        this.freqLemmaTotals = lemmaTotals;
     }
 
     async loadTranslations() {
@@ -663,6 +687,62 @@ class RussianToolsSidePanel {
         });
     }
 
+    setupVocabularyFunctionWordFilter() {
+        const button = document.getElementById('vocab-function-filter');
+        if (!button) return;
+        button.addEventListener('click', () => {
+            this.vocabularyState.hideFunctionWords = !this.vocabularyState.hideFunctionWords;
+            const on = this.vocabularyState.hideFunctionWords;
+            button.classList.toggle('active', on);
+            button.setAttribute('aria-pressed', on ? 'true' : 'false');
+            button.textContent = on ? 'Show function words' : 'Hide function words';
+            this.renderVocabularyTable();
+        });
+    }
+
+    setupVocabularyCopyHandler() {
+        document.addEventListener('copy', (event) => {
+            const table = document.getElementById('vocabulary-table');
+            const selection = window.getSelection();
+            if (!table || !selection || selection.isCollapsed) return;
+            if (!this.selectionIntersectsElement(selection, table)) return;
+
+            const text = this.getVocabularySelectionCopyText(selection, table);
+            if (!text || !event.clipboardData) return;
+
+            event.clipboardData.setData('text/plain', text);
+            event.preventDefault();
+        });
+    }
+
+    selectionIntersectsElement(selection, element) {
+        for (let i = 0; i < selection.rangeCount; i++) {
+            try {
+                if (selection.getRangeAt(i).intersectsNode(element)) return true;
+            } catch (e) {
+                // Some nodes cannot be tested with intersectsNode in older browsers.
+            }
+        }
+        return false;
+    }
+
+    getVocabularySelectionCopyText(selection, table) {
+        const lines = Array.from(table.rows)
+            .filter(row => this.selectionIntersectsElement(selection, row))
+            .map(row => Array.from(row.cells)
+                .filter(cell => this.selectionIntersectsElement(selection, cell))
+                .map(cell => this.getVocabularyCellCopyText(cell))
+                .join('\t'))
+            .filter(line => line.length > 0);
+        return lines.join('\n');
+    }
+
+    getVocabularyCellCopyText(cell) {
+        if (cell.dataset.ll !== undefined) return cell.dataset.ll;
+        const text = cell.innerText || cell.textContent || '';
+        return text.replace(/\s+/g, ' ').trim();
+    }
+
     /**
      * Looks up an English gloss and part of speech for a lemma using the
      * OpenRussian translation data. Returns null when nothing is available.
@@ -746,19 +826,150 @@ class RussianToolsSidePanel {
         return select;
     }
 
+    /**
+     * Standard four-cell Dunning log-likelihood (G²) for a 2×2 contingency table
+     * (this lemma vs. everything else) × (document vs. reference corpus). This drives
+     * the Significance column and default ranking.
+     * `observedRef` is the reference frequency in ipm and `totalRef` its 1e6 base.
+     */
     computeLogLikelihood(observedDoc, observedRef, totalDoc, totalRef) {
-        const total = totalDoc + totalRef;
-        const observedTotal = observedDoc + observedRef;
-        if (!total || !observedTotal) return 0;
+        const N = totalDoc + totalRef;
+        if (!N || !totalDoc || !totalRef) return 0;
+        const a = observedDoc;
+        const b = observedRef;
+        const c = totalDoc - a;
+        const d = totalRef - b;
+        const term = (o, e) => (o > 0 && e > 0) ? o * Math.log(o / e) : 0;
+        const E1 = totalDoc * (a + b) / N;
+        const E2 = totalRef * (a + b) / N;
+        const E3 = totalDoc * (c + d) / N;
+        const E4 = totalRef * (c + d) / N;
+        return 2 * (term(a, E1) + term(b, E2) + term(c, E3) + term(d, E4));
+    }
 
-        const expectedDoc = totalDoc * (observedTotal / total);
-        const expectedRef = totalRef * (observedTotal / total);
-        const term = (observed, expected) => {
-            if (!observed || !expected) return 0;
-            return observed * Math.log(observed / expected);
-        };
+    /**
+     * "Elbow" of a numeric column: the value at the knee of the sorted-descending value
+     * curve. This uses normalized x/y coordinates and chooses the point farthest below
+     * the chord from high-to-low values, which identifies the start of the long tail.
+     * Returns null when there are too few values to define a knee.
+     */
+    computeColumnElbow(values) {
+        const vals = values.filter(v => Number.isFinite(v)).sort((x, y) => y - x);
+        const n = vals.length;
+        if (n < 3) return null;
+        const y0 = vals[0];
+        const y1 = vals[n - 1];
+        const yRange = y0 - y1;
+        if (yRange <= 0) return null;
+        let bestI = 0;
+        let bestDist = -1;
+        for (let i = 0; i < n; i++) {
+            const x = i / (n - 1);
+            const y = (vals[i] - y1) / yRange;
+            const dist = (1 - x) - y;
+            if (dist > bestDist) {
+                bestDist = dist;
+                bestI = i;
+            }
+        }
+        return vals[bestI];
+    }
 
-        return 2 * (term(observedDoc, expectedDoc) + term(observedRef, expectedRef));
+    computeGrowingBucketCounts(total, bucketCount) {
+        if (total <= 0 || bucketCount <= 0) return [];
+        const weightTotal = bucketCount * (bucketCount + 1) / 2;
+        const counts = Array.from({ length: bucketCount }, (_, i) =>
+            Math.floor(total * (i + 1) / weightTotal));
+        let assigned = counts.reduce((sum, count) => sum + count, 0);
+        while (assigned < total) {
+            counts[bucketCount - 1] += 1;
+            assigned += 1;
+        }
+        return counts;
+    }
+
+    assignVocabularyStars(rows) {
+        rows.forEach(row => {
+            row.keywordStars = 1;
+        });
+
+        const ranked = rows
+            .map(row => ({ row, value: Number(row.ll) || 0 }))
+            .filter(item => Number.isFinite(item.value))
+            .sort((a, b) => (b.value - a.value) || a.row.lemma.localeCompare(b.row.lemma, 'ru'));
+        if (ranked.length === 0) return null;
+
+        const elbow = this.computeColumnElbow(ranked.map(item => item.value));
+        const aboveElbow = elbow == null ? [] : ranked.filter(item => item.value > elbow);
+        // Keep the high-significance side small enough that bucket sizes can grow
+        // toward lower significance: 5 < 4 < 3 < 2 < 1 when the row count allows it.
+        const aboveCount = Math.min(
+            aboveElbow.length,
+            this.computeMaxHighStarCount(ranked.length)
+        );
+        const highStarRows = ranked.slice(0, aboveCount);
+        const lowStarRows = ranked.slice(aboveCount);
+
+        const fiveStarCount = highStarRows.length <= 2
+            ? 0
+            : Math.floor((highStarRows.length - 1) / 2);
+        const fourStarCount = highStarRows.length - fiveStarCount;
+        this.applyVocabularyStarCounts(highStarRows, [5, 4], [fiveStarCount, fourStarCount]);
+
+        const lowCounts = this.computeBelowElbowStarCounts(lowStarRows.length, fourStarCount);
+        this.applyVocabularyStarCounts(lowStarRows, [3, 2, 1], lowCounts);
+        return elbow;
+    }
+
+    computeMaxHighStarCount(total) {
+        for (let highCount = total; highCount > 0; highCount--) {
+            const fiveStarCount = highCount <= 2 ? 0 : Math.floor((highCount - 1) / 2);
+            const fourStarCount = highCount - fiveStarCount;
+            const lowCount = total - highCount;
+            const minLowCount = (fourStarCount + 1) + (fourStarCount + 2) + (fourStarCount + 3);
+            if (lowCount >= minLowCount) return highCount;
+        }
+        return 0;
+    }
+
+    computeBelowElbowStarCounts(total, fourStarCount) {
+        if (total <= 0) return [0, 0, 0];
+
+        const minThree = fourStarCount + 1;
+        const minTwo = fourStarCount + 2;
+        const minOne = fourStarCount + 3;
+        if (total >= minThree + minTwo + minOne) {
+            return [minThree, minTwo, total - minThree - minTwo];
+        }
+
+        return this.computeGrowingBucketCounts(total, 3);
+    }
+
+    applyVocabularyStarCounts(items, stars, counts) {
+        let offset = 0;
+        stars.forEach((star, i) => {
+            const count = i === stars.length - 1 ? items.length - offset : counts[i];
+            items.slice(offset, offset + count).forEach(item => {
+                item.row.keywordStars = star;
+            });
+            offset += count;
+        });
+    }
+
+    renderVocabularyStars(stars) {
+        const count = Math.max(1, Math.min(5, Number(stars) || 1));
+        return '★'.repeat(count) + '☆'.repeat(5 - count);
+    }
+
+    isVocabularyContentWord(row) {
+        if (!row) return false;
+        if (row.canonPos) return ['N', 'V', 'A', 'Adv'].includes(row.canonPos);
+        return ['noun', 'verb', 'adjective', 'adverb'].includes(String(row.pos || '').toLowerCase());
+    }
+
+    formatVocabularyLogLikelihood(value) {
+        const ll = Number(value);
+        return Number.isFinite(ll) ? String(ll) : '0';
     }
 
     sortVocabularyRows(rows) {
@@ -770,6 +981,8 @@ class RussianToolsSidePanel {
                 comparison = a.lemma.localeCompare(b.lemma, 'ru');
             } else if (sortKey === 'pos') {
                 comparison = (a.pos || '').localeCompare(b.pos || '');
+            } else if (sortKey === 'll') {
+                comparison = Number(this.formatVocabularyLogLikelihood(a.ll)) - Number(this.formatVocabularyLogLikelihood(b.ll));
             } else {
                 comparison = (a[sortKey] || 0) - (b[sortKey] || 0);
             }
@@ -786,13 +999,26 @@ class RussianToolsSidePanel {
         if (!tbody) return;
 
         tbody.innerHTML = '';
-        if (this.vocabularyState.rows.length === 0) {
-            if (empty) empty.style.display = 'block';
-        } else if (empty) {
-            empty.style.display = 'none';
+        const allRows = this.vocabularyState.rows;
+        this.vocabularyState.significanceElbow = this.assignVocabularyStars(allRows);
+
+        const visibleRows = this.vocabularyState.hideFunctionWords
+            ? allRows.filter(row => this.isVocabularyContentWord(row))
+            : allRows;
+
+        if (empty) {
+            if (allRows.length === 0) {
+                empty.textContent = 'No vocabulary data yet.';
+                empty.style.display = 'block';
+            } else if (visibleRows.length === 0) {
+                empty.textContent = 'No content words to show.';
+                empty.style.display = 'block';
+            } else {
+                empty.style.display = 'none';
+            }
         }
 
-        const sortedRows = this.sortVocabularyRows([...this.vocabularyState.rows]);
+        const sortedRows = this.sortVocabularyRows([...visibleRows]);
         sortedRows.forEach(row => {
             const tr = document.createElement('tr');
 
@@ -818,9 +1044,14 @@ class RussianToolsSidePanel {
             freqCell.textContent = String(row.count);
             tr.appendChild(freqCell);
 
-            const keynessCell = document.createElement('td');
-            keynessCell.textContent = String(Math.round(row.keyness || 0));
-            tr.appendChild(keynessCell);
+            const llCell = document.createElement('td');
+            const stars = Math.max(1, Math.min(5, Number(row.keywordStars) || 1));
+            llCell.className = 'vocab-significance-cell';
+            llCell.dataset.ll = this.formatVocabularyLogLikelihood(row.ll);
+            llCell.textContent = this.renderVocabularyStars(stars);
+            llCell.setAttribute('aria-label', `${stars} of 5 significance stars`);
+            llCell.title = `${stars} of 5 significance stars`;
+            tr.appendChild(llCell);
 
             tbody.appendChild(tr);
         });
@@ -837,7 +1068,7 @@ class RussianToolsSidePanel {
 
     async updateVocabularyTable({ resetSort = false } = {}) {
         if (resetSort) {
-            this.vocabularyState.sortKey = 'keyness';
+            this.vocabularyState.sortKey = 'll';
             this.vocabularyState.sortDir = 'desc';
         }
         const summary = document.getElementById('vocabulary-summary');
@@ -875,34 +1106,74 @@ class RussianToolsSidePanel {
             return;
         }
 
-        const items = Array.isArray(response.items) ? response.items : [];
-        const totalTokens = Number(response.totalTokens) || 0;
+        // Each token is { surface, readings: [{lemma, pos}, ...] } (CG3-disambiguated).
+        const tokens = Array.isArray(response.tokens) ? response.tokens : [];
+        const totalTokens = Number(response.totalTokens) || tokens.length;
 
         await this.loadFreqDict();
-        const hasFreqDict = !!this.freqDict;
+        const freqDict = this.freqDict || {};
         const refTotal = Number(this.freqDictTotal) || 0;
+        const F = (typeof RLTK_FREQ !== 'undefined') ? RLTK_FREQ : null;
 
         await this.loadTranslations();
 
+        // Resolve each token to a single reading (highest reference frequency wins when
+        // CG3 leaves more than one) and aggregate counts by lemma+canonical-POS. Track the
+        // surface capitalization so a lemma whose every occurrence shares one shape (e.g. a
+        // proper noun always Title-cased) can be displayed in that shape.
+        const agg = new Map();
+        tokens.forEach(token => {
+            const readings = token && Array.isArray(token.readings) ? token.readings : null;
+            if (!readings || readings.length === 0) return;
+            let best = readings[0];
+            let bestFreq = -1;
+            for (const c of readings) {
+                const key = F ? F.freqKey(c.lemma, c.pos) : null;
+                const freq = key ? (Number(freqDict[key]) || 0) : 0;
+                if (freq > bestFreq) {
+                    bestFreq = freq;
+                    best = c;
+                }
+            }
+            const lemma = F ? F.normalizeLemma(best.lemma) : String(best.lemma || '').toLowerCase();
+            const canonPos = F ? F.canonicalPos(best.pos) : null;
+            const key = canonPos ? `${lemma}+${canonPos}` : lemma;
+            const shape = F ? F.capitalizationShape(token.surface) : 'lower';
+            const existing = agg.get(key);
+            if (existing) {
+                existing.count += 1;
+                if (existing.shape !== shape) existing.shape = 'lower';
+            } else {
+                agg.set(key, { lemma, canonPos, count: 1, shape });
+            }
+        });
+
         this.vocabularyState.totalTokens = totalTokens;
-        this.vocabularyState.rows = items.map(item => {
-            const lemma = item.lemma || '';
-            const count = Number(item.count) || 0;
-            const lemmaKey = lemma.toLowerCase();
-            const refFreq = hasFreqDict ? Number(this.freqDict?.[lemmaKey]) || 0 : 0;
-            const keyness = hasFreqDict ? this.computeLogLikelihood(count, refFreq, totalTokens, refTotal) : 0;
+        const lemmaTotals = this.freqLemmaTotals || {};
+        const rows = Array.from(agg.values()).map(({ lemma, canonPos, count, shape }) => {
+            // Reference frequency = lemma total across POS (robust to analyzer/corpus POS
+            // disagreements; see indexFreqDict). POS is still used for the reading tie-break
+            // and display, just not for the keyness lookup.
+            const refFreq = Number(lemmaTotals[lemma]) || 0;
+            const ll = this.computeLogLikelihood(count, refFreq, totalTokens, refTotal);
             const translationInfo = this.getVocabularyTranslation(lemma);
             return {
-                lemma,
+                lemma: F ? F.applyCapitalization(lemma, shape) : lemma,
                 count,
-                keyness,
+                ll,
+                canonPos,
                 translation: translationInfo ? translationInfo.gloss : '',
-                pos: translationInfo ? translationInfo.pos : null
+                pos: canonPos ? (F ? F.posLabel(canonPos) : canonPos)
+                    : (translationInfo ? translationInfo.pos : '')
             };
         });
 
+        // Star ratings are computed per-render from the significance distribution
+        // (see renderVocabularyTable), so no fixed rating is stored here.
+        this.vocabularyState.rows = rows;
+
         if (summary) {
-            summary.textContent = `Document length: ${totalTokens} words · ${this.vocabularyState.rows.length} lemmas`;
+            summary.textContent = `Document length: ${totalTokens} words · ${rows.length} lemmas`;
         }
 
         this.renderVocabularyTable();
@@ -1719,6 +1990,8 @@ class RussianToolsSidePanel {
 
         this.setupVocabularySortButtons();
         this.setupVocabularyQuizToggle();
+        this.setupVocabularyFunctionWordFilter();
+        this.setupVocabularyCopyHandler();
         this.setupVocabHelpTooltips();
 
         this.initializeWritingTab();

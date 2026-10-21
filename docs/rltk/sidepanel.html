@@ -87,7 +87,10 @@
 
             <div id="vocabulary-subtab" class="sub-tab-content active">
                 <div class="panel-section">
-                    <div id="vocabulary-summary" class="vocabulary-summary"></div>
+                    <div class="vocabulary-summary-row">
+                        <div id="vocabulary-summary" class="vocabulary-summary"></div>
+                        <button type="button" id="vocab-function-filter" class="vocab-function-filter" aria-pressed="false">Hide function words</button>
+                    </div>
                     <div class="vocabulary-table-wrapper">
                         <table id="vocabulary-table" class="vocabulary-table">
                             <thead>
@@ -117,12 +120,12 @@
                                         </button>
                                         <button type="button" class="vocab-help" aria-label="How many times the word appears in any form on this page." title="How many times the word appears in any form on this page.">?</button>
                                     </th>
-                                    <th data-sort-key="keyness" aria-sort="none">
-                                        <button type="button" class="vocab-sort-button" data-sort="keyness">
-                                            Keyword score
+                                    <th data-sort-key="ll" aria-sort="none">
+                                        <button type="button" class="vocab-sort-button" data-sort="ll">
+                                            <span class="vocab-sort-label">Significance</span>
                                             <span class="vocab-sort-icon" aria-hidden="true"></span>
                                         </button>
-                                        <button type="button" class="vocab-help" aria-label="Words that are more frequent than expected, i.e., key words in this document. Computed using log likelihood ratio." title="Words that are more frequent than expected, i.e., key words in this document. Computed using log likelihood ratio.">?</button>
+                                        <button type="button" class="vocab-help" aria-label="Log-likelihood: how statistically reliable the word's over-use is (higher = more reliable). Stars summarize the distribution; copied table data uses the underlying log-likelihood value." title="Log-likelihood: how statistically reliable the word's over-use is (higher = more reliable). Stars summarize the distribution; copied table data uses the underlying log-likelihood value.">?</button>
                                     </th>
                                 </tr>
                             </thead>
@@ -277,6 +280,7 @@
         </div>
     </div>
 
+    <script src="utils/freq-keys.js"></script>
     <script src="sidepanel.js"></script>
 </body>
 </html>

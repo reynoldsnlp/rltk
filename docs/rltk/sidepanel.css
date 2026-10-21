@@ -847,10 +847,40 @@ datalist#density-ticks option {
     display: block;
 }
 
+.vocabulary-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
 .vocabulary-summary {
     font-size: 0.75em;
     color: #555;
-    margin-bottom: 8px;
+}
+
+.vocab-function-filter {
+    flex: none;
+    border: 1px solid #c5c5c5;
+    background: #fff;
+    color: #2c5aa0;
+    border-radius: 3px;
+    font: inherit;
+    font-size: 0.72em;
+    padding: 2px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.vocab-function-filter:hover {
+    background: #eef3fb;
+}
+
+.vocab-function-filter.active {
+    background: #2c5aa0;
+    color: #fff;
+    border-color: #2c5aa0;
 }
 
 .vocabulary-table-wrapper {

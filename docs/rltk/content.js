@@ -220,6 +220,38 @@
     }
 
     /**
+     * Computed `display` values that do NOT start a new line between adjacent boxes.
+     * Everything else (block, flex, grid, list-item, table*, etc.) is a visual boundary.
+     */
+    const INLINE_DISPLAY_REGEX = /^(inline|inline-block|inline-flex|inline-grid|inline-table|ruby|ruby-base|ruby-text|ruby-base-container|ruby-text-container|contents)$/;
+
+    /**
+     * Returns a function giving the nearest block-level ancestor element of a node,
+     * based on computed `display` (with a per-call cache). Two text nodes in different
+     * block containers are on different visual lines, so a separator must sit between
+     * them even when no block tag or whitespace does \u2014 otherwise a headline `<a>`
+     * followed by an inline-looking `<time>` badge fuses into "...\u0412\u043E\u0441\u0442\u043E\u043A\u043030 \u0438\u044E\u043D\u044F",
+     * yielding one out-of-vocabulary token. Basing this on computed display (rather than
+     * a block-tag allowlist) generalizes to any element/layout.
+     */
+    function makeBlockContainerFinder() {
+        const cache = new Map();
+        return function nearestBlockContainer(node) {
+            let el = node.parentElement;
+            while (el) {
+                let display = cache.get(el);
+                if (display === undefined) {
+                    try { display = getComputedStyle(el).display; } catch (e) { display = ''; }
+                    cache.set(el, display);
+                }
+                if (!INLINE_DISPLAY_REGEX.test(display || '')) return el;
+                el = el.parentElement;
+            }
+            return null;
+        };
+    }
+
+    /**
      * Regex to match Cyrillic characters (Russian and extended Cyrillic)
      */
     const CYRILLIC_REGEX = /[\u0400-\u04FF]/;
@@ -390,6 +422,9 @@
             textNodes: [],
             plainTextOffset: 0
         };
+
+        const getNearestBlockContainer = makeBlockContainerFinder();
+
         // Walk through all text nodes and group them by batch boundary ancestors
         const walker = document.createTreeWalker(
             root,
@@ -422,6 +457,7 @@
         );
 
         let lastBoundaryElement = null;
+        let lastBlockContainer = null;
 
         while (walker.nextNode()) {
             const currentNode = walker.currentNode;
@@ -479,6 +515,18 @@
                     currentBatch.elements.push(boundaryElement);
                 }
                 lastBoundaryElement = boundaryElement;
+
+                // Separate text nodes that sit in different block-level boxes when nothing
+                // else already does (block-tag newline above, or trailing whitespace). This
+                // stops adjacent inline-looking elements (e.g. headline + <time>) from fusing
+                // two words into one out-of-vocabulary token.
+                const blockContainer = getNearestBlockContainer(currentNode);
+                if (blockContainer !== lastBlockContainer &&
+                    currentBatch.text.length > 0 && !/\s$/.test(currentBatch.text)) {
+                    currentBatch.text += '\n';
+                    currentBatch.plainTextOffset += 1;
+                }
+                lastBlockContainer = blockContainer;
 
                 // Add to current batch, dropping invisible in-word characters so
                 // the analyzer sees clean words (segments stay node-aligned).
@@ -653,6 +701,8 @@
         const textNodes = [];
 
         let plainTextOffset = 0;
+        const getNearestBlockContainer = makeBlockContainerFinder();
+        let lastBlockContainer = null;
 
         while (walker.nextNode()) {
             const currentNode = walker.currentNode;
@@ -675,6 +725,17 @@
                 if (sliceEnd <= sliceStart) continue;
 
                 const clippedText = nodeText.substring(sliceStart, sliceEnd);
+
+                // Separate text nodes in different block-level boxes when nothing else
+                // already does, so adjacent inline-looking elements (e.g. headline + <time>)
+                // don't fuse two words into one out-of-vocabulary token.
+                const blockContainer = getNearestBlockContainer(currentNode);
+                if (blockContainer !== lastBlockContainer &&
+                    plainText.length > 0 && !/\s$/.test(plainText)) {
+                    plainText += '\n';
+                    plainTextOffset += 1;
+                }
+                lastBlockContainer = blockContainer;
 
                 // Drop invisible in-word characters so the analyzer sees clean
                 // words; emitted segments stay length-aligned with the node.
@@ -737,6 +798,12 @@
         );
 
         let plainText = '';
+        // Must stay byte-for-byte identical to extractTextWithPositionMapping's plainText:
+        // the analyzed text and the indexOf mapping text have to agree, including the
+        // block-container separators below.
+        const getNearestBlockContainer = makeBlockContainerFinder();
+        let lastBlockContainer = null;
+
         while (walker.nextNode()) {
             const currentNode = walker.currentNode;
 
@@ -754,11 +821,20 @@
                     }
                 }
 
-                if (sliceEnd > sliceStart) {
-                    // Drop invisible in-word characters to match the position-mapping
-                    // extractors, so the analyzed text and the indexOf text agree.
-                    plainText += nodeText.substring(sliceStart, sliceEnd).replace(INVISIBLE_CHARS_REGEX_G, '');
+                if (sliceEnd <= sliceStart) continue;
+
+                // Separate text nodes in different block-level boxes (see the matching
+                // logic and rationale in extractTextWithPositionMapping).
+                const blockContainer = getNearestBlockContainer(currentNode);
+                if (blockContainer !== lastBlockContainer &&
+                    plainText.length > 0 && !/\s$/.test(plainText)) {
+                    plainText += '\n';
                 }
+                lastBlockContainer = blockContainer;
+
+                // Drop invisible in-word characters to match the position-mapping
+                // extractors, so the analyzed text and the indexOf text agree.
+                plainText += nodeText.substring(sliceStart, sliceEnd).replace(INVISIBLE_CHARS_REGEX_G, '');
             } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
                 // Add newline for block elements based on context
                 if (shouldAddNewlineBefore(currentNode, plainText)) {
@@ -1108,51 +1184,78 @@
 
             case 'get_reading_tutor_vocabulary': {
                 const spans = Array.from(document.querySelectorAll('.ʁ-reading-tutor'));
-                const lemmaMap = new Map();
                 const hasCyrillic = /[\u0400-\u04FF]/;
                 const hasNonLetters = /[^\p{L}\p{M}]/u;
-                let includedTokens = 0;
+                // Analyzer lemmas carry homograph markers (ASCII/superscript digits, e.g.
+                // \u043D\u0430\u0445\u043E\u0434\u0438\u0442\u044C\u0441\u044F\u00B2, \u043F\u043E\u0432\u043E\u0434\u00B9); strip them before validating so these tokens aren't
+                // rejected and mistakenly counted by their surface form.
+                const stripMarks = (l) => String(l || '').replace(/[0-9\u00B2\u00B3\u00B9\u2070\u2074-\u2079]/g, '');
+                const keepLemma = (l) => {
+                    const c = stripMarks(l);
+                    return !!c && hasCyrillic.test(c) && !hasNonLetters.test(c);
+                };
+                // POS is the first non-weight tag of a reading (matches sidepanel.js).
+                const firstPos = (r) => ((r && r.ts) || []).find(t => !t.startsWith('<W:')) || null;
+                // The analyzer emits a fallback "guess" reading tagged "?" for tokens it
+                // can't analyze (OOV: names, loanwords, uncovered forms); its lemma is just
+                // the surface form. Such readings must be dropped so inflected surface forms
+                // don't pollute the table — a token with only "?" readings is unanalyzable.
+                const isUnknown = (r) => ((r && r.ts) || []).includes('?');
+
+                // For each analyzable token return its surface form plus its CG3-disambiguated
+                // candidate readings {lemma, pos}; the side panel resolves the reading
+                // (frequency tie-break), tracks surface capitalization, and aggregates counts,
+                // since only it holds the reference frequency dictionary.
+                const tokens = [];
+                // Frequency distribution of Cyrillic-word tokens the analyzer could not
+                // lemmatize (only "?" readings), keyed by lowercased, unstressed surface form.
+                const failed = new Map();
 
                 spans.forEach((span) => {
-                    let lemma = null;
+                    const surface = (span.textContent || '').trim();
+                    let candidates = [];
                     const readingsRaw = span.getAttribute('data-readings');
                     if (readingsRaw) {
                         try {
                             const readings = JSON.parse(readingsRaw);
-                            if (Array.isArray(readings) && readings.length > 0) {
-                                const best = readings.find(r => r && r.l) || readings[0];
-                                lemma = best && (best.l || best.lemma);
+                            if (Array.isArray(readings)) {
+                                candidates = readings
+                                    .filter(r => !isUnknown(r))
+                                    .map(r => ({ lemma: r && (r.l || r.lemma), pos: firstPos(r) }))
+                                    .filter(c => keepLemma(c.lemma));
                             }
                         } catch (e) {
                             // ignore parse errors
                         }
                     }
 
-                    if (!lemma) {
-                        lemma = (span.textContent || '').trim();
-                    }
-
-                    if (!lemma) return;
-
-                    if (!hasCyrillic.test(lemma) || hasNonLetters.test(lemma)) {
+                    // No analyzable reading -> unanalyzable token; exclude it rather than
+                    // counting its (inflected) surface form as a lemma.
+                    if (candidates.length === 0) {
+                        const norm = surface.replace(/[̀-ͯ]/g, '').toLowerCase();
+                        if (norm && hasCyrillic.test(norm) && !hasNonLetters.test(norm)) {
+                            failed.set(norm, (failed.get(norm) || 0) + 1);
+                        }
                         return;
                     }
-
-                    includedTokens += 1;
-
-                    const key = lemma.toLowerCase();
-                    const existing = lemmaMap.get(key);
-                    if (existing) {
-                        existing.count += 1;
-                    } else {
-                        lemmaMap.set(key, { lemma, count: 1 });
-                    }
+                    tokens.push({ surface, readings: candidates });
                 });
+
+                // Report the frequency distribution of failed (unanalyzable) word tokens.
+                if (failed.size > 0) {
+                    const dist = Array.from(failed.entries()).sort((a, b) => b[1] - a[1]);
+                    const totalFailed = dist.reduce((sum, [, count]) => sum + count, 0);
+                    console.log(
+                        `[RLTK] Vocabulary: ${totalFailed} unanalyzable token(s) across ` +
+                        `${failed.size} type(s) excluded (analyzer could not lemmatize):`
+                    );
+                    console.table(dist.map(([token, count]) => ({ token, count })));
+                }
 
                 sendResponse({
                     success: true,
-                    totalTokens: includedTokens,
-                    items: Array.from(lemmaMap.values())
+                    totalTokens: tokens.length,
+                    tokens
                 });
                 break;
             }

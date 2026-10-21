@@ -85,7 +85,7 @@ const models = {
     lemmaToExemplarMap: null,
     'openrussian-translations-eng': null,
     adjectivesToExcludeFromParticiples: null,
-    Sharoff_lem_freq_dict: null
+    Sharoff_frqc_lempos_freq: null
 };
 
 /**
@@ -797,15 +797,15 @@ async function processTokenReadings(tokenText, readings) {
     const errorData = [];
     const seenSignatures = new Set();
 
-    // Load frequency dict
-    const freqDict = await loadJson('Sharoff_lem_freq_dict');
+    // Load frequency dict (POS-aware: keyed by lemma+canonical-POS)
+    const freqDict = await loadJson('Sharoff_frqc_lempos_freq');
+    const freqOf = (r) => {
+        const key = (typeof RLTK_FREQ !== 'undefined') ? RLTK_FREQ.freqKey(r.lemma, (r.tags || [])[0]) : null;
+        return key ? (freqDict[key] || 0) : 0;
+    };
 
     // Sort readings by frequency
-    readings.sort((a, b) => {
-        const freqA = freqDict[a.lemma] || 0;
-        const freqB = freqDict[b.lemma] || 0;
-        return freqB - freqA;
-    });
+    readings.sort((a, b) => freqOf(b) - freqOf(a));
 
     for (const reading of readings) {
         const l2ErrorTags = reading.tags.filter(t => t.startsWith('Err/'));
