@@ -2580,6 +2580,8 @@ ${errorMessage}`);
         if (activeButton) activeButton.classList.add('active');
         const activeContent = document.getElementById(`${tabName}-tab`);
         if (activeContent) activeContent.classList.add('active');
+        // Off-screen match indicators are fixed-position; hide/show them with their tab.
+        this.updateMatchHint();
 
         // Handle Reading Tutor activation
         if (tabName === 'reading-tutor') {
@@ -2641,6 +2643,8 @@ ${errorMessage}`);
             content.classList.add('active');
             content.style.display = 'block';
         }
+        // Off-screen match indicators are fixed-position; hide/show them with their sub-tab.
+        this.updateMatchHint();
 
         const tabId = await this.getTargetTabId();
         const currentHash = this.readingTutorRestoreHash || await this.fetchReadingTutorHash();
@@ -4311,7 +4315,11 @@ ${errorMessage}`);
             for (const k in vars) el.style.setProperty(k, Math.round(vars[k]) + 'px');
         };
 
-        if (!vDir && !hDir) { setDir(line, null); setDir(chev, null); return; } // fully visible
+        // Hide when fully visible, or when not rendered at all (its tab/sub-tab is
+        // hidden: the all-zero rect would otherwise read as off-screen up-left).
+        if ((!vDir && !hDir) || !m.getClientRects().length) {
+            setDir(line, null); setDir(chev, null); return;
+        }
 
         if (vDir && hDir) {
             // Off on both axes: a single diagonal chevron in the corner, no line.

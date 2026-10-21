@@ -710,6 +710,17 @@ datalist#density-ticks option {
     font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Wide content (e.g. a paradigm table that can't shrink to fit) scrolls sideways
+   inside the results, so the panel's header and tabs stay in place. Each card
+   grows to contain its table rather than letting it spill out. */
+.results-container {
+    overflow-x: auto;
+}
+
+.results-container > * {
+    min-width: min-content;
+}
+
 .word-analysis {
     background: white;
     padding: 12px;
