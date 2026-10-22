@@ -6,8 +6,12 @@ async function launchPersistentContext(userDataDir, { extensionPath }) {
     `--load-extension=${extensionPath}`,
   ];
 
+  // Chrome's "new" headless mode (the full Chromium build, selected by
+  // channel: 'chromium') loads extensions, unlike Playwright's default
+  // headless shell. Set HEADED=1 to watch the browser while debugging.
   const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: false,
+    channel: 'chromium',
+    headless: !process.env.HEADED,
     args,
     ignoreDefaultArgs: ['--disable-breakpad'],
   });

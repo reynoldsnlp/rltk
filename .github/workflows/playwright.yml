@@ -45,5 +45,5 @@ jobs:
       - name: Ensure models are present
         run: ./scripts/preflight-offscreen-resources.sh
 
-      - name: Run tests (headed Chromium via Xvfb)
+      - name: Run tests (Chromium new headless mode)
         run: ./scripts/run-playwright.sh

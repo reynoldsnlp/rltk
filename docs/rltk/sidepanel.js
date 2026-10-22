@@ -1892,6 +1892,10 @@ class RussianToolsSidePanel {
                 const tabName = activeTabButton.dataset.tab;
                 await this.switchTab(tabName);
             }
+        } else if (this.currentTab === 'reading-tutor') {
+            // The user switched tabs before checkAccess() finished, so that switch
+            // skipped activation (access was still unknown). Activate now.
+            await this.ensureReadingTutorActive();
         }
     }
 

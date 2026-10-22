@@ -50,8 +50,10 @@ These do **not** load the extension — they use the default `@playwright/test`
 
 These shape every decision below (they apply to the extension suite):
 
-- **Headed Chromium only.** Chrome extensions do **not** load in headless mode, so
-  every test launches a headed persistent context.
+- **Chromium "new" headless mode.** Extensions don't load in Playwright's default
+  headless *shell*, so `launch-context.js` uses `channel: 'chromium'` (the full
+  Chromium build in its new headless mode, which does load extensions). Nothing
+  opens on screen and no Xvfb is needed. Set `HEADED=1` to watch the browser.
 - **Each Playwright worker runs its own persistent Chrome context** (worker-scoped
   `browserContext`/`extensionId`/`serviceWorker` fixtures in `fixtures.js`) that
   loads **~570 MB of HFST/CG3 WASM models** in an offscreen document. The suite is
@@ -152,6 +154,23 @@ The DOM signals the helpers rely on (use these directly only if a helper doesn't
 ## Attempt log
 
 Newest first. Mark each ✅ worked / ❌ failed / 🔬 untried, and say **why**.
+
+### ✅ Startup race: tab click before `checkAccess()` left the tutor idle (product bug)
+Symptom: ~1 in 15 runs of tests that open the side panel and immediately click the
+Reading tutor tab (`reading-tutor-oov`, `token-selector-selection`'s full-page
+case) timed out with **no** `.ʁ-reading-tutor` spans. The "Target page, context or
+browser has been closed" text was a red herring — it's the teardown after the 60 s
+test timeout, not a crash. At the hang the content script, offscreen document, and
+side panel all responded, but the content script reported 0 batches: analysis was
+never requested. Cause: the click ran `ensureReadingTutorActive()` while access was
+still unknown (so it skipped), and set `userHasInteracted`, which made `init()`
+skip its own final `switchTab()` after `checkAccess()` resolved. Fixed in `init()`;
+regression test in `reading-tutor-activation.spec.js` delays the access ping so the
+click always lands in that window (fails 3/3 without the fix).
+
+### ✅ Chromium new headless mode
+Tests used to launch headed (and Xvfb on Linux), stealing focus on dev machines.
+`channel: 'chromium'` + `headless: true` loads the extension fine; full suite passes.
 
 ### ✅ Annotator hardening for non-canonical DOM (`annotator-edge-cases.spec.js`)
 Pages don't always lay text out canonically, and the annotator made only two
