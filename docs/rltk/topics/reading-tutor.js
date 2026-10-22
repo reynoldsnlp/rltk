@@ -201,8 +201,9 @@
             }
         }
 
-        // Store readings in data attribute
+        // Store readings (and those the CG removed) in data attributes
         span.setAttribute('data-readings', JSON.stringify(cohort.rs || []));
+        span.setAttribute('data-removed-readings', JSON.stringify(cohort.removed || []));
 
         // Pre-compute stress asynchronously and cache on span
         span.dataset.originalText = originalText;
@@ -275,7 +276,8 @@
                     text: word,
                     cohort: {
                         w: word,
-                        rs: readings
+                        rs: readings,
+                        removed: JSON.parse(this.getAttribute('data-removed-readings') || '[]')
                     },
                     index: cohortIndex
                 });

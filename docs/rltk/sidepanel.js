@@ -4120,12 +4120,13 @@ ${errorMessage}`);
                     lemmaHeader.style.alignItems = 'center';
                     lemmaHeader.style.flexWrap = 'wrap';
 
-                    // Tooltip for readings
-                    const readingsText = readingsByLemma[lemma].map(r => {
-                        const t = (r.ts || []).filter(tag => !tag.startsWith('<W:'));
-                        return t.join(' ');
-                    }).join('\n');
-                    lemmaHeader.title = readingsText;
+                    // Tooltip for readings, then (with lemmas, since they may differ)
+                    // the readings the CG removed for this token
+                    const stripWeights = ts => (ts || []).filter(tag => !tag.startsWith('<W:'));
+                    const readingsText = readingsByLemma[lemma].map(r => stripWeights(r.ts).join(' ')).join('\n');
+                    const removedText = (cohort.removed || [])
+                        .map(r => [r.l, ...stripWeights(r.ts)].join(' ')).join('\n');
+                    lemmaHeader.title = removedText ? `${readingsText}\n\nREMOVED:\n${removedText}` : readingsText;
 
                     headerContainer.appendChild(lemmaHeader);
                     lemmaDiv.appendChild(headerContainer);

@@ -70,13 +70,39 @@ function getCg3BatchApi() {
     return null;
 }
 
-async function runCg3Disambiguation(input) {
+async function runCg3Disambiguation(input, options = {}) {
+    const runner = (chunk) => vislcg3(chunk, cg3GrammarString, options);
     const batchApi = getCg3BatchApi();
     if (batchApi && typeof batchApi.runCg3WithRecursiveSplit === 'function') {
-        return await batchApi.runCg3WithRecursiveSplit(input, vislcg3);
+        return await batchApi.runCg3WithRecursiveSplit(input, runner);
     }
 
-    return await vislcg3(input);
+    return await runner(input);
+}
+
+// CG3F_TRACE (cg3.h): keep removed readings in the output as `;`-prefixed lines and
+// append the rule that touched each reading as a tag, e.g. "SELECT:" or "REMOVE:42".
+const CG3F_TRACE = 1 << 7;
+const TRACE_TAG_RE = /\s+[A-Z][A-Z-]*:\S*/g;
+
+/**
+ * Splits traced CG3 output into the kept-readings stream (trace tags stripped) and,
+ * per cohort, the readings CG removed (as { l, ts }, like JSONL readings).
+ */
+function splitCg3Trace(output) {
+    const kept = [];
+    const removed = [];
+    for (const line of output.split('\n')) {
+        if (/^"<.*>"$/.test(line)) removed.push([]);
+        const deleted = line.match(/^;\t+"(.*)"(.*)$/);
+        if (deleted) {
+            const ts = deleted[2].replace(TRACE_TAG_RE, '').trim().split(/\s+/).filter(Boolean);
+            if (removed.length) removed[removed.length - 1].push({ l: deleted[1], ts });
+            continue;
+        }
+        kept.push(line.startsWith('\t') ? line.replace(TRACE_TAG_RE, '') : line);
+    }
+    return { kept: kept.join('\n'), removed };
 }
 
 const models = {
@@ -389,7 +415,7 @@ async function initWasmTools() {
 }
 
 
-async function vislcg3(input_stream, grammar = cg3GrammarString) {
+async function vislcg3(input_stream, grammar = cg3GrammarString, { trace = false } = {}) {
     if (!cg3) {
         throw new Error('CG3 module not initialized');
     }
@@ -412,7 +438,7 @@ async function vislcg3(input_stream, grammar = cg3GrammarString) {
 
     const applicator_ptr = cg3_applicator_create(grammar_ptr);
     if (applicator_ptr === 0) throw new Error('Failed to create CG3 applicator');
-
+    if (trace) cg3.cwrap('cg3_applicator_setflags', null, ['number', 'number'])(applicator_ptr, CG3F_TRACE);
 
     cg3_run_grammar_on_text_fns(applicator_ptr, inputFile, outputFile);
     const output_stream = cg3.FS.readFile(outputFile, { encoding: 'utf8' });
@@ -627,12 +653,18 @@ async function handleMorphAnalysisRequest(text, context = {}) {
 
         let disambigArray = ambigArray;
         try {
-            const disambigOutput = await runCg3Disambiguation(ambigOutput);
-            const disambigJsonl = await cgConv(disambigOutput, {
+            const { kept, removed } = splitCg3Trace(await runCg3Disambiguation(ambigOutput, { trace: true }));
+            const disambigJsonl = await cgConv(kept, {
                 input_format: 'cg',
                 output_format: 'jsonl'
             });
             disambigArray = normalizeCohortArray(await jsonlToJsonArray(disambigJsonl));
+            // JSONL also emits word-less entries (e.g. for leading whitespace), so
+            // pair the per-cohort removed readings with the word cohorts only.
+            const wordCohorts = disambigArray.filter(cohort => cohort && cohort.w !== undefined);
+            if (removed.length === wordCohorts.length) {
+                wordCohorts.forEach((cohort, i) => { cohort.removed = removed[i]; });
+            }
         } catch (error) {
             const cg3Error = createWasmError('disambiguation (CG3)', error, { ...requestContext, input: ambigOutput });
             warnings.push({
