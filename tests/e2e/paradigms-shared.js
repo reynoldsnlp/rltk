@@ -114,7 +114,7 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
         const warmupLemmaGroup = sidePanelPage.locator('.lemma-group').first();
         await expect(warmupLemmaGroup).toBeVisible({ timeout: 20000 });
 
-        const warmupToggle = sidePanelPage.locator('.lemma-group button').filter({ hasText: '+' }).first();
+        const warmupToggle = sidePanelPage.locator('.lemma-group .toggle-button[aria-expanded="false"]').first();
         if (await warmupToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
           await warmupToggle.click();
           const warmupTable = sidePanelPage.locator('.paradigm-table').first();
@@ -136,7 +136,7 @@ function createParadigmSuite(suiteLabel, testIds, options = {}) {
 
         // Check if paradigm table can be expanded (if applicable)
         if (!skipParadigmExpansion) {
-          const toggleButton = sidePanelPage.locator('.lemma-group button').filter({ hasText: '+' }).first();
+          const toggleButton = sidePanelPage.locator('.lemma-group .toggle-button[aria-expanded="false"]').first();
           if (await toggleButton.isVisible({ timeout: 2000 }).catch(() => false)) {
             await toggleButton.click();
             const table = sidePanelPage.locator('.paradigm-table').first();

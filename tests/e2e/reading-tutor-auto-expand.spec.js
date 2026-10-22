@@ -32,7 +32,7 @@ test.describe('Reading Tutor auto expansion', () => {
     const table = sidePanelPage.locator('.paradigm-table').first();
     await expect(table).toBeVisible({ timeout: 90000 });
 
-    const toggle = sidePanelPage.locator('.lemma-group button').first();
-    await expect(toggle).toHaveText('-', { timeout: 5000 });
+    const toggle = sidePanelPage.locator('.lemma-group .toggle-button').first();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true', { timeout: 5000 });
   });
 });

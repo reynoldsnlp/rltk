@@ -58,7 +58,10 @@ class RussianToolsSidePanel {
             totalTokens: 0,
             significanceElbow: null,
             quizMode: false,
-            hideFunctionWords: false
+            hideFunctionWords: false,
+            // Words picked for export, keyed by row.key; kept across page refreshes.
+            exportRows: new Map(),
+            visibleRows: []
         };
         this.freqDictTotal = null;
         this.freqLemmaTotals = null;
@@ -705,7 +708,124 @@ class RussianToolsSidePanel {
             button.setAttribute('aria-pressed', on ? 'true' : 'false');
             button.textContent = on ? 'Show function words' : 'Hide function words';
             this.renderVocabularyTable();
+            this.updateVocabularyExportCount();
         });
+    }
+
+    setVocabularyAddButtonState(button, row) {
+        const added = this.vocabularyState.exportRows.has(row.key);
+        const label = added ? `Remove "${row.lemma}" from export` : `Add "${row.lemma}" to export`;
+        button.setAttribute('aria-pressed', added ? 'true' : 'false');
+        button.setAttribute('aria-label', label);
+        button.title = label;
+    }
+
+    toggleVocabularyExportRow(row, button) {
+        const exportRows = this.vocabularyState.exportRows;
+        if (exportRows.has(row.key)) exportRows.delete(row.key);
+        else exportRows.set(row.key, row);
+        this.setVocabularyAddButtonState(button, row);
+        this.updateVocabularyAddAllButton();
+        this.updateVocabularyExportCount();
+    }
+
+    /** Header toggle: adds every visible word, or removes them all if all are already added. */
+    toggleAllVocabularyExportRows() {
+        const { exportRows, visibleRows } = this.vocabularyState;
+        if (visibleRows.length === 0) return;
+        const allAdded = visibleRows.every(row => exportRows.has(row.key));
+        visibleRows.forEach(row => {
+            if (allAdded) exportRows.delete(row.key);
+            else exportRows.set(row.key, row);
+        });
+        // Buttons are in the same order as visibleRows (both come from one render).
+        document.querySelectorAll('#vocabulary-table-body .vocab-add-button').forEach((button, i) => {
+            this.setVocabularyAddButtonState(button, visibleRows[i]);
+        });
+        this.updateVocabularyAddAllButton();
+        this.updateVocabularyExportCount();
+    }
+
+    updateVocabularyAddAllButton() {
+        const { exportRows, visibleRows } = this.vocabularyState;
+        const allAdded = visibleRows.length > 0 && visibleRows.every(row => exportRows.has(row.key));
+        const label = allAdded ? 'Remove all words from export' : 'Add all words to export';
+        const button = document.getElementById('vocab-add-all');
+        button.setAttribute('aria-pressed', allAdded ? 'true' : 'false');
+        button.setAttribute('aria-label', label);
+        button.title = label;
+    }
+
+    /** Added words, minus function words while they are hidden (they stay selected). */
+    getVocabularyExportRows() {
+        const rows = Array.from(this.vocabularyState.exportRows.values());
+        return this.vocabularyState.hideFunctionWords
+            ? rows.filter(row => this.isVocabularyContentWord(row))
+            : rows;
+    }
+
+    updateVocabularyExportCount() {
+        const n = this.getVocabularyExportRows().length;
+        const unit = n === 1 ? 'word' : 'words';
+        document.getElementById('vocab-export-hint').style.display = n ? 'none' : '';
+        document.getElementById('vocab-export-summary').style.display = n ? '' : 'none';
+        document.getElementById('vocab-export-button').style.display = n ? '' : 'none';
+        document.getElementById('vocab-export-unit').textContent = unit;
+        document.getElementById('vocab-export-title').textContent = `Export ${n} ${unit}`;
+        const count = document.getElementById('vocab-export-count');
+        if (count.textContent === String(n)) return;
+        count.textContent = String(n);
+        count.classList.remove('pulse');
+        void count.offsetWidth; // restart the animation
+        count.classList.add('pulse');
+    }
+
+    setupVocabularyExport() {
+        const modal = document.getElementById('vocab-export-modal');
+        const status = document.getElementById('vocab-export-status');
+        const hide = () => { modal.style.display = 'none'; };
+
+        document.getElementById('vocab-add-all').addEventListener('click', () => this.toggleAllVocabularyExportRows());
+        document.getElementById('vocab-export-button').addEventListener('click', () => {
+            status.textContent = '';
+            modal.style.display = 'flex';
+        });
+        document.getElementById('vocab-export-close').addEventListener('click', hide);
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) hide();
+        });
+        modal.querySelectorAll('[data-format]').forEach(button => {
+            button.addEventListener('click', async () => {
+                status.textContent = await this.exportVocabulary(button.dataset.format);
+            });
+        });
+    }
+
+    /** Downloads (or, for Quizlet, copies) the export list; returns a status message. */
+    async exportVocabulary(format) {
+        const X = RLTK_VOCAB_EXPORT;
+        const rows = this.getVocabularyExportRows();
+        if (format === 'quizlet') {
+            try {
+                await navigator.clipboard.writeText(X.toQuizlet(rows));
+                return 'Copied! In Quizlet, create a set, click "Import", and paste.';
+            } catch (e) {
+                return 'Could not copy to the clipboard.';
+            }
+        }
+        const files = {
+            // The BOM lets Excel detect UTF-8 so Cyrillic isn't garbled.
+            csv: () => [new Blob(['\uFEFF' + X.toCsv(rows)], { type: 'text/csv' }), 'csv'],
+            excel: () => [X.toXlsx(rows), 'xlsx'],
+            anki: () => [new Blob([X.toAnki(rows)], { type: 'text/plain' }), 'txt']
+        };
+        const [blob, ext] = files[format]();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `rltk-vocabulary.${ext}`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        return `Downloaded rltk-vocabulary.${ext}`;
     }
 
     setupVocabularyCopyHandler() {
@@ -738,6 +858,7 @@ class RussianToolsSidePanel {
         const lines = Array.from(table.rows)
             .filter(row => this.selectionIntersectsElement(selection, row))
             .map(row => Array.from(row.cells)
+                .filter(cell => !cell.classList.contains('vocab-add-cell'))
                 .filter(cell => this.selectionIntersectsElement(selection, cell))
                 .map(cell => this.getVocabularyCellCopyText(cell))
                 .join('\t'))
@@ -1027,8 +1148,19 @@ class RussianToolsSidePanel {
         }
 
         const sortedRows = this.sortVocabularyRows([...visibleRows]);
+        this.vocabularyState.visibleRows = sortedRows;
         sortedRows.forEach(row => {
             const tr = document.createElement('tr');
+
+            const addCell = document.createElement('td');
+            addCell.className = 'vocab-add-cell';
+            const addButton = document.createElement('button');
+            addButton.type = 'button';
+            addButton.className = 'vocab-add-button';
+            this.setVocabularyAddButtonState(addButton, row);
+            addButton.addEventListener('click', () => this.toggleVocabularyExportRow(row, addButton));
+            addCell.appendChild(addButton);
+            tr.appendChild(addCell);
 
             const wordCell = document.createElement('td');
             wordCell.textContent = row.lemma;
@@ -1063,6 +1195,7 @@ class RussianToolsSidePanel {
 
             tbody.appendChild(tr);
         });
+        this.updateVocabularyAddAllButton();
 
         document.querySelectorAll('.vocabulary-table th[data-sort-key]').forEach(th => {
             const key = th.dataset.sortKey;
@@ -1158,7 +1291,7 @@ class RussianToolsSidePanel {
 
         this.vocabularyState.totalTokens = totalTokens;
         const lemmaTotals = this.freqLemmaTotals || {};
-        const rows = Array.from(agg.values()).map(({ lemma, canonPos, count, shape }) => {
+        const rows = Array.from(agg.entries()).map(([key, { lemma, canonPos, count, shape }]) => {
             // Reference frequency = lemma total across POS (robust to analyzer/corpus POS
             // disagreements; see indexFreqDict). POS is still used for the reading tie-break
             // and display, just not for the keyness lookup.
@@ -1166,6 +1299,7 @@ class RussianToolsSidePanel {
             const ll = this.computeLogLikelihood(count, refFreq, totalTokens, refTotal);
             const translationInfo = this.getVocabularyTranslation(lemma);
             return {
+                key,
                 lemma: F ? F.applyCapitalization(lemma, shape) : lemma,
                 count,
                 ll,
@@ -2020,6 +2154,7 @@ class RussianToolsSidePanel {
         this.setupVocabularySortButtons();
         this.setupVocabularyQuizToggle();
         this.setupVocabularyFunctionWordFilter();
+        this.setupVocabularyExport();
         this.setupVocabularyCopyHandler();
         this.setupVocabHelpTooltips();
 
@@ -3868,8 +4003,9 @@ ${errorMessage}`);
 
                     if (canInflect) {
                         toggleButton = document.createElement('button');
-                        toggleButton.textContent = '+';
                         toggleButton.className = 'toggle-button';
+                        toggleButton.setAttribute('aria-expanded', 'false');
+                        toggleButton.setAttribute('aria-label', 'Inflection table');
                         toggleButton.style.cursor = 'pointer';
 
                         headerContainer.appendChild(toggleButton);
@@ -4009,7 +4145,7 @@ ${errorMessage}`);
 
                         toggleButton.onclick = async () => {
                             if (paradigmContainer.style.display === 'none') {
-                                toggleButton.textContent = '-';
+                                toggleButton.setAttribute('aria-expanded', 'true');
                                 paradigmContainer.style.display = 'block';
 
                                 if (!paradigmContainer.hasChildNodes()) {
@@ -4068,7 +4204,7 @@ ${errorMessage}`);
                                     }
                                 }
                             } else {
-                                toggleButton.textContent = '+';
+                                toggleButton.setAttribute('aria-expanded', 'false');
                                 paradigmContainer.style.display = 'none';
                             }
                         };

@@ -92,10 +92,18 @@
                         <div id="vocabulary-summary" class="vocabulary-summary"></div>
                         <button type="button" id="vocab-function-filter" class="vocab-function-filter" aria-pressed="false">Hide function words</button>
                     </div>
+                    <div class="vocabulary-export-row">
+                        <span id="vocab-export-hint" class="vocab-export-hint">Click <span class="vocab-add-icon" aria-label="plus"></span> to add words to an export list for Excel, Quizlet, or Anki.</span>
+                        <span id="vocab-export-summary" aria-live="polite" style="display: none;">Export <span id="vocab-export-count" class="vocab-export-count">0</span> <span id="vocab-export-unit">words</span></span>
+                        <button type="button" id="vocab-export-button" class="primary-button" style="display: none;">Export</button>
+                    </div>
                     <div class="vocabulary-table-wrapper">
                         <table id="vocabulary-table" class="vocabulary-table">
                             <thead>
                                 <tr>
+                                    <th class="vocab-add-cell">
+                                        <button type="button" id="vocab-add-all" class="vocab-add-button" aria-pressed="false" aria-label="Add all words to export" title="Add all words to export"></button>
+                                    </th>
                                     <th data-sort-key="lemma" aria-sort="none">
                                         <button type="button" class="vocab-sort-button" data-sort="lemma">
                                             Word
@@ -281,7 +289,22 @@
         </div>
     </div>
 
+    <div id="vocab-export-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 id="vocab-export-title">Export words</h3>
+            <div class="vocab-export-formats">
+                <button type="button" data-format="excel">Excel<small>.xlsx spreadsheet</small></button>
+                <button type="button" data-format="csv">CSV<small>Comma-separated values</small></button>
+                <button type="button" data-format="quizlet">Quizlet<small>Copy, then paste into Import</small></button>
+                <button type="button" data-format="anki">Anki<small>.txt for File → Import</small></button>
+            </div>
+            <p id="vocab-export-status" class="vocab-export-status" aria-live="polite"></p>
+            <button id="vocab-export-close" type="button">Close</button>
+        </div>
+    </div>
+
     <script src="utils/freq-keys.js"></script>
+    <script src="utils/vocab-export.js"></script>
     <script src="sidepanel.js"></script>
 </body>
 </html>

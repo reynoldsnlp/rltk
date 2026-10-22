@@ -27,7 +27,7 @@ test.describe('Paradigm case tooltips', () => {
     await expect(target).toBeVisible({ timeout: 10000 });
     await target.click();
 
-    const toggleButton = sidePanelPage.locator('.lemma-group button').filter({ hasText: '+' }).first();
+    const toggleButton = sidePanelPage.locator('.lemma-group .toggle-button[aria-expanded="false"]').first();
     if (await toggleButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await toggleButton.click();
     }
@@ -60,7 +60,7 @@ test.describe('Paradigm case tooltips', () => {
     await expect(target).toBeVisible({ timeout: 10000 });
     await target.click();
 
-    const toggleButton = sidePanelPage.locator('.lemma-group button').filter({ hasText: '+' }).first();
+    const toggleButton = sidePanelPage.locator('.lemma-group .toggle-button[aria-expanded="false"]').first();
     if (await toggleButton.isVisible({ timeout: 2000 }).catch(() => false)) {
       await toggleButton.click();
     }

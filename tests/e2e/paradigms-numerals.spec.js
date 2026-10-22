@@ -94,8 +94,7 @@ test.describe('Paradigm Generation - Numerals', () => {
 
     const toggleButton = lemmaGroup.locator('.toggle-button').first();
     if (await toggleButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const toggleText = await toggleButton.textContent();
-      if (toggleText && toggleText.includes('+')) {
+      if (await toggleButton.getAttribute('aria-expanded') === 'false') {
         await toggleButton.click();
       }
     }
@@ -109,8 +108,7 @@ test.describe('Paradigm Generation - Numerals', () => {
 
       const retryToggle = lemmaGroup.locator('.toggle-button').first();
       if (await retryToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-        const retryText = await retryToggle.textContent();
-        if (retryText && retryText.includes('+')) {
+        if (await retryToggle.getAttribute('aria-expanded') === 'false') {
           await retryToggle.click();
         }
       }

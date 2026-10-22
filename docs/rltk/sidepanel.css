@@ -393,7 +393,8 @@ datalist#density-ticks option {
     line-height: 1.5;
 }
 
-#analysis-error-close {
+#analysis-error-close,
+#vocab-export-close {
     border: 1px solid #ccc;
     background: #fff;
     color: #333;
@@ -765,19 +766,35 @@ datalist#density-ticks option {
 
 .toggle-button {
     padding: 0;
-    border: 1px solid #ccc;
-    background: #f0f0f0;
+    border: none;
+    background: none;
     border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.6875em;
-    font-weight: bold;
-    line-height: 1;
+    color: #555;
+    cursor: pointer;
 }
 
 .toggle-button:hover {
-    background: #e0e0e0;
+    background: #e6e6e6;
+}
+
+/* Disclosure chevron: points right when collapsed, down when expanded. */
+.toggle-button::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    margin-left: -2px;
+    border: solid currentColor;
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(-45deg);
+    transition: transform 0.15s;
+}
+
+.toggle-button[aria-expanded="true"]::before {
+    margin: -3px 0 0;
+    transform: rotate(45deg);
 }
 
 .toggle-button-spacer {
@@ -897,6 +914,121 @@ datalist#density-ticks option {
     background: #2c5aa0;
     color: #fff;
     border-color: #2c5aa0;
+}
+
+.vocabulary-export-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 24px; /* same height with or without the Export button */
+    margin-bottom: 8px;
+    font-size: 0.85em;
+}
+
+.vocab-export-hint {
+    color: #666;
+}
+
+.vocab-export-hint .vocab-add-icon {
+    color: #2c5aa0;
+}
+
+#vocab-export-button {
+    padding: 3px 12px;
+}
+
+.vocab-export-count {
+    display: inline-block;
+    font-weight: 600;
+    color: #2c5aa0;
+}
+
+.vocab-export-count.pulse {
+    animation: vocab-export-pulse 0.3s ease-out;
+}
+
+@keyframes vocab-export-pulse {
+    50% { transform: scale(1.6); }
+}
+
+.vocab-export-formats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.vocab-export-formats button {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px;
+    border: 1px solid #c5c5c5;
+    border-radius: 6px;
+    background: #fff;
+    color: #2c5aa0;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.vocab-export-formats button:hover {
+    background: #eef3fb;
+    border-color: #2c5aa0;
+}
+
+.vocab-export-formats small {
+    color: #666;
+    font-weight: normal;
+}
+
+.vocab-export-status:empty {
+    display: none;
+}
+
+/* Circle-plus "add to export" toggle; becomes a checkmark once added. */
+.vocabulary-table .vocab-add-cell {
+    text-align: center;
+    padding: 6px 4px;
+}
+
+.vocab-add-button {
+    padding: 0;
+    border: none;
+    background: none;
+    color: #2c5aa0;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.vocab-add-button::before,
+.vocab-add-icon::before {
+    content: '+';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 1.2em;
+    height: 1.2em;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.vocab-add-button:hover::before {
+    background: #eef3fb;
+}
+
+.vocab-add-icon {
+    vertical-align: middle;
+}
+
+.vocab-add-button[aria-pressed="true"]::before {
+    content: '\2705';
+    border-color: transparent;
+    background: none;
+    font-weight: normal;
 }
 
 .vocabulary-table-wrapper {
