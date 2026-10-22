@@ -54,16 +54,41 @@ test.describe('Dev mode option', () => {
     expect(marks.some(m => m.ambiguous)).toBe(true);
     for (const m of marks) expect(m.ambiguous).toBe(m.readings > 1);
 
-    await sidePanelPage.click('.sub-tab-button[data-subtab="grammar-highlighter"]');
     const styleText = () => page.evaluate(() =>
       document.getElementById('rltk-grammar-highlighter-styles')?.textContent || '');
 
+    // The toggle lives in the reading tutor header, so it works on every sub-tab.
     await sidePanelPage.locator('#highlight-ambiguity').check();
     await expect.poll(styleText).toContain('.rltk-ambiguous');
-    const outline = await page.locator('.rltk-ambiguous').first().evaluate(el => getComputedStyle(el).outlineStyle);
-    expect(outline).toBe('dashed');
+    const decoration = await page.locator('.rltk-ambiguous').first().evaluate(el => {
+      const style = getComputedStyle(el);
+      return { line: style.textDecorationLine, style: style.textDecorationStyle, outline: style.outlineStyle };
+    });
+    expect(decoration).toEqual({ line: 'underline', style: 'dotted', outline: 'none' });
+
+    for (const subtab of ['translations-and-tables', 'grammar-highlighter', 'vocabulary']) {
+      await sidePanelPage.click(`.sub-tab-button[data-subtab="${subtab}"]`);
+      await expect(sidePanelPage.locator('#highlight-ambiguity')).toBeVisible();
+      await expect.poll(styleText).toContain('.rltk-ambiguous');
+    }
 
     await sidePanelPage.locator('#highlight-ambiguity').uncheck();
     await expect.poll(styleText).not.toContain('.rltk-ambiguous');
+  });
+
+  test('ambiguity info button explains low-confidence words', async ({ page, browserContext, extensionId }, testInfo) => {
+    const { tabId } = await openFixture(page, browserContext, testInfo, 'nouns.html');
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
+    await sidePanelPage.click('.sub-tab-button[data-subtab="grammar-highlighter"]');
+
+    await expect(sidePanelPage.locator('label:has(#ignore-ambiguity)')).toHaveText('Exclude ambiguous/low-confidence words');
+    const modal = sidePanelPage.locator('#ambiguity-info-modal');
+    await expect(modal).toBeHidden();
+    await sidePanelPage.locator('#ambiguity-info').click();
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('constraint grammar');
+    await sidePanelPage.locator('#ambiguity-info-close').click();
+    await expect(modal).toBeHidden();
+    await expect(sidePanelPage.locator('#ignore-ambiguity')).not.toBeChecked();
   });
 });

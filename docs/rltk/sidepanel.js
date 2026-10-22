@@ -535,7 +535,7 @@ class RussianToolsSidePanel {
             btn.classList.toggle('active', isActive);
         });
 
-        if (this.currentTab === 'reading-tutor' && this.lastReadingTutorSubTab === 'grammar-highlighter') {
+        if (this.currentTab === 'reading-tutor') {
             this.updateGrammarHighlighterHighlighting();
         }
     }
@@ -780,20 +780,27 @@ class RussianToolsSidePanel {
         count.classList.add('pulse');
     }
 
-    setupVocabularyExport() {
-        const modal = document.getElementById('vocab-export-modal');
-        const status = document.getElementById('vocab-export-status');
+    /** Opens a .modal-overlay from `openId`; closes it from `closeId` or a backdrop click. */
+    setupModal(modalId, openId, closeId, onOpen) {
+        const modal = document.getElementById(modalId);
         const hide = () => { modal.style.display = 'none'; };
-
-        document.getElementById('vocab-add-all').addEventListener('click', () => this.toggleAllVocabularyExportRows());
-        document.getElementById('vocab-export-button').addEventListener('click', () => {
-            status.textContent = '';
+        document.getElementById(openId).addEventListener('click', () => {
+            if (onOpen) onOpen();
             modal.style.display = 'flex';
         });
-        document.getElementById('vocab-export-close').addEventListener('click', hide);
+        document.getElementById(closeId).addEventListener('click', hide);
         modal.addEventListener('click', (event) => {
             if (event.target === modal) hide();
         });
+        return modal;
+    }
+
+    setupVocabularyExport() {
+        const status = document.getElementById('vocab-export-status');
+        const modal = this.setupModal('vocab-export-modal', 'vocab-export-button', 'vocab-export-close',
+            () => { status.textContent = ''; });
+
+        document.getElementById('vocab-add-all').addEventListener('click', () => this.toggleAllVocabularyExportRows());
         modal.querySelectorAll('[data-format]').forEach(button => {
             button.addEventListener('click', async () => {
                 status.textContent = await this.exportVocabulary(button.dataset.format);
@@ -2100,7 +2107,7 @@ class RussianToolsSidePanel {
         const apply = (on) => {
             this.devMode = urlDevMode || !!on;
             document.body.classList.toggle('dev-mode', this.devMode);
-            if (this.currentTab === 'reading-tutor' && this.lastReadingTutorSubTab === 'grammar-highlighter') {
+            if (this.currentTab === 'reading-tutor') {
                 this.updateGrammarHighlighterHighlighting();
             }
         };
@@ -2155,6 +2162,7 @@ class RussianToolsSidePanel {
         this.setupVocabularyQuizToggle();
         this.setupVocabularyFunctionWordFilter();
         this.setupVocabularyExport();
+        this.setupModal('ambiguity-info-modal', 'ambiguity-info', 'ambiguity-info-close');
         this.setupVocabularyCopyHandler();
         this.setupVocabHelpTooltips();
 
@@ -2424,20 +2432,7 @@ class RussianToolsSidePanel {
             });
         }
 
-        const spanClickOverrideHelp = document.getElementById('span-click-override-help');
-        const spanClickOverrideTooltip = document.getElementById('span-click-override-tooltip');
-        if (spanClickOverrideHelp && spanClickOverrideTooltip) {
-            spanClickOverrideHelp.addEventListener('click', (e) => {
-                e.stopPropagation();
-                spanClickOverrideTooltip.classList.toggle('is-visible');
-            });
-
-            document.addEventListener('click', (e) => {
-                if (!spanClickOverrideTooltip.classList.contains('is-visible')) return;
-                if (spanClickOverrideTooltip.contains(e.target) || spanClickOverrideHelp.contains(e.target)) return;
-                spanClickOverrideTooltip.classList.remove('is-visible');
-            });
-        }
+        this.setupModal('span-click-override-modal', 'span-click-override-help', 'span-click-override-close');
     }
 
     /**
@@ -2798,11 +2793,8 @@ ${errorMessage}`);
             }
         } else if (subTabName === 'translations-and-tables') {
             if (tabId) {
-                // Clear Grammar Highlighter styles
-                chrome.tabs.sendMessage(tabId, {
-                    action: 'update_grammar_highlighter_styles',
-                    css: ''
-                }).catch(() => {});
+                // Drop Grammar Highlighter tag styles (keeps the ambiguity underline)
+                this.updateGrammarHighlighterHighlighting();
 
                 if (canRestoreSelection || (hasStoredSelection && !hashMismatch && readingTutorCount > 0)) {
                     // Restore Translations selection
@@ -2825,12 +2817,7 @@ ${errorMessage}`);
                 }
             }
         } else if (subTabName === 'vocabulary') {
-            if (tabId) {
-                chrome.tabs.sendMessage(tabId, {
-                    action: 'update_grammar_highlighter_styles',
-                    css: ''
-                }).catch(() => {});
-            }
+            if (tabId) this.updateGrammarHighlighterHighlighting();
             await this.updateVocabularyTable();
         }
 
@@ -3051,8 +3038,14 @@ ${errorMessage}`);
         ]);
     }
 
+    /**
+     * Injects the page highlight styles: tag highlights while the Grammar highlighter
+     * sub-tab is showing, plus the dev-only ambiguity underline on every sub-tab.
+     */
     async updateGrammarHighlighterHighlighting() {
-        const activeButtons = document.querySelectorAll('.tag-toggle.active');
+        const activeButtons = this.lastReadingTutorSubTab === 'grammar-highlighter'
+            ? document.querySelectorAll('.tag-toggle.active')
+            : [];
         const ignoreAmbiguity = document.getElementById('ignore-ambiguity').checked;
 
         // Build CSS selector with AND logic for all selected tags
@@ -3072,7 +3065,7 @@ ${errorMessage}`);
             css = `${fullSelector} { background-color: rgba(255, 255, 0, 0.3); border-bottom: 2px solid #ffc107; }`;
         }
         if (this.devMode && document.getElementById('highlight-ambiguity')?.checked) {
-            css += '.rltk-ambiguous { outline: 2px dashed #dc3545; }';
+            css += '.rltk-ambiguous { text-decoration: underline dotted #dc3545 2px; text-underline-offset: 3px; }';
         }
 
         const targetTabId = await this.getTargetTabId();

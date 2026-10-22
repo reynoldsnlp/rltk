@@ -394,7 +394,9 @@ datalist#density-ticks option {
 }
 
 #analysis-error-close,
-#vocab-export-close {
+#vocab-export-close,
+#ambiguity-info-close,
+#span-click-override-close {
     border: 1px solid #ccc;
     background: #fff;
     color: #333;
@@ -445,32 +447,30 @@ datalist#density-ticks option {
     cursor: pointer;
 }
 
-.reading-tutor-tooltip {
-    position: absolute;
-    top: 24px;
-    left: 0;
-    width: 240px;
-    background: #fff;
-    color: #444;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 0.75em;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-    display: none;
-    z-index: 2;
-}
-
-.reading-tutor-tooltip.is-visible {
-    display: block;
-}
-
 .reading-tutor-controls {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     flex: 0 0 100%;
     justify-content: flex-start;
+}
+
+/* Sits just left of the stress select; whichever is first takes the free space. */
+.reading-tutor-ambiguity-toggle {
+    margin-left: auto;
+    font-size: 12px;
+    color: #333;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.reading-tutor-ambiguity-toggle input {
+    margin: 0 4px 0 0;
+    vertical-align: middle;
+}
+
+body.dev-mode .reading-tutor-ambiguity-toggle + .reading-tutor-stress-select {
+    margin-left: 0;
 }
 
 .reading-tutor-stress-select {
@@ -1016,12 +1016,36 @@ datalist#density-ticks option {
     line-height: 1;
 }
 
-.vocab-add-button:hover::before {
-    background: #eef3fb;
+/* Draw the plus with two bars rather than a '+' glyph, whose vertical position
+   varies by font (it sat low in the hint text). */
+.vocab-add-button::before,
+.vocab-add-icon::before {
+    content: '';
+    --bar: linear-gradient(currentColor, currentColor) center / 50% 1.5px no-repeat,
+        linear-gradient(currentColor, currentColor) center / 1.5px 50% no-repeat;
+    background: var(--bar);
 }
 
+.vocab-add-button:hover::before {
+    background: var(--bar), #eef3fb;
+}
+
+/* Inline in the hint text, centered on the surrounding line. */
 .vocab-add-icon {
+    display: inline-flex;
+    vertical-align: text-bottom;
+}
+
+.ambiguity-option label {
+    display: inline;
+}
+
+.ambiguity-option .reading-tutor-help {
     vertical-align: middle;
+}
+
+.help-modal-content {
+    text-align: left;
 }
 
 .vocab-add-button[aria-pressed="true"]::before {

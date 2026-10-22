@@ -40,6 +40,7 @@
                     </button>
                     <div id="reading-tutor-spinner" class="reading-tutor-spinner" aria-hidden="true"></div>
                     <span id="reading-tutor-batch-progress" class="reading-tutor-batch-progress" aria-hidden="true"></span>
+                    <label class="dev-only reading-tutor-ambiguity-toggle"><input type="checkbox" id="highlight-ambiguity">Highlight ambiguous</label>
                     <select id="reading-tutor-stress" class="reading-tutor-stress-select"
                             title="Stress display mode" aria-label="Stress display mode">
                         <option value="none">No stress</option>
@@ -61,10 +62,7 @@
                             <input id="span-click-override-toggle" type="checkbox" />
                             <span>Override website clicks (buttons, links, menus, etc.)</span>
                         </label>
-                        <button id="span-click-override-help" class="reading-tutor-help" type="button" aria-label="What does override website clicks do?">?</button>
-                        <div id="span-click-override-tooltip" class="reading-tutor-tooltip" role="tooltip">
-                            Sometimes the text you want to analyze is inside buttons, links, menus, or other interactive elements. Check this box to prioritize RLTK analysis. NOTE: While checked, this may temporarily break some website functionality.
-                        </div>
+                        <button id="span-click-override-help" class="reading-tutor-help" type="button" aria-label="What does override website clicks do?" title="What does override website clicks do?">?</button>
                     </div>
                 </div>
                 <div class="panel-section" id="reading-tutor-instructions" style="position: relative;">
@@ -77,9 +75,9 @@
             </div>
 
             <div id="grammar-highlighter-subtab" class="sub-tab-content" style="display: none;">
-                <div class="panel-section">
-                    <label><input type="checkbox" id="ignore-ambiguity">Exclude low-confidence words (i.e., whose properties could not be resolved by our constraint grammar.)</label>
-                    <label class="dev-only"><input type="checkbox" id="highlight-ambiguity">Highlight ambiguous tokens</label>
+                <div class="panel-section ambiguity-option">
+                    <label><input type="checkbox" id="ignore-ambiguity">Exclude ambiguous/low-confidence words</label>
+                    <button type="button" id="ambiguity-info" class="reading-tutor-help" aria-label="About ambiguous words" title="About ambiguous words">?</button>
                 </div>
                 <div id="grammar-highlighter-filters">
                     <!-- Categories and tags will be generated here -->
@@ -300,6 +298,25 @@
             </div>
             <p id="vocab-export-status" class="vocab-export-status" aria-live="polite"></p>
             <button id="vocab-export-close" type="button">Close</button>
+        </div>
+    </div>
+
+    <div id="span-click-override-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content help-modal-content">
+            <h3>Override website clicks</h3>
+            <p>Sometimes the text you want to analyze is inside buttons, links, menus, or other interactive elements. Check this box to prioritize RLTK analysis, so clicking a word shows its translation instead of activating the website element.</p>
+            <p><strong>Note:</strong> While checked, this may temporarily break some website functionality.</p>
+            <button id="span-click-override-close" type="button">Close</button>
+        </div>
+    </div>
+
+    <div id="ambiguity-info-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content help-modal-content">
+            <h3>Ambiguous words</h3>
+            <p>Many Russian word forms have more than one possible grammatical reading. For example, <i>стали</i> can be the verb <i>стать</i> (&ldquo;they became&rdquo;) or the noun <i>сталь</i> (&ldquo;of steel&rdquo;), and <i>книги</i> can be genitive singular (&ldquo;of the book&rdquo;) or nominative/accusative plural (&ldquo;books&rdquo;).</p>
+            <p>RLTK uses a constraint grammar that looks at each word&rsquo;s context to rule out the readings that don&rsquo;t fit. When it can&rsquo;t rule out all of the contextually incorrect readings, ambiguity remains, and the word&rsquo;s properties (such as case or number) are uncertain.</p>
+            <p>Check this box to highlight only words whose properties were fully resolved. Leave it unchecked to also highlight words that <em>might</em> match.</p>
+            <button id="ambiguity-info-close" type="button">Close</button>
         </div>
     </div>
 
