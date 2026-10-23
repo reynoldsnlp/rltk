@@ -7,6 +7,13 @@
     border-bottom: none;
     box-shadow: inset 0 -2px 0 #ffc107;
 }
+/* Wrapped but not clickable (e.g. Arabic numerals in Reading Tutor) */
+.ʁ-inert {
+    cursor: auto !important;
+}
+.ʁ-inert:hover {
+    box-shadow: none;
+}
 .ʁ-click-green, .ʁ-click-red {
     cursor: pointer;
     transition: background-color 0.2s ease;

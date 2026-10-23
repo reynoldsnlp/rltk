@@ -174,6 +174,10 @@
         const span = document.createElement('span');
         span.className = `ʁ ʁ${cohortIndex} ʁ-reading-tutor`;
         span.textContent = originalText;
+        // Tokens without letters (Arabic numerals like "1812", punctuation) keep
+        // their readings but aren't clickable: no translation or paradigm to show.
+        const clickable = /\p{L}/u.test(cohort.w || originalText);
+        if (!clickable) span.classList.add('ʁ-inert');
         span.style.cursor = 'pointer';
         // span.style.borderBottom = '1px dotted #2c5aa0'; // Optional styling
 
@@ -222,6 +226,8 @@
                 }
             })();
         }
+
+        if (!clickable) return span;
 
         span.addEventListener('click', function(e) {
             e.stopPropagation();
