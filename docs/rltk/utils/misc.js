@@ -27,6 +27,35 @@
                 e.stopPropagation();
             });
         });
+        if (element.tagName === 'SELECT') {
+            // Before the dropdown opens (by mouse or keyboard)
+            element.addEventListener('mousedown', () => window.RLTKUtils.fitSelectToScaledText(element));
+            element.addEventListener('focus', () => window.RLTKUtils.fitSelectToScaledText(element));
+        }
+    };
+
+    /**
+     * Some sites (e.g. Scribd) render text at a huge font-size inside a layer
+     * shrunk with a CSS transform. Native <select> dropdowns ignore transforms,
+     * so they open at the huge size (#66). Give the select its on-screen font
+     * size, and undo the ancestor scale on the select itself so it looks and
+     * takes up space as before.
+     */
+    window.RLTKUtils.fitSelectToScaledText = function(select) {
+        if (select.dataset.rltkScaleFitted) return;
+        select.dataset.rltkScaleFitted = 'true';
+        const width = select.offsetWidth;
+        const scale = select.getBoundingClientRect().width / width;
+        if (!(Math.abs(scale - 1) > 0.05)) return;
+        const cs = getComputedStyle(select);
+        Object.assign(select.style, {
+            fontSize: `${parseFloat(cs.fontSize) * scale}px`,
+            width: `${width * scale}px`,
+            marginLeft: cs.marginLeft,
+            marginRight: `${parseFloat(cs.marginRight) + width * (1 - scale)}px`,
+            transform: `scale(${1 / scale})`,
+            transformOrigin: '0 100%'
+        });
     };
 
     /**
