@@ -22,6 +22,14 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Sync bundled L2 explanations; refuse to build if they changed (so the zip,
+# the website, and the commit all match). `git status` also catches new files.
+./scripts/sync-explanations.sh
+if [ -n "$(git status --porcelain -- docs/rltk/resources/explanations)" ]; then
+    echo "Explanations changed; commit docs/rltk/resources/explanations before building."
+    exit 1
+fi
+
 # Create build directory
 mkdir -p "$BUILD_DIR"
 

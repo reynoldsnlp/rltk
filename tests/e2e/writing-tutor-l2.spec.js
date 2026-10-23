@@ -43,4 +43,36 @@ test.describe('Writing Tutor (L2)', () => {
     await expect(results).toContainText('книгу');
     await expect(results.locator('.error')).toHaveCount(0);
   });
+
+  test('loads the bundled explanation for an L2 error tag', async ({ page, browserContext, extensionId }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL;
+    const fixtureUrl = `${baseURL}/tests/fixtures/nouns.html`;
+    await page.goto(fixtureUrl);
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+    const sidePanelPage = await openSidePanel(browserContext, extensionId, tabId);
+
+    // Explanations must come from the extension package, never the network.
+    const remoteRequests = [];
+    sidePanelPage.on('request', req => {
+      if (req.url().includes('rus_grammar_explanations')) remoteRequests.push(req.url());
+    });
+
+    await sidePanelPage.click('.tab-button[data-tab="writing"]');
+    await sidePanelPage.fill('#writing-input', 'Я вижу сабаку.');
+    await sidePanelPage.click('#writing-analyze-button');
+
+    const errToken = sidePanelPage.locator('#writing-results .err').first();
+    await expect(errToken).toBeVisible({ timeout: 40000 });
+    await errToken.click();
+
+    const tag = sidePanelPage.locator('#writing-details .L2_err_tag').first();
+    await tag.click();
+
+    const explanation = sidePanelPage.locator('#explanation-content');
+    await expect(explanation).not.toContainText('Loading explanation');
+    await expect(explanation).not.toContainText('not available');
+    await expect(explanation).not.toContainText('Error loading');
+    expect((await explanation.textContent()).trim().length).toBeGreaterThan(50);
+    expect(remoteRequests).toEqual([]);
+  });
 });

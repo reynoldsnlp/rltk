@@ -5445,7 +5445,8 @@ ${errorMessage}`);
         explanationContainer.innerHTML = '<p>Loading explanation...</p>';
 
         try {
-            const response = await fetch(`https://reynoldsnlp.github.io/rus_grammar_explanations/html/eng/${errId}.html`);
+            // Bundled by scripts/sync-explanations.sh (remote content is not allowed in MV3).
+            const response = await fetch(chrome.runtime.getURL(`rltk/resources/explanations/eng/${errId}.html`));
             if (response.ok) {
                 const text = await response.text();
                 // Parse HTML to extract body content
