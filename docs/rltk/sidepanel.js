@@ -1368,6 +1368,8 @@ class RussianToolsSidePanel {
         const slider = document.getElementById('density-slider');
         if (!slider) return;
 
+        // Unsaved values are null/undefined; Number(null) would be 0, not the default.
+        const isSaved = (v) => v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v));
         let minDistance = this.defaultMinDistance;
 
         try {
@@ -1376,20 +1378,12 @@ class RussianToolsSidePanel {
                     resolve(res && res[this.minDistanceKey]);
                 });
             });
-
-            if (stored !== undefined && stored !== null && !Number.isNaN(Number(stored))) {
-                minDistance = Number(stored);
-            } else {
-                const localVal = Number(localStorage.getItem(this.minDistanceKey));
-                if (!Number.isNaN(localVal)) {
-                    minDistance = localVal;
-                }
-            }
+            const local = localStorage.getItem(this.minDistanceKey);
+            if (isSaved(stored)) minDistance = Number(stored);
+            else if (isSaved(local)) minDistance = Number(local);
         } catch (e) {
-            const fallback = Number(localStorage.getItem(this.minDistanceKey));
-            if (!Number.isNaN(fallback)) {
-                minDistance = fallback;
-            }
+            const local = localStorage.getItem(this.minDistanceKey);
+            if (isSaved(local)) minDistance = Number(local);
         }
 
         const bounded = Math.max(0, Math.min(10, Math.round(minDistance)));

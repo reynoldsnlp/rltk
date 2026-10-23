@@ -16,6 +16,35 @@ test.describe('Side panel density for MC/Cloze', () => {
     await closeNonKeepAlivePages(browserContext);
   });
 
+  test('defaults to 5 when nothing has been saved', async ({ page, browserContext, extensionId }, testInfo) => {
+    // Simulate a fresh install. Clear from a script-free extension page before
+    // any side panel or fixture tab exists, so nothing can write a leftover
+    // density (e.g. from an earlier test's localStorage) back afterwards.
+    const blank = await browserContext.newPage();
+    await blank.goto(`chrome-extension://${extensionId}/rltk/resources/snippets/nominative-case.html`);
+    await blank.evaluate(async () => {
+      localStorage.clear();
+      await chrome.storage.local.clear();
+      await chrome.storage.session.clear();
+    });
+    await blank.close();
+
+    const fixtureUrl = `${testInfo.project.use.baseURL}/tests/fixtures/nouns.html`;
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+    const tabId = await waitForFixtureTabId(browserContext, fixtureUrl);
+
+    const sidePanelPage = await browserContext.newPage();
+    await sidePanelPage.goto(`chrome-extension://${extensionId}/rltk/sidepanel.html?debugTabId=${tabId}`);
+    await waitForSidePanelReady(sidePanelPage, { waitForReadingTutor: false });
+
+    await sidePanelPage.click('.tab-button[data-tab="reading-activities"]');
+    await sidePanelPage.selectOption('#topic-menu', 'nouns');
+    await sidePanelPage.waitForFunction(() => document.querySelector('#activity-menu')?.options.length > 1);
+    await sidePanelPage.selectOption('#activity-menu', 'mc');
+    await expect(sidePanelPage.locator('#density-slider')).toHaveValue('5');
+  });
+
   test('saves density in side panel and applies to nouns MC/Cloze', async ({ page, browserContext, extensionId }, testInfo) => {
     // 1) Open nouns fixture
     const baseURL = testInfo.project.use.baseURL;
